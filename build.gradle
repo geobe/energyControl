@@ -1,0 +1,32 @@
+import java.time.LocalDateTime
+
+plugins {
+    id 'application'
+    id 'groovy'
+    id 'java'
+}
+
+group 'de.geobe'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('org.apache.groovy:groovy-bom:4.0.9')
+    implementation 'org.apache.groovy:groovy'
+    implementation 'org.codehaus.groovy:groovy-json:3.0.16'
+    implementation 'joda-time:joda-time:2.12.2'
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+    implementation 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
+    implementation 'org.slf4j:slf4j-simple:2.0.6'
+    testImplementation platform("org.spockframework:spock-bom:2.3-groovy-4.0")
+    testImplementation "org.spockframework:spock-core"
+//    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+//    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+test {
+    useJUnitPlatform()
+}
