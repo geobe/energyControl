@@ -20,18 +20,16 @@
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
- * Lorem ipsum dolor sit amet, consectetur adipiscing elit.
- * Morbi non lorem porttitor neque feugiat blandit. Ut vitae ipsum eget quam lacinia accumsan.
- * Etiam sed turpis ac ipsum condimentum fringilla. Maecenas magna.
- * Proin dapibus sapien vel ante. Aliquam erat volutpat. Pellentesque sagittis ligula eget metus.
- * Vestibulum commodo. Ut rhoncus gravida arcu.
  */
 
 package de.geobe.energy.tibber
 
 import org.joda.time.DateTime
 
-class QueryRunner {
+/**
+ * Responsibility: Run the tibber queries for a given tibber profile
+ */
+class TibberQueryRunner implements IQueryRunner {
 
     TibberAccess tibberAccess
     TibberQueries tibberQueries
@@ -39,9 +37,12 @@ class QueryRunner {
     def access = ''
     def uri = ''
 
+    /**
+     * sample main program
+     */
     static void main(String[] args) {
-        QueryRunner homeRunner = new QueryRunner()
-        QueryRunner testRunner = new QueryRunner('/default.properties')
+        TibberQueryRunner homeRunner = new TibberQueryRunner()
+        TibberQueryRunner testRunner = new TibberQueryRunner('/default.properties')
         def result = testRunner.runIntervalQuery(new DateTime(2023, 3, 10, 0, 0), 10)
         println result
         result = homeRunner.runPriceQuery()
@@ -51,7 +52,11 @@ class QueryRunner {
         println testRunner.runCurrencyQuery()
     }
 
-    QueryRunner(String propertyPath = '/home.properties') {
+    /**
+     * Initialize TibberQueryRunner for a tibber account
+     * @param propertyPath path to property file
+     */
+    TibberQueryRunner(String propertyPath = '/home.properties') {
         def properties = loadProperties(propertyPath)
         access = properties.accesstoken
         uri = properties.tibberuri
@@ -60,25 +65,43 @@ class QueryRunner {
         tibberQueries = new TibberQueries()
     }
 
-
+    /**
+     * get tibber prices for today and tomorrow for this account
+     * @return map of lists of date / price pairs
+     */
     def runPriceQuery() {
         def query = tibberQueries.priceQuery(home)
         def jsonResult = tibberAccess.jsonFromTibber(query)
         tibberQueries.scanPrice(jsonResult)
     }
 
+    /**
+     * List of hourly prices for a time interval, e.g. a month for this account
+     * @param startingAt start date
+     * @param hours # of hours
+     * @return list of date / price pairs
+     */
     def runIntervalQuery(DateTime startingAt, int hours) {
         def query = tibberQueries.intervalQuery(home, startingAt, hours)
         def jsonResult = tibberAccess.jsonFromTibber(query)
         tibberQueries.scanInterval(jsonResult)
     }
 
+    /**
+     * relevant currency for this tibber account
+     * @return
+     */
     def runCurrencyQuery() {
         def query = tibberQueries.currencyQuery(home)
         def jsonResult = tibberAccess.jsonFromTibber(query)
         tibberQueries.scanCurrency(jsonResult)
     }
 
+    /**
+     * get properties file from classpath
+     * @param filename
+     * @return initialized properties
+     */
     def loadProperties(String filename = '/default.properties') {
         Properties props = new Properties()
         def r = this.getClass().getResource(filename)

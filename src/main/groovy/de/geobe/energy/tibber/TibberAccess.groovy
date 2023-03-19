@@ -20,11 +20,6 @@
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
- * Lorem ipsum dolor sit amet, consectetur adipiscing elit.
- * Morbi non lorem porttitor neque feugiat blandit. Ut vitae ipsum eget quam lacinia accumsan.
- * Etiam sed turpis ac ipsum condimentum fringilla. Maecenas magna.
- * Proin dapibus sapien vel ante. Aliquam erat volutpat. Pellentesque sagittis ligula eget metus.
- * Vestibulum commodo. Ut rhoncus gravida arcu.
  */
 
 package de.geobe.energy.tibber
@@ -33,11 +28,13 @@ import org.apache.hc.client5.http.fluent.Request
 import org.apache.hc.core5.http.ContentType
 
 /**
- * Responsibility: Format queries and send them to tibbew GraphQL API. Reurn resulting json data.<br>
+ * Responsibility: Format queries and send them to tibbew GraphQL API. Return resulting json data.<br>
  * The interface class to tibber GraphQL API for a specific tibber account.
  */
 class TibberAccess {
+    /** key to a specific tibber account */
     def accessToken = ''
+    /** URI of tibber GraphQL api */
     def tibberUri = ''
 
     /**
