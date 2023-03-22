@@ -22,36 +22,34 @@
  *  SOFTWARE.
  */
 
-package de.geobe.energy.tibber
+package de.geobe.energy.e3dc
 
-import org.joda.time.DateTime
+import io.github.bvotteler.rscp.RSCPData
+import io.github.bvotteler.rscp.RSCPFrame
+import io.github.bvotteler.rscp.RSCPTag
 
-interface IQueryRunner {
-    /**
-     * get prices for today and tomorrow
-     * @return map of lists of date / price pairs
-     */
-    def runPriceQuery()
+import java.time.Instant
 
-    /**
-     * List of hourly prices for a time interval, e.g. a month
-     * @param startingAt start date
-     * @param hours # of hours
-     * @return list of date / price pairs
-     */
-    def runIntervalQuery(DateTime startingAt, int hours)
+class E3dcRequests {
 
-    /**
-     * relevant currency
-     * @return currency name string
-     */
-    def runCurrencyQuery()
+    static batteryDataRequest() {
 
-    /**
-     * get properties file from classpath
-     * @param filename
-     * @return initialized properties
-     */
-    def loadProperties(String filename)
-
+        def index = RSCPData.builder()
+                .tag(RSCPTag.TAG_BAT_INDEX)
+                .uint16Value((short) 0)
+                .build()
+        def rsoc = RSCPData.builder()
+                .tag(RSCPTag.TAG_BAT_REQ_RSOC)
+                .noneValue()
+                .build()
+        def req = RSCPData.builder()
+                .tag(RSCPTag.TAG_BAT_REQ_DATA)
+                .containerValues([index, rsoc])
+                .build()
+        def frame = RSCPFrame.builder()
+                .timestamp(Instant.now())
+                .addData(req)
+                .build()
+        frame.asByteArray
+    }
 }

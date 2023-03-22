@@ -29,7 +29,7 @@ import org.joda.time.DateTime
 /**
  * Responsibility: Run the tibber queries for a given tibber profile
  */
-class TibberQueryRunner implements IQueryRunner {
+class TibberQueryRunner implements IPowerQueryRunner {
 
     TibberAccess tibberAccess
     TibberQueries tibberQueries
