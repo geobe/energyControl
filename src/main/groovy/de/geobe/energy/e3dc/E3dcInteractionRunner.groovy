@@ -41,6 +41,8 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         def runner = new E3dcInteractionRunner()
         runner.interactions.sendAuthentication()
         runner.interactions.requestBatteryData()
+        runner.interactions.requestLiveData()
+        runner.interactions.simpleRequest(E3dcRequests.liveDataRequests)
         runner.interactions.closeConnection()
     }
 

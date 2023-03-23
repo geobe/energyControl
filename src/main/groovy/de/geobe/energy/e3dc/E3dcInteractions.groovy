@@ -71,6 +71,34 @@ class E3dcInteractions {
         }
     }
 
+    def requestLiveData() {
+        def requestFrame = E3dcRequests.liveDataRequest()
+        def response = E3DCConnector
+                .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
+                .flatMap {E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt)}
+                .getOrElse(new byte[0])
+        if (response) {
+            def frame = RSCPFrame.builder().buildFromRawBytes(response)
+            def values = RscpUtils.values(frame)
+            println values //"Ladezustand ${values.BAT_DATA.BAT_RSOC.get()}"
+            println displayResponse(frame)
+        }
+    }
+
+    def simpleRequest(List<Request> requests) {
+        def requestFrame = E3dcRequests.simpleRequest(requests)
+        def response = E3DCConnector
+                .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
+                .flatMap {E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt)}
+                .getOrElse(new byte[0])
+        if (response) {
+            def frame = RSCPFrame.builder().buildFromRawBytes(response)
+            def values = RscpUtils.values(frame)
+            println values //"Ladezustand ${values.BAT_DATA.BAT_RSOC.get()}"
+            println displayResponse(frame)
+        }
+    }
+
     def closeConnection() {
         E3DCConnector.silentlyCloseConnection(socket)
     }
