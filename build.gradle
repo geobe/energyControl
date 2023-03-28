@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.1-SNAPSHOT'
+version '0.2-SNAPSHOT'
 
 repositories {
     mavenCentral()
@@ -20,11 +20,11 @@ dependencies {
     implementation 'joda-time:joda-time:2.12.2'
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
     implementation 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
-    implementation 'org.slf4j:slf4j-simple:2.0.6'
-    implementation files ("$projectDir/libs/e3dc-rscp-1.0.2.jar")
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.67'
+//    implementation 'org.slf4j:slf4j-simple:2.0.6'
+    implementation files ("$projectDir/libs/e3dc-rscp-1.0.3.jar")
+//    implementation 'org.bouncycastle:bcprov-jdk15on:1.67'
     implementation 'org.apache.commons:commons-lang3:3.11'
-    implementation 'io.vavr:vavr:0.10.3'
+//    implementation 'io.vavr:vavr:0.10.3'
 
     testImplementation platform("org.spockframework:spock-bom:2.3-groovy-4.0")
     testImplementation "org.spockframework:spock-core"

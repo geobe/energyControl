@@ -3,8 +3,7 @@
 Control and plan electric energy distribution to heatpump and wallbox 
 based on 
 - current and next-day hourly electricty prices (tibber), 
-- current PV production, 
-- energy storage load state (e3dc),
+- current PV production and energy storage load state (e3dc),
 - expected PV production based on
   - hourly weather forecast (dwd, German weather service) 
   - and calculated solar altitude,

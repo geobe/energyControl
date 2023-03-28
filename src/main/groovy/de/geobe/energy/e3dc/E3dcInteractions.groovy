@@ -57,46 +57,48 @@ class E3dcInteractions {
         }
     }
 
-    def requestBatteryData() {
-       def requestFrame = E3dcRequests.batteryDataRequest()
+    def sendRequest(List<RequestElement> requestElements) {
+        def requestFrame = E3dcRequests.requestsToFrame(requestElements)
         def response = E3DCConnector
                 .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
-                .flatMap {E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt)}
+                .flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
                 .getOrElse(new byte[0])
         if (response) {
             def frame = RSCPFrame.builder().buildFromRawBytes(response)
             def values = RscpUtils.values(frame)
-            println "Ladezustand ${values.BAT_DATA.BAT_RSOC.get()}"
-            println displayResponse(frame)
+            values << [timestamp: new DateTime(frame.getTimestamp().toEpochMilli())]
+//            println displayResponse(frame)
+            println frame
+            unOptimalize(values)
         }
     }
 
-    def requestLiveData() {
-        def requestFrame = E3dcRequests.liveDataRequest()
-        def response = E3DCConnector
-                .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
-                .flatMap {E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt)}
-                .getOrElse(new byte[0])
-        if (response) {
-            def frame = RSCPFrame.builder().buildFromRawBytes(response)
-            def values = RscpUtils.values(frame)
-            println values //"Ladezustand ${values.BAT_DATA.BAT_RSOC.get()}"
-            println displayResponse(frame)
+    def unOptimalize(List valueList) {
+        def results = []
+        valueList.each { entry ->
+            if (entry instanceof Map) {
+                results << unOptimalize(entry)
+            } else if (entry instanceof Optional) {
+                results << entry.orElse(null)
+            } else {
+                results << entry
+            }
         }
+        results
     }
 
-    def simpleRequest(List<Request> requests) {
-        def requestFrame = E3dcRequests.simpleRequest(requests)
-        def response = E3DCConnector
-                .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
-                .flatMap {E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt)}
-                .getOrElse(new byte[0])
-        if (response) {
-            def frame = RSCPFrame.builder().buildFromRawBytes(response)
-            def values = RscpUtils.values(frame)
-            println values //"Ladezustand ${values.BAT_DATA.BAT_RSOC.get()}"
-            println displayResponse(frame)
+    def unOptimalize(Map values) {
+        def results = [:]
+        values.keySet().each { key ->
+            def val = values[key]
+            if (val instanceof Optional) {
+                val = val.orElse(null)
+            } else if (val instanceof Map) {
+                val = unOptimalize(val)
+            }
+            results << [(key): val]
         }
+        results
     }
 
     def closeConnection() {
@@ -116,7 +118,7 @@ class E3dcInteractions {
     def displayData(RSCPData data, int level) {
         def value
         def isContainer = data.dataType == RSCPDataType.CONTAINER
-        value = isContainer ? '{ '  : RscpUtils.value(data)
+        value = isContainer ? '{ ' : RscpUtils.value(data)
         StringBuffer displayBuffer = new StringBuffer()
         def display = "${'  ' * level}${data.dataTag.name()} - ${data.dataType.name()}  $value\n"
         displayBuffer.append display.toString()

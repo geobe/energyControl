@@ -24,110 +24,110 @@
 
 package de.geobe.energy.e3dc
 
-import groovy.transform.Immutable
-import groovy.transform.ImmutableOptions
-import groovy.transform.RecordType
+
 import io.github.bvotteler.rscp.RSCPData
 import io.github.bvotteler.rscp.RSCPFrame
 import io.github.bvotteler.rscp.RSCPTag
+import org.joda.time.DateTime
+
+import java.time.Duration
+
+import static io.github.bvotteler.rscp.RSCPData.Builder as DB
 
 import java.time.Instant
 
 class E3dcRequests {
 
-    static vUint16 = { RSCPData.Builder b, short v ->
-        b.uint16Value(v)
+    /**
+     * A unifying method to build RSCPData objects combining several builder methods
+     * @param tag Tag as defined by E3DC
+     * @param setValue setter method as closure for given data type, default noneValue
+     * @param value typed value as expected by setter method, default null
+     * @return the ready built RSCPData object
+     */
+    static RSCPData buildTaggedData(RSCPTag tag, Closure<DB> setValue = DB.&noneValue, def value = null) {
+        DB builder = RSCPData.builder().tag(tag)
+        setValue = setValue.rehydrate(builder, builder, builder)
+        builder = (value != null) ? setValue.call(value) : setValue.call()
+        builder.build()
     }
 
-    static batteryDataRequest() {
-        def index = RSCPData.builder()
-                .tag(RSCPTag.TAG_BAT_INDEX)
-        vUint16.delegate = index
-        index = vUint16(index, (short) 0).build()
-//                .uint16Value((short) 0)
-//                .build()
-        def rsoc = RSCPData.builder()
-                .tag(RSCPTag.TAG_BAT_REQ_RSOC)
-                .noneValue()
-                .build()
-        def req = RSCPData.builder()
-                .tag(RSCPTag.TAG_BAT_REQ_DATA)
-                .containerValues([index, rsoc])
-                .build()
+    /**
+     *
+     * @param requests
+     * @return
+     */
+    static requestsToFrame(List<RequestElement> requests) {
+        def dataList = requestDataList(requests)
         def frame = RSCPFrame.builder()
                 .timestamp(Instant.now())
-                .addData(req)
+                .addData(dataList)
                 .build()
         frame.asByteArray
     }
 
-    static liveDataRequest() {
-        def powerBat = RSCPData.builder()
-                .tag(RSCPTag.TAG_EMS_REQ_POWER_BAT)
-                .noneValue()
-                .build()
-        def powerGrid = RSCPData.builder()
-                .tag(RSCPTag.TAG_EMS_REQ_POWER_GRID)
-                .noneValue()
-                .build()
-        def powerHome = RSCPData.builder()
-                .tag(RSCPTag.TAG_EMS_REQ_POWER_HOME)
-                .noneValue()
-                .build()
-        def powerPv = RSCPData.builder()
-                .tag(RSCPTag.TAG_EMS_REQ_POWER_PV)
-                .noneValue()
-                .build()
-        def socBat = RSCPData.builder()
-                .tag(RSCPTag.TAG_EMS_REQ_BAT_SOC)
-                .noneValue()
-                .build()
-        def frame = RSCPFrame.builder()
-                .timestamp(Instant.now())
-                .addData([powerBat, powerGrid, powerHome, powerPv, socBat])
-                .build()
-        frame.asByteArray
-    }
-
-    static simpleRequest(List<Request> requests) {
-        def builders = []
-        requests.each {request ->
-            def builder = RSCPData.builder()
-                    .tag(request.tag)
-            switch(request) {
-                case ValRequest:
-                    builder = request.buildVal(builder, request.val)
-                    break
-                default:
-                    builder = builder.noneValue()
+    static requestDataList(List<RequestElement> requestElements) {
+        def dataList = []
+        requestElements.each { requestElement ->
+            def val = requestElement.val
+            if (val instanceof List) {
+                val = requestDataList(val)
             }
-            def data = builder.build()
-            builders << data
+            def data = buildTaggedData(requestElement.tag, requestElement.buildVal, val)
+            dataList << data
         }
-        def frame = RSCPFrame.builder()
-                .timestamp(Instant.now())
-                .addData(builders)
-                .build()
-        frame.asByteArray
+        dataList
     }
 
+    /**
+     * RequestElement data list to get current live data
+     */
     static liveDataRequests = [
-            new Request(tag: RSCPTag.TAG_EMS_REQ_POWER_BAT),
-            new Request(tag: RSCPTag.TAG_EMS_REQ_POWER_GRID),
-            new Request(tag: RSCPTag.TAG_EMS_REQ_POWER_HOME),
-            new Request(tag: RSCPTag.TAG_EMS_REQ_POWER_PV),
-            new Request(tag: RSCPTag.TAG_EMS_REQ_BAT_SOC)
+            new RequestElement(tag: RSCPTag.TAG_EMS_REQ_POWER_BAT),
+            new RequestElement(tag: RSCPTag.TAG_EMS_REQ_POWER_GRID),
+            new RequestElement(tag: RSCPTag.TAG_EMS_REQ_POWER_HOME),
+            new RequestElement(tag: RSCPTag.TAG_EMS_REQ_POWER_PV),
+            new RequestElement(tag: RSCPTag.TAG_EMS_REQ_BAT_SOC)
     ]
+
+    /**
+     * RequestElement data list to get calculated battery state of charge (higher percision).<br>
+     * This is an example for a nested list: RequestElement for TAG_BAT_REQ_DATA contains a list of requests.
+     */
+    static batteryDataRequests = [
+            new RequestElement(tag: RSCPTag.TAG_BAT_REQ_DATA, buildVal: DB.&containerValues, val: [
+                    new RequestElement(tag: RSCPTag.TAG_BAT_INDEX, buildVal: DB.&uint16Value, val: (short) 0),
+                    new RequestElement(tag: RSCPTag.TAG_BAT_REQ_RSOC)
+            ])
+    ]
+
+    /**
+     *
+     */
+    static historyDataRequest = { DateTime start, long interval, int intervals ->
+        def instant = Instant.ofEpochMilli(start.millis)
+        def length = Duration.ofSeconds(interval)
+        def span = Duration.ofSeconds(interval * intervals)
+        [
+                new RequestElement(tag: RSCPTag.TAG_DB_REQ_HISTORY_DATA_DAY, buildVal: DB.&containerValues, val: [
+                        new RequestElement(tag: RSCPTag.TAG_DB_REQ_HISTORY_TIME_START, buildVal: DB.&timestampValue, val: instant),
+                        new RequestElement(tag: RSCPTag.TAG_DB_REQ_HISTORY_TIME_INTERVAL, buildVal: DB.&timestampValue, val: length),
+                        new RequestElement(tag: RSCPTag.TAG_DB_REQ_HISTORY_TIME_SPAN, buildVal: DB.&timestampValue, val: span)
+                ])
+        ]
+    }
+
+    static final HOUR = 3600
+
 }
 
-
-class Request {
+/**
+ * A data structure that simplifies the definition of requests to be sent to the E3DC system
+ */
+class RequestElement {
     RSCPTag tag = RSCPTag.TAG_NONE
-}
-
-class ValRequest extends Request {
-    Object val
-    Closure buildVal
+    Closure buildVal = DB.&noneValue
+    Object val = null
 }
 
 //def uint16Value = { RSCPData.Builder b, short v -> b.uint16Value(v) }

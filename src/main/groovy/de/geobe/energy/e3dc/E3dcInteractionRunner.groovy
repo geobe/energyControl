@@ -25,6 +25,7 @@
 package de.geobe.energy.e3dc
 
 import org.joda.time.DateTime
+import org.joda.time.DateTimeFieldType
 
 /**
  * Run interactions withan E§DC storage system
@@ -40,9 +41,13 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     static void main(String[] args) {
         def runner = new E3dcInteractionRunner()
         runner.interactions.sendAuthentication()
-        runner.interactions.requestBatteryData()
-        runner.interactions.requestLiveData()
-        runner.interactions.simpleRequest(E3dcRequests.liveDataRequests)
+        def values = runner.interactions.sendRequest(E3dcRequests.liveDataRequests)
+        println "live: ${values}"
+        values = runner.interactions.sendRequest(E3dcRequests.batteryDataRequests)
+        println "battery: ${values}"
+        def start = DateTime.now().hourOfDay().roundFloorCopy()
+        values = runner.interactions.sendRequest(E3dcRequests.historyDataRequest(start,3600, 18))
+        println "history: ${values}"
         runner.interactions.closeConnection()
     }
 
