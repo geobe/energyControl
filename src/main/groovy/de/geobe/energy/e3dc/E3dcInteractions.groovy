@@ -33,28 +33,30 @@ import io.github.bvotteler.rscp.helper.E3DCConnector
 import io.github.bvotteler.rscp.sample.E3DCSampleRequests
 import org.joda.time.DateTime
 
+import javax.xml.bind.DatatypeConverter
+
+/**
+ *
+ */
 class E3dcInteractions {
 
     AES256Helper aesHelper
     final Socket socket
-    byte[] authFrame
+    String user
+    String password
+//    byte[] authFrame
 
     E3dcInteractions(String ip, int port, String localPw, String e3User, String e3Pw) {
         aesHelper = new BouncyAES256Helper(localPw)
         socket = E3DCConnector.openConnection(ip, port)
-        authFrame = E3DCSampleRequests.buildAuthenticationMessage(e3User, e3Pw)
+        user = e3User
+        password = e3Pw
+//        authFrame = E3DCSampleRequests.buildAuthenticationMessage(e3User, e3Pw)
     }
 
     def sendAuthentication() {
-        def response = E3DCConnector.sendFrameToServer(socket, aesHelper.&encrypt, authFrame)
-                .peek { println "bytes sent: $it" }
-                .flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
-                .peek { println "auth received ${it.length} bytes" }
-                .getOrElse(new byte[0])
-        if (response) {
-            def frame = RSCPFrame.builder().buildFromRawBytes(response)
-            println displayResponse(frame)
-        }
+        def values = sendRequest(E3dcRequests.authenticationRequest(user, password))
+        values.RSCP_AUTHENTICATION ?: -1
     }
 
     def sendRequest(List<RequestElement> requestElements) {
@@ -65,47 +67,16 @@ class E3dcInteractions {
                 .getOrElse(new byte[0])
         if (response) {
             def frame = RSCPFrame.builder().buildFromRawBytes(response)
-            def values = RscpUtils.values(frame)
-            values << [timestamp: new DateTime(frame.getTimestamp().toEpochMilli())]
-//            println displayResponse(frame)
-            println frame
-            unOptimalize(values)
+            def values = decodeFrame(frame)
+            values
         }
-    }
-
-    def unOptimalize(List valueList) {
-        def results = []
-        valueList.each { entry ->
-            if (entry instanceof Map) {
-                results << unOptimalize(entry)
-            } else if (entry instanceof Optional) {
-                results << entry.orElse(null)
-            } else {
-                results << entry
-            }
-        }
-        results
-    }
-
-    def unOptimalize(Map values) {
-        def results = [:]
-        values.keySet().each { key ->
-            def val = values[key]
-            if (val instanceof Optional) {
-                val = val.orElse(null)
-            } else if (val instanceof Map) {
-                val = unOptimalize(val)
-            }
-            results << [(key): val]
-        }
-        results
     }
 
     def closeConnection() {
         E3DCConnector.silentlyCloseConnection(socket)
     }
 
-    def displayResponse(RSCPFrame frame) {
+    static displayFrame(RSCPFrame frame) {
         def content = new StringBuffer()
         def at = new DateTime(frame.getTimestamp().toEpochMilli())
         content.append "response at $at\n"
@@ -115,7 +86,8 @@ class E3dcInteractions {
         content.toString()
     }
 
-    def displayData(RSCPData data, int level) {
+
+    static displayData(RSCPData data, int level) {
         def value
         def isContainer = data.dataType == RSCPDataType.CONTAINER
         value = isContainer ? '{ ' : RscpUtils.value(data)
@@ -131,6 +103,39 @@ class E3dcInteractions {
             displayBuffer.append "${'  ' * level}}\n"
         }
         displayBuffer.toString()
+    }
+
+    static decodeFrame(RSCPFrame frame) {
+        def content = [:]
+        content.Timestamp = new DateTime(frame.getTimestamp().toEpochMilli())
+        frame.data.each { data ->
+            content << decodeData(data)
+        }
+        content
+    }
+
+    static decodeData(RSCPData data) {
+        def isContainer = data.dataType == RSCPDataType.CONTAINER
+        if (isContainer) {
+            def tag = data.dataTag.toString().replace('TAG_', '')
+            def content = []
+            data.containerData.each {
+                content << decodeData(it)
+            }
+            [(tag) : content]
+        } else {
+            RscpUtils.value(data)
+        }
+    }
+
+    def extractMapFromList(List raw) {
+        def result = [:]
+        raw.each {
+            if(it instanceof Map) {
+                result << it
+            }
+        }
+        result
     }
 
 }

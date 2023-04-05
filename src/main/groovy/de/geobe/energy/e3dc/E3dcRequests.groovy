@@ -24,18 +24,19 @@
 
 package de.geobe.energy.e3dc
 
-
 import io.github.bvotteler.rscp.RSCPData
 import io.github.bvotteler.rscp.RSCPFrame
 import io.github.bvotteler.rscp.RSCPTag
 import org.joda.time.DateTime
 
 import java.time.Duration
+import java.time.Instant
 
 import static io.github.bvotteler.rscp.RSCPData.Builder as DB
 
-import java.time.Instant
-
+/**
+ * Utility class with methods for simpler construction of RSCP Tags
+ */
 class E3dcRequests {
 
     /**
@@ -53,9 +54,12 @@ class E3dcRequests {
     }
 
     /**
-     *
-     * @param requests
-     * @return
+     * A unifying method to build RSCPFrame byte arrays combining several builder methods.<br>
+     * Starting with a list of RequestElement objects, these are transformed into a List of RSCPData
+     * objects. Then a RSCPFrame is built from these. At the end, a byte array is returned to be sent to the
+     * E3DC device.
+     * @param requests List of RequestElement objects
+     * @return byte array ready for encryption and transmission
      */
     static requestsToFrame(List<RequestElement> requests) {
         def dataList = requestDataList(requests)
@@ -63,9 +67,15 @@ class E3dcRequests {
                 .timestamp(Instant.now())
                 .addData(dataList)
                 .build()
-        frame.asByteArray
+        def bytes = frame.asByteArray
+        bytes
     }
 
+    /**
+     * Transform list of RequestElements into list of RSCPData elements
+     * @param requestElements
+     * @return list of RSCPData elements
+     */
     static requestDataList(List<RequestElement> requestElements) {
         def dataList = []
         requestElements.each { requestElement ->
@@ -117,17 +127,50 @@ class E3dcRequests {
         ]
     }
 
-    static final HOUR = 3600
+    static authenticationRequest = { String user, String password ->
+        [
+                new RequestElement(tag: RSCPTag.TAG_RSCP_REQ_AUTHENTICATION, buildVal: DB.&containerValues, val: [
+                        new RequestElement(tag: RSCPTag.TAG_RSCP_AUTHENTICATION_USER, buildVal: DB.&stringValue, val: user),
+                        new RequestElement(tag: RSCPTag.TAG_RSCP_AUTHENTICATION_PASSWORD, buildVal: DB.&stringValue, val: password)
+                ])
+        ]
+    }
+
+    /**
+     * set ems mode: Description taken from E3DC documentation (German).<br>
+     * Mit diesem TAG kann in die Regelung des S10s eingegriffen werden.
+     * Bei DC-Systemen ist die Ladeleistung auf die anliegende PV-Leistung beschränkt,
+     * bei AC und Hybrid-Systemen kann die Ladeleistung auch größer der PV-Leistung sein.
+     * Achtung: Wenn mit diesem Kommando eingegriffen wird, wird eine eventuell
+     * gesetzte Einspeisereduzierung NICHT beachtet!
+     * Achtung: Das Kommando muss mindestens alle 30 Sekunden gesetzt werden,
+     * ansonsten geht das EMS in den Normalmodus.
+     * @param powerMode Der Modus in den das S10 gehen soll: <ul>
+     *     <li>AUTO/NORMAL MODUS  0 </li>
+     *     <li>IDLE MODUS 1</li>
+     *     <li>ENTLADEN MODUS 2</li>
+     *     <li>LADEN MODUS 3<li>
+     *     <li>NETZ_LADE MODUS 4</li>
+     * </ul>
+     * @param powerRequest loading power in W
+     */
+    static loadFromGridRequest = { byte powerMode, int powerRequest ->
+        // TAG_EMS_REQ_SET_POWER [TAG_EMS_REQ_SET_POWER_MODE 4(UChar8), TAG_EMS_REQ_SET_POWER(Int32) 3000?]
+        [
+                new RequestElement(tag: RSCPTag.TAG_EMS_REQ_SET_POWER, buildVal: DB.&containerValues, val: [
+                        new RequestElement(tag: RSCPTag.TAG_EMS_REQ_SET_POWER_MODE, buildVal: DB.&uchar8Value, val: powerMode),
+                        new RequestElement(tag: RSCPTag.TAG_EMS_REQ_SET_POWER_VALUE, buildVal: DB.&int32Value, val: powerRequest)
+                ])
+        ]
+    }
 
 }
 
 /**
- * A data structure that simplifies the definition of requests to be sent to the E3DC system
+ * A data structure that simplifies the definition of requests the Groovy way to be sent to the E3DC system
  */
 class RequestElement {
     RSCPTag tag = RSCPTag.TAG_NONE
     Closure buildVal = DB.&noneValue
     Object val = null
 }
-
-//def uint16Value = { RSCPData.Builder b, short v -> b.uint16Value(v) }

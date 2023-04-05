@@ -24,14 +24,13 @@
 
 package de.geobe.energy.e3dc
 
+import groovy.transform.ImmutableOptions
 import org.joda.time.DateTime
 
 /**
  * Abstraction of interactions with energy storage system
  */
 interface IStorageInteractionRunner {
-
-    enum TimeResolution { MINUTE, HOUR, WEEK, MONTH }
 
     /**
      * Get current values for PV production, grid in, grid out,
@@ -43,24 +42,40 @@ interface IStorageInteractionRunner {
     /**
      * Get aggregated values for a number of time intervals
      * @param start starting instant
-     * @param interval time resolution
-     * @param count of intervals
-     * @return list of maps with timestamp and values
+     * @param interval time resolution in seconds, must be smaller than 68 years
+     * @param count number of intervals
+     * @return CurrentValues record
      */
-    def getHistoryValues(DateTime start, TimeResolution interval, int count)
+    def getHistoryValues(DateTime start, long interval, int count)
 
     /**
      * Set storage system to load from grid
+     * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
      * @param watts limit load power to watts
-     * @return
+     * @return list of HistoryValues records
      */
-    def setLoadFromGrid(int watts)
+    def storageLoadMode(byte mode, int watts)
 
     /**
      * Load site specific values, passwords etc.
-     * @param filename
-     * @return
+     * @param filename of property file
+     * @return initialized properties
      */
     def loadProperties(String filename)
 
 }
+
+/**
+ * data structure to hold actual power data
+ */
+@ImmutableOptions(knownImmutableClasses = [DateTime])
+record CurrentValues(DateTime timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
+
+/**
+ * data structure to hold historic summarized power data
+ */
+record HistoryValues(
+        float batteryPowerIn, float batteryPowerOut, float dcPowerProduction,
+        float gridPowerIn, float gridPowerOut, float homeConsumption,
+        float consumedProduction
+) {}
