@@ -21,7 +21,8 @@ dependencies {
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
     implementation 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
     implementation 'org.slf4j:slf4j-simple:2.0.6'
-    implementation files ("$projectDir/libs/e3dc-rscp-1.0.3.jar")
+    implementation files ("$projectDir/libs/e3dc-rscp-1.0.3.2.jar")
+//    implementation 'io.github.bvotteler:e3dc-rscp:1.0.3.2'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.67'
     implementation 'org.apache.commons:commons-lang3:3.11'
     implementation 'io.vavr:vavr:0.10.3'

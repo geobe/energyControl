@@ -30,35 +30,38 @@ import io.github.bvotteler.rscp.RSCPFrame
 import io.github.bvotteler.rscp.helper.AES256Helper
 import io.github.bvotteler.rscp.helper.BouncyAES256Helper
 import io.github.bvotteler.rscp.helper.E3DCConnector
-import io.github.bvotteler.rscp.sample.E3DCSampleRequests
 import org.joda.time.DateTime
 
-import javax.xml.bind.DatatypeConverter
-
 /**
- *
+ * Implements interactions with an E3DC storage system using rscp-e3dc library
  */
 class E3dcInteractions {
 
     AES256Helper aesHelper
     final Socket socket
-    String user
-    String password
-//    byte[] authFrame
 
-    E3dcInteractions(String ip, int port, String localPw, String e3User, String e3Pw) {
+    E3dcInteractions(String ip, int port, String localPw) {
         aesHelper = new BouncyAES256Helper(localPw)
         socket = E3DCConnector.openConnection(ip, port)
-        user = e3User
-        password = e3Pw
-//        authFrame = E3DCSampleRequests.buildAuthenticationMessage(e3User, e3Pw)
     }
 
-    def sendAuthentication() {
+    /**
+     * Authenticates connection with e3dc storage system
+     * @param user login for e3dc portal, usually email address
+     * @param password e3dc portal password
+     * @return user level if successful, else -1
+     */
+    def sendAuthentication(user, password) {
         def values = sendRequest(E3dcRequests.authenticationRequest(user, password))
         values.RSCP_AUTHENTICATION ?: -1
     }
 
+    /**
+     * Send a request frame built from one or more rscp tags to the storage system, get the response frame
+     * and decode it to a map
+     * @param requestElements list of rscp tags
+     * @return decoded response frame as map
+     */
     def sendRequest(List<RequestElement> requestElements) {
         def requestFrame = E3dcRequests.requestsToFrame(requestElements)
         def response = E3DCConnector
@@ -72,7 +75,10 @@ class E3dcInteractions {
         }
     }
 
-    def closeConnection() {
+    /**
+     * close connection to e3dc storage system
+     */
+    void closeConnection() {
         E3DCConnector.silentlyCloseConnection(socket)
     }
 
@@ -105,6 +111,11 @@ class E3dcInteractions {
         displayBuffer.toString()
     }
 
+    /**
+     * decode a rscp frame byte sequence into a map of contained data tags and add timestamp
+     * @param frame usualy sent from e3dc storage system as reply to a request frame
+     * @return map of [TAG_NAME, TAG_VALUE] elements
+     */
     static decodeFrame(RSCPFrame frame) {
         def content = [:]
         content.Timestamp = new DateTime(frame.getTimestamp().toEpochMilli())
@@ -114,6 +125,12 @@ class E3dcInteractions {
         content
     }
 
+    /**
+     * Decode a rscp data byte sequence into a map of contained tag/value pairs.
+     * Recurse for Data of type CONTAINER
+     * @param data
+     * @return map of [TAG_NAME, TAG_VALUE] elements
+     */
     static decodeData(RSCPData data) {
         def isContainer = data.dataType == RSCPDataType.CONTAINER
         if (isContainer) {
@@ -128,6 +145,12 @@ class E3dcInteractions {
         }
     }
 
+    /**
+     * Flatten result from historyDataRequest: All MapEntries within a list of single valued maps are
+     * put into one map.
+     * @param raw
+     * @return map of [RSCPTag, value] elements
+     */
     def extractMapFromList(List raw) {
         def result = [:]
         raw.each {

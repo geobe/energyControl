@@ -112,7 +112,7 @@ class E3dcRequests {
     ]
 
     /**
-     *
+     * Requestlement data list for retrieval of history data
      */
     static historyDataRequest = { DateTime start, long interval, int intervals ->
         def instant = Instant.ofEpochMilli(start.millis)
@@ -127,6 +127,9 @@ class E3dcRequests {
         ]
     }
 
+    /**
+     * Requestlement data list for authentication
+     */
     static authenticationRequest = { String user, String password ->
         [
                 new RequestElement(tag: RSCPTag.TAG_RSCP_REQ_AUTHENTICATION, buildVal: DB.&containerValues, val: [

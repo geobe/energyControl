@@ -28,7 +28,7 @@ import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 
 /**
- * Implements interactions with an E§DC storage system
+ *
  */
 class E3dcInteractionRunner implements IStorageInteractionRunner {
 
@@ -52,7 +52,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
 
     static void main(String[] args) {
         def runner = new E3dcInteractionRunner()
-        def auth =  runner.interactions.sendAuthentication()
+        def auth =  runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
         println auth
         def live = runner.currentValues
         println "initial $live"
@@ -101,7 +101,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         storagePassword = props.storagePassword
         e3dcPortalUser = props.e3dcPortalUser
         e3dcPortalPassword = props.e3dcPortalPassword
-        interactions = new E3dcInteractions(storageIp, storagePort, storagePassword, e3dcPortalUser, e3dcPortalPassword)
+        interactions = new E3dcInteractions(storageIp, storagePort, storagePassword)
     }
 
     /**
