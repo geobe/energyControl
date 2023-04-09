@@ -31,6 +31,7 @@ import io.github.bvotteler.rscp.helper.AES256Helper
 import io.github.bvotteler.rscp.helper.BouncyAES256Helper
 import io.github.bvotteler.rscp.helper.E3DCConnector
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 
 /**
  * Implements interactions with an E3DC storage system using rscp-e3dc library
@@ -118,7 +119,8 @@ class E3dcInteractions {
      */
     static decodeFrame(RSCPFrame frame) {
         def content = [:]
-        content.Timestamp = new DateTime(frame.getTimestamp().toEpochMilli())
+//        content.Timestamp = new DateTime(frame.getTimestamp().toEpochMilli(), DateTimeZone.UTC)
+        content.Timestamp = frame.getTimestamp()
         frame.data.each { data ->
             content << decodeData(data)
         }

@@ -47,7 +47,6 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     String storagePassword = ''
     String e3dcPortalUser = ''
     String e3dcPortalPassword = ''
-    int e3dcUtcOffset
     E3dcInteractions interactions
 
     static void main(String[] args) {
@@ -56,6 +55,14 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         println auth
         def live = runner.currentValues
         println "initial $live"
+
+        def start = new DateTime(2023, 03, 25, 12, 0)
+//        def start = new DateTime().hourOfDay().roundFloorCopy().minusHours(35)
+        def history = runner.getHistoryValues(start, 15 * MINUTE, 16)
+        history.keySet().each {dateTime ->
+            println "$dateTime: ${history[dateTime]}"
+        }
+
 //        def load
 //        for (i in 0..2) {
 //            load = runner.storageLoadMode(GRIDLOAD, 3000)
@@ -97,7 +104,6 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         def props = loadProperties(filename)
         storageIp = props.storageIp
         storagePort = Integer.decode(props.storagePort.toString())
-        e3dcUtcOffset = Integer.decode(props.e3dcUtcOffset.toString())
         storagePassword = props.storagePassword
         e3dcPortalUser = props.e3dcPortalUser
         e3dcPortalPassword = props.e3dcPortalPassword
@@ -105,10 +111,13 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
-     * {@link IStorageInteractionRunner#getCurrentValues()}
+     * Implementation of {@link IStorageInteractionRunner#getCurrentValues()}
+     * Get current values for PV production, grid in, grid out,
+     * house consumption, battery SoC and maybe more
+     * @return CurrentValues record
      */
     @Override
-    def getCurrentValues() {
+    CurrentValues getCurrentValues() {
         def current = interactions.sendRequest(E3dcRequests.liveDataRequests)
         new CurrentValues(
                 current.Timestamp,
@@ -121,36 +130,48 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
-     * E3DC seems to ignore summer time. DateTime values given in UTC time seem to retrieve the intended
-     * values for local winter time :=( . So the result map corrects this
-     * {@link IStorageInteractionRunner#getHistoryValues} ()}
+     * Implementation of {@link IStorageInteractionRunner#getHistoryValues} ()}.
+     * E3DC uses java.time.Instant compatible timestamps to tag temporal data.
+     * Method uses org.joda.time.DateTime for in and out parameters.
+     * Get aggregated values for a number of time intervals
+     * @param start starting time as DateTime for local time zone
+     * @param interval time resolution in seconds, must be smaller than 68 years
+     * @param count number of intervals
+     * @return map of historyValue records with locale DateTime objects as keys
      */
     @Override
     def getHistoryValues(DateTime start, long interval, int count) {
-        def normalisedStart = start.minusSeconds(1) // step back one ms else we would get into the next interval
-        def localTime = new DateTime(start.minusHours(e3dcUtcOffset), DateTimeZone.forOffsetHours(e3dcUtcOffset))
+        // goto UTC and step back one ms else we would get into the next interval
+        def normalisedStart = start.withZone(DateTimeZone.UTC).minusMillis(1)
         Map<DateTime, HistoryValues> historyMap = new LinkedHashMap<DateTime, HistoryValues>()
         // we have to loop and call with count = 1 else we would get the summed up value over all intervals
         for (i in 0..<count) {
             def vals =
                     interactions.sendRequest(E3dcRequests.historyDataRequest(normalisedStart, interval, 1))
+            if(vals.DB_HISTORY_DATA_DAY[0] == -1)
+                break
             def valMap =
                     interactions.extractMapFromList(vals.DB_HISTORY_DATA_DAY[0].DB_SUM_CONTAINER)
+            println valMap
             def hisrec = new HistoryValues(
-                    valMap.DB_BAT_POWER_IN, valMap.DB_BAT_POWER_OUT, valMap.DB_BAT_POWER_OUT,
+                    valMap.DB_BAT_POWER_IN, valMap.DB_BAT_POWER_OUT, valMap.DB_DC_POWER,
                     valMap.DB_GRID_POWER_IN, valMap.DB_GRID_POWER_OUT, valMap.DB_CONSUMPTION,
                     valMap.DB_CONSUMED_PRODUCTION
-
             )
-            historyMap[localTime] = hisrec
-            localTime = localTime.plusSeconds((int) interval)
+            historyMap[start] = hisrec
+            start = start.plusSeconds((int) interval)
             normalisedStart = normalisedStart.plusSeconds((int) interval)
         }
         historyMap
     }
 
     /**
-     * {@link IStorageInteractionRunner#setLoadFromGrid(int)} ()}
+     * Implementation of {@link IStorageInteractionRunner#setLoadFromGrid(int)} ()}
+     * Set storage system operation mode, e.g. load from grid
+     * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
+     * All modes except auto will reset to auto after ca. 30 seconds.
+     * @param watts set load power to watts
+     * @return power that was actually set
      */
     @Override
     def storageLoadMode(byte mode, int watts) {
@@ -162,7 +183,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
-     * {@link IStorageInteractionRunner#loadProperties(java.lang.String)} ()}
+     * Implementation of {@link IStorageInteractionRunner#loadProperties(java.lang.String)} ()}
+     * Load site specific values, passwords etc.
+     * @param filename of property file
+     * @return initialized properties
      */
     @Override
     def loadProperties(String filename) {

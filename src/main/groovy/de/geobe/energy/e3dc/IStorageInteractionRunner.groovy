@@ -27,6 +27,8 @@ package de.geobe.energy.e3dc
 import groovy.transform.ImmutableOptions
 import org.joda.time.DateTime
 
+import java.time.Instant
+
 /**
  * Abstraction of interactions with energy storage system
  */
@@ -35,24 +37,24 @@ interface IStorageInteractionRunner {
     /**
      * Get current values for PV production, grid in, grid out,
      * house consumption, battery SoC and maybe more
-     * @return map of values
+     * @return CurrentValues record
      */
-    def getCurrentValues()
+    CurrentValues getCurrentValues()
 
     /**
      * Get aggregated values for a number of time intervals
-     * @param start starting instant
+     * @param start starting time in local timezone
      * @param interval time resolution in seconds, must be smaller than 68 years
      * @param count number of intervals
-     * @return CurrentValues record
+     * @return map of historyValue records with locale DateTime objects as keys
      */
     def getHistoryValues(DateTime start, long interval, int count)
 
     /**
-     * Set storage system to load from grid
+     * Set storage system operation mode, e.g. load from grid
      * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
-     * @param watts limit load power to watts
-     * @return list of HistoryValues records
+     * @param watts set load power to watts
+     * @return power that was actually set
      */
     def storageLoadMode(byte mode, int watts)
 
@@ -68,8 +70,8 @@ interface IStorageInteractionRunner {
 /**
  * data structure to hold actual power data
  */
-@ImmutableOptions(knownImmutableClasses = [DateTime])
-record CurrentValues(DateTime timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
+@ImmutableOptions(knownImmutableClasses = [Instant])
+record CurrentValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
 
 /**
  * data structure to hold historic summarized power data

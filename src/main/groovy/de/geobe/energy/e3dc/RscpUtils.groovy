@@ -36,21 +36,6 @@ import java.nio.ByteBuffer
  */
 class RscpUtils {
 
-//    static values(List<RSCPData> dataList) {
-//        def values = [:]
-//        dataList.each { data ->
-//            values << value(data)
-//        }
-//    }
-//
-//    static values(RSCPFrame frame) {
-//        def values = []
-//        frame.data.each { data ->
-//            values << value(data)
-//        }
-//        values.size() == 1 ? values[0] : values
-//    }
-
     /**
      * Convert a RSCPData element into a map of [RSCPTag, value] elements
      * @param data
