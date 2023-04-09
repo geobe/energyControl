@@ -11,3 +11,5 @@ based on
 ### Development status
 #### Version 0.1-beta
 18.03.2023 Access to tibber data works. New Queries can easily be integrated.
+#### Version 0.2-beta
+09.04.2023 Access to current live data and history data of e3dc storage works. Operation modes can be set.
