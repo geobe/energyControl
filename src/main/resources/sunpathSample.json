@@ -1,0 +1,12 @@
+{
+  "name": "Karl Marx Monument, Chemnitz",
+  "location": {
+    "lat": 50.83596,
+    "lon": 12.92330
+  },
+  "panel": {
+    "direction": 195.0,
+    "inclination": 12.5,
+    "elevation": 300
+  }
+}

@@ -42,7 +42,7 @@ class TibberQueryRunner implements IPowerQueryRunner {
      */
     static void main(String[] args) {
         TibberQueryRunner homeRunner = new TibberQueryRunner()
-        TibberQueryRunner testRunner = new TibberQueryRunner('/default.properties')
+        TibberQueryRunner testRunner = new TibberQueryRunner('/tibberSample.properties')
         def result = testRunner.runIntervalQuery(new DateTime(2023, 3, 10, 0, 0), 10)
         println result
         result = homeRunner.runPriceQuery()
@@ -56,7 +56,7 @@ class TibberQueryRunner implements IPowerQueryRunner {
      * Initialize TibberQueryRunner for a tibber account
      * @param propertyPath path to property file
      */
-    TibberQueryRunner(String propertyPath = '/home.properties') {
+    TibberQueryRunner(String propertyPath = '/tibberHome.properties') {
         def properties = loadProperties(propertyPath)
         access = properties.accesstoken
         uri = properties.tibberuri
@@ -102,7 +102,7 @@ class TibberQueryRunner implements IPowerQueryRunner {
      * @param filename
      * @return initialized properties
      */
-    def loadProperties(String filename = '/default.properties') {
+    def loadProperties(String filename = '/tibberSample.properties') {
         Properties props = new Properties()
         def r = this.getClass().getResource(filename)
         r.withInputStream {

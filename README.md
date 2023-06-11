@@ -8,8 +8,39 @@ based on
   - hourly weather forecast (dwd, German weather service) 
   - and calculated solar altitude,
 - and expected heat pump power consumption based on weather forecast.
-### Development status
+### Development Status and Roadmap
 #### Version 0.1-beta
 18.03.2023 Access to tibber data works. New Queries can easily be integrated.
 #### Version 0.2-beta
-09.04.2023 Access to current live data and history data of e3dc storage works. Operation modes can be set.
+09.04.2023 Access to current live data and history data of e3dc storage works. 
+Operation modes of S10 storage device can be set.
+#### Version 0.3-snapshot
+Integration of solar position and irradiation intensity
+#### Version 0.4-x
+Accessing DWD weather forecast
+#### Version 0.5-x
+Access to go-e wallbox
+#### Version 0.6-x
+Run and test on Raspberry Pi
+#### Version 0.7-x
+Wallbox control based on PV production
+
+### Design Objectives
+#### Meaning of Date and Time values
+The different modules need a consistent definition for the semantic of temporal data.
+Tibber values give the basis for interpretaion of time.
+The price for electric power is given with an hourly resolution, based on prices
+of european energy exchange (EEX). So reasonable time values are full hours. 
+Time values have following meaning for the modules:
+- tibber: as explained above, only full hours are meaningful
+- e3dc: History data are summarized on hourly basis, 
+current values (e.g. as used for wallbox control) can be retrieved at any time
+- Solar intensity could be calculated for arbitrary time values. To be compatible
+with other values, values are calculated for half hours, beeing representative
+for their full hour
+- DWD weather forecasts again are on an hourly basis
+- Wallbox control has no own time dependency but makes use of photovoltaic
+production and tibber prices
+- Internally, Instant values are used for a consistent handling of time and
+simultaneity and as database index
+
