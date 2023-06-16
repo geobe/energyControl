@@ -1,0 +1,30 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 1000 width
+state "Active" as act {
+    act: do: evalWallboxValues
+
+    state "NoCar" as noc {
+        noc: entry: cannotLoad()
+    }
+
+    state "CarConnected" as cac {
+
+        state "FullyLoaded" as fl {
+            fl: entry: cannotLoad()
+        }
+
+        state "NotFullyLoaded" as nf {
+        nf: entry: canLoad()
+        }
+
+        nf -left-> fl : fullyLoaded
+    }
+    cac --> fl : fullyLoaded
+    cac --> nf : notFullyLoaded
+}
+act --> noc : noCar
+act --> cac : carConnected
+
+@enduml
