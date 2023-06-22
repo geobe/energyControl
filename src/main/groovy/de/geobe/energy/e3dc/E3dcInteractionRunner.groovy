@@ -49,6 +49,18 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     String e3dcPortalPassword = ''
     E3dcInteractions interactions
 
+    private static E3dcInteractionRunner runner
+
+    static synchronized getInteractionRunner() {
+        if(! runner) {
+            runner = new E3dcInteractionRunner()
+            def auth =  runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
+            if (auth == -1)
+                throw new RuntimeException("Authentication failed")
+        }
+        runner
+    }
+
     static void main(String[] args) {
         def runner = new E3dcInteractionRunner()
         def auth =  runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
@@ -108,18 +120,37 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         e3dcPortalUser = props.e3dcPortalUser
         e3dcPortalPassword = props.e3dcPortalPassword
         interactions = new E3dcInteractions(storageIp, storagePort, storagePassword)
+        if (!checkSameSubnet(storageIp))
+            throw new RuntimeException(
+                    "Network configuration error: Not in same subnet as E3DC system $storageIp"
+            )
+    }
+
+    /**
+     * E3DC S10 storage system will allow RSCP access only to clients allocated on
+     * the same ip.v4 subnet
+     * @param storageIp ipv4 address of target E§DC system
+     * @return true if on same subnet
+     */
+    static boolean checkSameSubnet(String storageIp) {
+        def subnetIp = storageIp.find(~/\d+.\d+.\d+/)
+        NetworkInterface.networkInterfaces.any {
+            it.inetAddresses.any { adr ->
+                adr.hostAddress.startsWith(subnetIp)
+            }
+        }
     }
 
     /**
      * Implementation of {@link IStorageInteractionRunner#getCurrentValues()}
      * Get current values for PV production, grid in, grid out,
      * house consumption, battery SoC and maybe more
-     * @return CurrentValues record
+     * @return PowerValues record
      */
     @Override
-    CurrentValues getCurrentValues() {
+    PowerValues getCurrentValues() {
         def current = interactions.sendRequest(E3dcRequests.liveDataRequests)
-        new CurrentValues(
+        new PowerValues(
                 current.Timestamp,
                 current.EMS_POWER_BAT,
                 current.EMS_POWER_GRID,

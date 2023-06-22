@@ -37,9 +37,9 @@ interface IStorageInteractionRunner {
     /**
      * Get current values for PV production, grid in, grid out,
      * house consumption, battery SoC and maybe more
-     * @return CurrentValues record
+     * @return PowerValues record
      */
-    CurrentValues getCurrentValues()
+    PowerValues getCurrentValues()
 
     /**
      * Get aggregated values for a number of time intervals
@@ -71,7 +71,7 @@ interface IStorageInteractionRunner {
  * data structure to hold actual power data
  */
 @ImmutableOptions(knownImmutableClasses = [Instant])
-record CurrentValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
+record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
 
 /**
  * data structure to hold historic summarized power data

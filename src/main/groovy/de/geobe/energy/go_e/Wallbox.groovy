@@ -1,6 +1,7 @@
 package de.geobe.energy.go_e
 
 import groovy.json.JsonSlurper
+import groovy.transform.ImmutableOptions
 
 class Wallbox {
     enum ForceState {
@@ -31,10 +32,21 @@ class Wallbox {
     final short minCurrent
     boolean allowedToCharge         // alw - ro
     short requestedCurrent          // amp - rw
-    Optional<CarState> carState     // car - ro
+    CarState carState               // car - ro
+//    Optional<CarState> carState     // car - ro
     ForceState forceState           // frc - rw
     def energy                      // nrg - ro
+    short eTotal                    // nrg[11] - ro
     PhaseSwitchMode phaseSwitchMode // psm - rw
+
+    private static Wallbox wallbox
+
+    static synchronized getWallbox() {
+        if(! wallbox) {
+            wallbox = new Wallbox()
+        }
+        wallbox
+    }
 
     // make property readonly
     boolean getAllowedToCharge() { allowedToCharge }
@@ -70,11 +82,14 @@ class Wallbox {
         def response = jsonSlurper.parseText(new URL(readRequest + "$FILTER").text)
         allowedToCharge = response.alw
         requestedCurrent = response.amp
-        carState = new Optional<>(CarState.values()[response.car])
+        carState = CarState.values()[response.car]
         forceState = ForceState.values()[response.frc]
         energy = response.nrg
+        eTotal = energy[11]
         phaseSwitchMode = PhaseSwitchMode.values()[response.psm]
-        this
+        new WallboxValues(allowedToCharge, requestedCurrent,
+                carState,forceState, eTotal, phaseSwitchMode
+        )
     }
 
     /**
@@ -142,7 +157,17 @@ class Wallbox {
 
     @Override
     String toString() {
-        return "Allowed to charge: $allowedToCharge, requested current: $requestedCurrent, car State: $carState, " +
+        return "Allowed to charge: $allowedToCharge, requested current: $requestedCurrent, car CarState: $carState, " +
                 "force state: $forceState, phase switch mode: $phaseSwitchMode\n energy: $energy"
     }
 }
+
+@ImmutableOptions(knownImmutables = "carState")
+record WallboxValues(
+        boolean allowedToCharge,
+        short requestedCurrent,
+        Wallbox.CarState carState,
+        Wallbox.ForceState forceState,
+        short energy,
+        Wallbox.PhaseSwitchMode phaseSwitchMode
+) {}

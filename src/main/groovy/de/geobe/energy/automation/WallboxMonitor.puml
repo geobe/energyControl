@@ -3,28 +3,53 @@
 
 scale 1000 width
 state "Active" as act {
-    act: do: evalWallboxValues
+    act: do: getWallboxValues
+
+    [*] -->lc
+
+    state "LookForCar" as lc {
+        lc: entry: evalWallboxValues
+    }
 
     state "NoCar" as noc {
         noc: entry: cannotLoad()
     }
 
     state "CarConnected" as cac {
+        cac: entry: checkCarState()
+
+        state "EvalState" as es {
+        }
+
+        [*] --> es
 
         state "FullyLoaded" as fl {
             fl: entry: cannotLoad()
         }
 
-        state "NotFullyLoaded" as nf {
+        state "ReadyToLoad" as nf {
         nf: entry: canLoad()
+        }
+
+        state "LoadingStopped" as ls {
+            ls: entry: cannotLoad()
         }
 
         nf -left-> fl : fullyLoaded
     }
-    cac --> fl : fullyLoaded
-    cac --> nf : notFullyLoaded
+'    es -down-> cac : carConnected
+    es -down-> fl : fullyLoaded
+    es -down-> nf : carConnected
+    noc -left-> nf : carConnected
+    cac --> noc : noCar
+    es -right-> ls : stopLoading
+    ls -down-> nf : startLoading
 }
-act --> noc : noCar
-act --> cac : carConnected
+
+    [*] --> act
+    lc --> noc : noCar
+    lc --> cac : carConnected
+
+    note top of act : repeatedly evaluate\nwallbox data
 
 @enduml

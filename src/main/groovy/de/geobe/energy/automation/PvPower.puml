@@ -1,0 +1,30 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 900 width
+state "Active" as act {
+    act: do: evalPowerValues
+
+    [*] -right-> csp
+    state "HasSurplus" as hsp {
+        hsp: entry: sendSurplus(v)
+    }
+
+    state "WaitForSurplus" as wsp {
+        wsp: entry: sendNoSurplus()
+    }
+
+    state "ChangedSurplus" as csp {
+
+    }
+}
+
+    csp --> hsp : stableSurplus(v)
+    csp --> wsp : noSurplus()
+    wsp --> csp : newSurplus(v)
+    hsp -up-> csp : newSurplus(v)
+    csp --> csp : newSurplus(v)
+
+    note top of act : repeatedly evaluate\npower data
+    note top of csp :  wait and find out\nif we have stable surplus
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+scale 1.5
+start
+:takePowerValues();
+if (houseConsumption - loadPower > stopThreshold) then (yes)
+    :sendNoSurplus();
+    stop
+else (no)
+    switch(evalPvStack())
+    case(PV_POWER_TOO_LOW)
+        :sendNoSurplus();
+        'stop
+    case(SOC_TOO_LOW)
+        :sendNoSurplus();
+        'stop
+    case(PV_SURPLUS)
+        :sendSurplus(v);
+        'stop
+    case(NO_SIGNIFICANT_CHANGE)
+        'stop
+    endswitch
+
+    stop
+
+@enduml
