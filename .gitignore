@@ -1,2 +1,4 @@
-/src/main/resources/home.properties
 /src/main/resources/E3DC.properties
+/src/main/resources/sunpathConfig.json
+/src/main/resources/tibberHome.properties
+/src/main/resources/wallbox.properties
