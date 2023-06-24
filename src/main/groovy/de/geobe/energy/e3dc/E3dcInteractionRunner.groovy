@@ -62,50 +62,51 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     static void main(String[] args) {
-        def runner = new E3dcInteractionRunner()
-        def auth =  runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
-        println auth
-        def live = runner.currentValues
+//        def interactionRunner = new E3dcInteractionRunner()
+//        def auth =  interactionRunner.interactions.sendAuthentication(interactionRunner.e3dcPortalUser, interactionRunner.e3dcPortalPassword)
+//        println auth
+        def interactionRunner = getInteractionRunner()
+        def live = interactionRunner.currentValues
         println "initial $live"
 
         def start = new DateTime(2023, 03, 25, 12, 0)
 //        def start = new DateTime().hourOfDay().roundFloorCopy().minusHours(35)
-        def history = runner.getHistoryValues(start, 15 * MINUTE, 16)
+        def history = interactionRunner.getHistoryValues(start, 15 * MINUTE, 16)
         history.keySet().each {dateTime ->
             println "$dateTime: ${history[dateTime]}"
         }
 
 //        def load
 //        for (i in 0..2) {
-//            load = runner.storageLoadMode(GRIDLOAD, 3000)
+//            load = interactionRunner.storageLoadMode(GRIDLOAD, 3000)
 //            println "Gridload: <- $load"
 //            Thread.sleep(10000)
-//            live = runner.currentValues
+//            live = interactionRunner.currentValues
 //            println "loop $i, live: $live"
 //            Thread.sleep(10000)
 //        }
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "after loop: $live"
-//        load = runner.storageLoadMode(IDLE, 0)
+//        load = interactionRunner.storageLoadMode(IDLE, 0)
 //        println "Idle: <- $load"
 //        Thread.sleep(10000)
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "set to idle: $live"
-//        load = runner.storageLoadMode(AUTO, 3000)
+//        load = interactionRunner.storageLoadMode(AUTO, 3000)
 //        println "Auto: <- $load"
 //        Thread.sleep(10000)
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "reset to auto: $live"
 //        Thread.sleep(10000)
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "reset to auto: $live"
 //        Thread.sleep(10000)
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "reset to auto: $live"
 //        Thread.sleep(10000)
-//        live = runner.currentValues
+//        live = interactionRunner.currentValues
 //        println "reset to auto: $live"
-        runner.interactions.closeConnection()
+        interactionRunner.interactions.closeConnection()
     }
 
     /**

@@ -1,18 +1,18 @@
 package de.geobe.energy.automation
 
 record PvLoadStrategyParams(
-        int batCurrent = 3000,
+        int batPower = 3000,
         int batCapacity = 17500,
-        int stopThreshold = 4000,
-        float minBatLoad = .5,
-        float maxUseBat = .8,
+        int stopThreshold = -4000,
+        int minUseBat = 50,
+        int maxUseBat = 80,
         int toleranceTime = 30
 ) {
     PvLoadStrategyParams(PvLoadStrategyParams o) {
-        batCurrent = o.batCurrent
+        batPower = o.batPower
         batCapacity = o.batCapacity
         stopThreshold = o.stopThreshold
-        minBatLoad = o.minBatLoad
+        minUseBat = o.minUseBat
         maxUseBat = o.maxUseBat
         toleranceTime = o.toleranceTime
     }

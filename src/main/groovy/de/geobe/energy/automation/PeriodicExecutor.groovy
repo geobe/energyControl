@@ -12,6 +12,8 @@ class PeriodicExecutor {
     private TimeUnit timeUnit
     final Runnable task
     private ScheduledFuture taskHandle
+    private static int instanceCount = 0
+    private int instanceId
 
     PeriodicExecutor(Runnable task, long cycleTime, TimeUnit timeUnit) {
         this.task = task
@@ -21,6 +23,7 @@ class PeriodicExecutor {
 
     def start() {
         taskHandle = executor.scheduleAtFixedRate(task, 0, cycleTime, timeUnit)
+        instanceId = instanceCount
     }
 
     def stop() {

@@ -21,7 +21,7 @@ class PowerMonitor {
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
     /** all valueSubscribers to power values */
-    private List<PowerValueSubscriber> subscribers = []
+    private volatile List<PowerValueSubscriber> subscribers = []
     /** task to read power values periodically */
     private PeriodicExecutor executor
 
@@ -30,7 +30,6 @@ class PowerMonitor {
     static synchronized PowerMonitor getMonitor() {
         if(! monitor) {
             monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner)
-            monitor.start()
         }
         monitor
     }
@@ -39,12 +38,16 @@ class PowerMonitor {
         powerInfo = interactionRunner
     }
 
+    /**
+     * task that repeatedly reads current power values and distributes
+     * them to all interested objects
+     */
     private Runnable readPower = new Runnable() {
         @Override
         void run() {
-            def current = powerInfo.currentValues
+            def cuv = powerInfo.currentValues
             subscribers.each {
-                it.takePowerValues(current())
+                it.takePowerValues(cuv)
             }
         }
     }
@@ -54,12 +57,13 @@ class PowerMonitor {
         powerInfo.currentValues
     }
 
-    @ActiveMethod
+    @ActiveMethod(blocking = false)
     void subscribe(PowerValueSubscriber subscriber) {
         def willStart = subscribers.size() == 0
         subscribers.add subscriber
-        if (willStart)
+        if (willStart) {
             start()
+        }
     }
 
     @ActiveMethod
@@ -70,20 +74,34 @@ class PowerMonitor {
     }
 
     private start() {
-        println "monitor started with $cycle $timeUnit period"
+        println "PowerMonitor started with $cycle $timeUnit period"
         executor = new PeriodicExecutor(readPower, cycle, timeUnit)
         executor.start()
     }
 
     private stop() {
-        println "monitor stoped "
+        println "PowerMonitor stopped "
         executor?.stop()
-        executor = null
     }
 
     @ActiveMethod
     def shutdown() {
         executor?.shutdown()
+        executor = null
+    }
+
+    static void main(String[] args) {
+        def m = getMonitor()
+        PowerValueSubscriber p = new PowerValueSubscriber() {
+            @Override
+            void takePowerValues(PowerValues powerValues) {
+                println powerValues
+            }
+        }
+        m.subscribe p
+        Thread.sleep(10000)
+        m.stop()
+        m.shutdown()
     }
 }
 

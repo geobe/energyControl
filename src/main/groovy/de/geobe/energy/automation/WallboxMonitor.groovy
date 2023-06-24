@@ -23,9 +23,9 @@ class WallboxMonitor {
     /** Time unit */
     private TimeUnit timeUnit = TimeUnit.SECONDS
     /** Reference to wallbox */
-    private final Wallbox wallbox
+    private Wallbox wallbox
     /** last Values read */
-    private WallboxValues values
+//    private WallboxValues values
     /** all valueSubscribers to wallbox values */
     private List<WallboxValueSubscriber> valueSubscribers = []
     /** all valueSubscribers to car states */
@@ -33,53 +33,69 @@ class WallboxMonitor {
     /** task to read power values periodically */
     private PeriodicExecutor executor
 
-    static enum CarState {
+    static enum CarLoadingState {
+        UNDEFINED,
         NO_CAR,
-        CAR_FULLY_LOADED,
-        CAR_READY_TO_LOAD,
+        CHARGING,
+        FULLY_CHARGED,
+        CHARGING_STOPPED,
     }
 
-    private CarState state = CarState.NO_CAR
+    private CarLoadingState newState, state = CarLoadingState.UNDEFINED
 
-    private static WallboxMonitor monitor
+    private static WallboxMonitor wbMonitor
 
     static synchronized getMonitor() {
-        if (!monitor) {
-            monitor = new WallboxMonitor(wallbox: Wallbox.wallbox)
+        if (!wbMonitor) {
+            wbMonitor = new WallboxMonitor(wallbox: Wallbox.wallbox)
         }
-        monitor
+        wbMonitor
     }
 
     private Runnable readWallbox = new Runnable() {
         @Override
         void run() {
-            def current = wallbox.wallboxValues
-            def newState = onNewValues()
-            if (state != newState) {
-                state = newState
-                valueSubscribers.each {
-                    it.takeWallboxState(current())
+            def cwv = wallbox.wallboxValues
+            valueSubscribers.each {
+                it.takeWallboxValues(cwv)
+            }
+            if (hasStateChanged(cwv)) {
+                stateSubscribers.each {
+                    it.takeWallboxState(state)
                 }
             }
         }
     }
 
-    @ActiveMethod
-    private CarState onNewValues() {
-        if (!values?.allowedToCharge) {
-            CarState.NO_CAR
-        } else if (values?.forceState == Wallbox.ForceState.NEUTRAL
-                && values?.carState == Wallbox.CarState.COMPLETE) {
-            CarState.CAR_FULLY_LOADED
-        } else if (values?.forceState == Wallbox.ForceState.NEUTRAL) {
-            CarState.CAR_READY_TO_LOAD
+    @ActiveMethod(blocking = true)
+    private boolean hasStateChanged(WallboxValues values) {
+        if (values?.carState == Wallbox.CarState.IDLE) {
+            newState = CarLoadingState.NO_CAR
+        } else if (values?.carState == Wallbox.CarState.CHARGING) {
+            newState = CarLoadingState.CHARGING
+        } else if (values?.carState == Wallbox.CarState.COMPLETE
+                && values?.allowedToCharge == true) {
+            // to be checked, same as stopped by car???
+            newState = CarLoadingState.FULLY_CHARGED
+        } else if (values?.forceState == Wallbox.ForceState.OFF
+                && values.allowedToCharge == false ) {
+            newState = CarLoadingState.CHARGING_STOPPED
+        }
+        if (newState != state) {
+            state = newState
+            true
+        } else {
+            false
         }
     }
 
 
 /*
-WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=CHARGING, forceState=NEUTRAL, energy=4080, phaseSwitchMode=FORCE_3]
-WallboxValues[allowedToCharge=false, requestedCurrent=6, carState=COMPLETE, forceState=OFF, energy=0, phaseSwitchMode=FORCE_3]
+loading: WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=CHARGING, forceState=NEUTRAL, energy=4080, phaseSwitchMode=FORCE_3]
+stop by car: WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=COMPLETE, forceState=NEUTRAL, energy=0, phaseSwitchMode=FORCE_3]
+stop by app: WallboxValues[allowedToCharge=false, requestedCurrent=6, carState=COMPLETE, forceState=OFF, energy=0, phaseSwitchMode=FORCE_3]
+no car:  WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=IDLE, forceState=NEUTRAL, energy=0, phaseSwitchMode=FORCE_3]
+
 Takes some time before load current is back to requested
  */
 
@@ -89,16 +105,34 @@ Takes some time before load current is back to requested
     }
 
     @ActiveMethod
-    void subscribe(WallboxValueSubscriber subscriber) {
+    void subscribeValue(WallboxValueSubscriber subscriber) {
         def willStart = noSubscribers()
+        println "added valueSubscriber $subscriber"
         valueSubscribers.add subscriber
         if (willStart)
             start()
     }
 
     @ActiveMethod
-    void unsubscribe(WallboxValueSubscriber subscriber) {
+    void unsubscribeValue(WallboxValueSubscriber subscriber) {
         valueSubscribers.remove subscriber
+        if (noSubscribers()) {
+            stop()
+        }
+    }
+
+    @ActiveMethod
+    void subscribeState(WallboxStateSubscriber subscriber) {
+        def willStart = noSubscribers()
+        stateSubscribers.add subscriber
+        if (willStart) {
+            start()
+        }
+    }
+
+    @ActiveMethod
+    void unsubscribeState(WallboxStateSubscriber subscriber) {
+        stateSubscribers.remove subscriber
         if (noSubscribers())
             stop()
     }
@@ -108,15 +142,16 @@ Takes some time before load current is back to requested
     }
 
     private start() {
-        println "monitor started with $cycle $timeUnit period"
-        executor = new PeriodicExecutor(readWallbox, cycle, timeUnit)
+        println "wbMonitor started with $cycle $timeUnit period"
+        if (! executor) {
+            executor = new PeriodicExecutor(readWallbox, cycle, timeUnit)
+        }
         executor.start()
     }
 
     private stop() {
-        println "monitor stoped "
+        println "wbMonitor stopped "
         executor?.stop()
-        executor = null
     }
 
     @ActiveMethod
@@ -124,11 +159,33 @@ Takes some time before load current is back to requested
         executor?.shutdown()
     }
 
+    static void main(String[] args) {
+        def WallboxStateSubscriber stateSubscriber = new WallboxStateSubscriber() {
+            @Override
+            void takeWallboxState(CarLoadingState carState) {
+                println carState
+            }
+        }
+        def WallboxValueSubscriber valueSubscriber = new WallboxValueSubscriber() {
+            @Override
+            void takeWallboxValues(WallboxValues values) {
+                println values
+            }
+        }
+        WallboxMonitor.monitor.subscribeValue valueSubscriber
+        WallboxMonitor.monitor.subscribeState stateSubscriber
+        Thread.sleep 30000
+        WallboxMonitor.monitor.unsubscribeValue valueSubscriber
+        WallboxMonitor.monitor.unsubscribeState stateSubscriber
+        Thread.sleep 1000
+        WallboxMonitor.monitor.shutdown()
+
+    }
 
 }
 
 interface WallboxStateSubscriber {
-    void takeWallboxState(WallboxMonitor.CarState carState)
+    void takeWallboxState(WallboxMonitor.CarLoadingState carState)
 }
 
 interface WallboxValueSubscriber {
