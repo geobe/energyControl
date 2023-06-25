@@ -1,6 +1,6 @@
 package de.geobe.energy.automation
 
-record PvLoadStrategyParams(
+record PvChargeStrategyParams(
         int batPower = 3000,
         int batCapacity = 17500,
         int stopThreshold = -4000,
@@ -8,7 +8,7 @@ record PvLoadStrategyParams(
         int maxUseBat = 80,
         int toleranceTime = 30
 ) {
-    PvLoadStrategyParams(PvLoadStrategyParams o) {
+    PvChargeStrategyParams(PvChargeStrategyParams o) {
         batPower = o.batPower
         batCapacity = o.batCapacity
         stopThreshold = o.stopThreshold

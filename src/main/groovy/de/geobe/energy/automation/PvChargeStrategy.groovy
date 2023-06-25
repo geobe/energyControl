@@ -11,16 +11,16 @@ import groovyx.gpars.activeobject.ActiveObject
  * Responsibility:
  */
 @ActiveObject
-class PvLoadStrategyActor implements PowerValueSubscriber, WallboxValueSubscriber, WallboxStateSubscriber  {
-    private PvLoadStrategyParams params = new PvLoadStrategyParams()
+class PvChargeStrategy implements PowerValueSubscriber, WallboxValueSubscriber, WallboxStateSubscriber  {
+    private PvChargeStrategyParams params = new PvChargeStrategyParams()
     private int stacksize = 10
     private List<PowerValues> valueTrace = []
 
-    private static PvLoadStrategyActor pvLoadStrategy
+    private static PvChargeStrategy pvLoadStrategy
 
-    static synchronized PvLoadStrategyActor getLoadStrategy() {
+    static synchronized PvChargeStrategy getLoadStrategy() {
         if(! pvLoadStrategy) {
-            pvLoadStrategy = new PvLoadStrategyActor()
+            pvLoadStrategy = new PvChargeStrategy()
         }
         pvLoadStrategy
     }
@@ -105,7 +105,7 @@ class PvLoadStrategyActor implements PowerValueSubscriber, WallboxValueSubscribe
     }
 
     @ActiveMethod(blocking = true)
-    void startStrategy() {
+    void startStrategy(CarChargingManager manager) {
         println "start strategy"
         PowerMonitor.monitor.subscribe this
         WallboxMonitor.monitor.subscribeValue ((WallboxValueSubscriber) this)
@@ -113,7 +113,7 @@ class PvLoadStrategyActor implements PowerValueSubscriber, WallboxValueSubscribe
     }
 
     @ActiveMethod
-    void stopStrategy() {
+    void stopStrategy(CarChargingManager manager) {
         PowerMonitor.monitor.unsubscribe this
         WallboxMonitor.monitor.unsubscribeValue this
         WallboxMonitor.monitor.unsubscribeState this
@@ -141,13 +141,13 @@ class PvLoadStrategyActor implements PowerValueSubscriber, WallboxValueSubscribe
     }
 
     @ActiveMethod(blocking = true)
-    void setParams(PvLoadStrategyParams p) {
-        params = new PvLoadStrategyParams(p)
+    void setParams(PvChargeStrategyParams p) {
+        params = new PvChargeStrategyParams(p)
 
     }
 
     static void main(String[] args) {
-        PvLoadStrategyActor strategyActor = PvLoadStrategyActor.getLoadStrategy()
+        PvChargeStrategy strategyActor = PvChargeStrategy.getLoadStrategy()
         strategyActor.startStrategy()
         Thread.sleep(90000)
         strategyActor.stopStrategy()

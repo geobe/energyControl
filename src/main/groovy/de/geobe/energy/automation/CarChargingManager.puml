@@ -1,0 +1,86 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 1400 width
+
+[*] -down-> iact
+
+state "Inactive" as iact
+state "Active" as act {
+
+
+    state "checkCar" as ccc <<choice>>
+    [*] -right-> ccc : checkCar()
+
+    act: entry: startWallboxMonitor()
+    act: exit: stopWallboxMonitor()
+
+    state "NoCarConnected" as nocl {
+'      nocl: entry: cancelCharging()
+    }
+
+    state "CarConnected" as cl {
+      cl: entry: getChargeStrategy()
+
+      json ChargeStrategy {
+        "ChargeStrategy": ["chargeStop", "chargePvSurplus", "chargeAnyway", "chargeTibber"]
+      }
+
+       state "selectStrategy" as sst <<choice>>
+       [*] -right-> sst : checkStrategy()
+
+      state "ChargeTibber" as lt {
+      lt: entry: startTibberMonitor
+      lt: exit: stopTibberMonitor
+      lt: on: tibberGo : startCharging()
+      lt: on: tibberHalt : stopCharging()
+      }
+
+      state "ChargePvSurplus" as lps {
+        lps: entry: startSurplusMonitor()
+        lps: exit: stopSurplusMonitor()
+
+        state "HasSurplus" as has {
+            has: entry: setCurrent(v)
+            has: entry: startCharging()
+        }
+
+        state "NoSurplus" as nos {
+          nos: entry: stopCharging()
+        }
+
+        state lpstart <<start>>
+      }
+      lps -left-> has : surplus(v)
+      lps --> nos : noSurplus
+      lpstart -left-> nos
+
+      state "ChargeAnyway" as la {
+        la: entry: startCharging()
+        la: entry: setCurrent(maxCurrent)
+      }
+
+      state "ChargingStopped" as ls {
+        ls: entry: stopCharging()
+      }
+
+      cl --> sst : chargeStrategyChanged : checkStrategy()
+      sst --> ls : [chargeStop]
+      sst --> lps : [chargePvSurplus]
+      sst --> lt : [chargeTibber]
+      sst --> la : [chargeAnyway]
+    }
+
+}
+ccc --> nocl : [noCar]
+ccc --> cl : [isCar]
+cl -up-> nocl : carDisconnected
+
+nocl -down-> cl : carConnected
+iact -down-> act : activate
+act -up-> iact : deactivate
+'act --> ccc : carChange
+
+note "CarChargingManager" as N1
+
+@enduml

@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Periodically read power values from storage system. If values
- * have changed more than hysteresis, send new values to PvLoadStrategyActor
+ * have changed more than hysteresis, send new values to PvChargeStrategy
  */
 @ActiveObject
 class PowerMonitor {

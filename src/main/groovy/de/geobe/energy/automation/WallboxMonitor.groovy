@@ -104,6 +104,11 @@ Takes some time before load current is back to requested
         wallbox.wallboxValues
     }
 
+    @ActiveMethod(blocking = true)
+    CarLoadingState getLoadingState() {
+        state
+    }
+
     @ActiveMethod
     void subscribeValue(WallboxValueSubscriber subscriber) {
         def willStart = noSubscribers()
