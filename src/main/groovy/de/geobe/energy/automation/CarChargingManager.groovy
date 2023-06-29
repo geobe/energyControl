@@ -7,7 +7,7 @@ import groovyx.gpars.activeobject.ActiveObject
 @ActiveObject
 class CarChargingManager implements WallboxStateSubscriber {
 
-    static enum ChargingState {
+    static enum ChargeState {
         Inactive,
         Active,
         NoCarConnected,
@@ -20,14 +20,14 @@ class CarChargingManager implements WallboxStateSubscriber {
         NoSurplus
     }
 
-    static enum ChargeStrategy {
+    static enum ChargeRule {
         CHARGE_PV_SURPLUS,
         CHARGE_TIBBER,
         CHARGE_ANYWAY,
         CHARGE_STOP
     }
 
-    static enum ChargingEvent {
+    static enum ChargeEvent {
         Activate,
         Deactivate,
         CarConnected,
@@ -39,63 +39,138 @@ class CarChargingManager implements WallboxStateSubscriber {
         TibberStop
     }
 
-    ChargingState chargingState = ChargingState.Inactive
-    ChargeStrategy chargeStrategy = ChargeStrategy.CHARGE_STOP
+    ChargeState chargeState = ChargeState.Inactive
+    ChargeRule chargeRule = ChargeRule.CHARGE_STOP
 
-    @ActiveMethod
+    @ActiveMethod(blocking = true)
     void setActive(boolean active) {
-
+        takeEvent(active ? ChargeEvent.Activate : ChargeEvent.Deactivate)
     }
 
     @ActiveMethod
-    @Override
-    void takeWallboxState(WallboxMonitor.CarLoadingState carState) {
-
-    }
-
-    @ActiveMethod
-    void takeStrategy(ChargeStrategy strategy) {
-
-    }
-
-    @ActiveMethod
-    void takeSurplus(int amps) {
-
+    void shutDown() {
+        WallboxMonitor.monitor.shutdown()
     }
 
     @ActiveMethod(blocking = true)
-    private void takeEvent(ChargingEvent event, def param = null) {
+    @Override
+    void takeWallboxState(WallboxMonitor.CarLoadingState carState) {
+        switch (carState) {
+            case WallboxMonitor.CarLoadingState.NO_CAR:
+            case WallboxMonitor.CarLoadingState.UNDEFINED:
+                takeEvent(ChargeEvent.CarDisconnected)
+                break
+            case WallboxMonitor.CarLoadingState.CHARGING:
+            case WallboxMonitor.CarLoadingState.CHARGING_STOPPED:
+            case WallboxMonitor.CarLoadingState.FULLY_CHARGED:
+                takeEvent(ChargeEvent.CarConnected)
+        }
+    }
+
+    @ActiveMethod(blocking = true)
+    void takeChargeRule(ChargeRule strategy) {
+        chargeRule = strategy
+        takeEvent(ChargeEvent.ChargeStrategyChanged)
+    }
+
+    @ActiveMethod(blocking = true)
+    void takeSurplus(int amps) {
+        if(amps) {
+            takeEvent(ChargeEvent.Surplus, amps)
+        } else {
+            takeEvent(ChargeEvent.NoSurplus)
+        }
+    }
+
+//    @ActiveMethod(blocking = true)
+    private void takeEvent(ChargeEvent event, def param = null) {
+        print "CarChargingManager $chargeState --$event${param? '('+param+')' : ''}-> "
         switch (event) {
-            case ChargingEvent.Activate:
-                switch (chargingState) {
-                    case ChargingState.Inactive:
-                        chargingState = enterActive()
+            case ChargeEvent.Activate:
+                switch (chargeState) {
+                    case ChargeState.Inactive:
+                        chargeState = enterActive()
                 }
                 break
-            case ChargingEvent.Deactivate:
-                switch (chargingState) {
-                    case ChargingState.Inactive:
-                        return
-                    case ChargingState.NoCarConnected:
-                    case ChargingState.ChargingStopped:
-                    case ChargingState.ChargeAnyway:
+            case ChargeEvent.Deactivate:
+                switch (chargeState) {
+                    case ChargeState.NoCarConnected:
                         break
-                    case ChargingState.ChargeTibber:
+                    case ChargeState.ChargingStopped:
+                    case ChargeState.ChargeAnyway:
+                        stopCharging()
+                        break
+                    case ChargeState.ChargeTibber:
                         stopTibberMonitor()
                         break
-                    case ChargingState.HasSurplus:
-                    case ChargingState.NoSurplus:
-                        PvChargeStrategy.loadStrategy.stopStrategy(this)
+                    case ChargeState.HasSurplus:
+                        stopCharging()
+                    case ChargeState.NoSurplus:
+                        PvChargeStrategy.chargeStrategy.stopStrategy(this)
                         break
                 }
-                WallboxMonitor.monitor.unsubscribeState this
+                exitActive()
+                chargeState = ChargeState.Inactive
+                break
+            case ChargeEvent.CarConnected:
+                switch (chargeState) {
+                    case ChargeState.NoCarConnected:
+                        chargeState = enterActive()
+                }
+                break
+            case ChargeEvent.CarDisconnected:
+                switch (chargeState) {
+                    case ChargeState.ChargingStopped:
+                    case ChargeState.ChargeAnyway:
+                        stopCharging()
+                        break
+                    case ChargeState.ChargeTibber:
+                        stopTibberMonitor()
+                        break
+                    case ChargeState.HasSurplus:
+                        stopCharging()
+                    case ChargeState.NoSurplus:
+                        PvChargeStrategy.chargeStrategy.stopStrategy()
+                        break
+                }
+                chargeState = ChargeState.NoCarConnected
+                break
+            case ChargeEvent.ChargeStrategyChanged:
+                switch (chargeState) {
+                    case ChargeState.ChargeTibber:
+                    case ChargeState.ChargeAnyway:
+                    case ChargeState.ChargingStopped:
+                    case ChargeState.NoSurplus:
+                    case  ChargeState.HasSurplus:
+                        chargeState = enterCarConnected()
+                }
+                break
+            case ChargeEvent.Surplus:
+                switch (chargeState) {
+                    case ChargeState.NoSurplus:
+                        chargeState = ChargeState.HasSurplus
+                        startCharging()
+                    case ChargeState.HasSurplus:
+                        setCurrent(param)
+                        break
+                }
+                break
+            case ChargeEvent.NoSurplus:
+                switch (chargeState){
+                    case ChargeState.HasSurplus:
+                        stopCharging()
+                        chargeState = ChargeState.NoSurplus
+                        break
+                }
+                break
         }
+        println "$chargeState"
     }
 
     private enterActive() {
         WallboxMonitor.monitor.subscribeState this
         if (WallboxMonitor.monitor.loadingState == WallboxMonitor.CarLoadingState.NO_CAR) {
-            ChargingState.NoCarConnected
+            ChargeState.NoCarConnected
         } else {
             enterCarConnected()
         }
@@ -107,41 +182,52 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private enterCarConnected() {
-        switch (chargeStrategy) {
-            case ChargeStrategy.CHARGE_STOP:
+        switch (chargeRule) {
+            case ChargeRule.CHARGE_STOP:
                 stopCharging()
-                return ChargingState.ChargingStopped
-            case ChargeStrategy.CHARGE_ANYWAY:
+                return ChargeState.ChargingStopped
+            case ChargeRule.CHARGE_ANYWAY:
                 startCharging()
                 setCurrent(Wallbox.wallbox.maxCurrent)
-                return  ChargingState.ChargeAnyway
-            case ChargeStrategy.CHARGE_TIBBER:
+                return  ChargeState.ChargeAnyway
+            case ChargeRule.CHARGE_TIBBER:
                 startTibberMonitor()
-                return ChargingState.ChargeTibber
-            case ChargeStrategy.CHARGE_PV_SURPLUS:
-                PvChargeStrategy.loadStrategy.startStrategy this
-                stopCharging()
-                return ChargingState.NoSurplus
+                return ChargeState.ChargeTibber
+            case ChargeRule.CHARGE_PV_SURPLUS:
+                PvChargeStrategy.chargeStrategy.startStrategy this
+                return ChargeState.NoSurplus
         }
     }
 
     private stopCharging() {
-
+        println "stop charging"
     }
 
     private startCharging() {
-
+        println "start charging"
     }
 
-    private setCurrent(int amp) {
-
+    private setCurrent(int amp = 0) {
+        println "set current to $amp"
     }
 
     private startTibberMonitor() {
-
+        println "start tibber monitor"
     }
 
     private stopTibberMonitor() {
+        println "stop tibber monitor"
+    }
 
+    static void main(String[] args) {
+        CarChargingManager manager = new CarChargingManager()
+        PvChargeStrategy.chargeStrategy.chargingManager = manager
+        manager.active = true
+        Thread.sleep(3000)
+        manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)
+        Thread.sleep(120000)
+        manager.active=false
+        Thread.sleep(3000)
+        manager.shutDown()
     }
 }

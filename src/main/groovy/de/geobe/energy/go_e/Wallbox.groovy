@@ -133,12 +133,21 @@ class Wallbox {
     }
 
     static void main(String[] args) {
-        Wallbox wb = new Wallbox()
+        Wallbox wb = Wallbox.wallbox
         println wb.getWallboxValues()
-//        println wb.setLoadingCurrent((short) 4)
-//        wb.startLoading()
-//        Thread.sleep(5000)
-//        println wb.getWallboxValues()
+        println wb.setLoadingCurrent((short) 8)
+        wb.startLoading()
+        for (i in 0..<10 ) {
+            i++
+            Thread.sleep(1500)
+            println wb.getWallboxValues()
+        }
+        wb.stopLoading()
+        for (i in 0..<10 ) {
+            i++
+            Thread.sleep(1500)
+            println wb.getWallboxValues()
+        }
     }
 
     /**
