@@ -33,7 +33,7 @@ class Wallbox {
     boolean allowedToCharge         // alw - ro
     short requestedCurrent          // amp - rw
     CarState carState               // car - ro
-//    Optional<CarLoadingState> carState     // car - ro
+//    Optional<CarChargingState> carState     // car - ro
     ForceState forceState           // frc - rw
     def energy                      // nrg - ro
     short eTotal                    // nrg[11] - ro
@@ -166,7 +166,7 @@ class Wallbox {
 
     @Override
     String toString() {
-        return "Allowed to charge: $allowedToCharge, requested current: $requestedCurrent, car CarLoadingState: $carState, " +
+        return "Allowed to charge: $allowedToCharge, requested current: $requestedCurrent, car CarChargingState: $carState, " +
                 "force state: $forceState, phase switch mode: $phaseSwitchMode\n energy: $energy"
     }
 }

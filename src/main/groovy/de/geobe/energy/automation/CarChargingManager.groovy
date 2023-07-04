@@ -54,15 +54,15 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     @ActiveMethod(blocking = true)
     @Override
-    void takeWallboxState(WallboxMonitor.CarLoadingState carState) {
+    void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         switch (carState) {
-            case WallboxMonitor.CarLoadingState.NO_CAR:
-            case WallboxMonitor.CarLoadingState.UNDEFINED:
+            case WallboxMonitor.CarChargingState.NO_CAR:
+            case WallboxMonitor.CarChargingState.UNDEFINED:
                 takeEvent(ChargeEvent.CarDisconnected)
                 break
-            case WallboxMonitor.CarLoadingState.CHARGING:
-            case WallboxMonitor.CarLoadingState.CHARGING_STOPPED:
-            case WallboxMonitor.CarLoadingState.FULLY_CHARGED:
+            case WallboxMonitor.CarChargingState.CHARGING:
+            case WallboxMonitor.CarChargingState.CHARGING_STOPPED:
+            case WallboxMonitor.CarChargingState.FULLY_CHARGED:
                 takeEvent(ChargeEvent.CarConnected)
         }
     }
@@ -84,7 +84,7 @@ class CarChargingManager implements WallboxStateSubscriber {
 
 //    @ActiveMethod(blocking = true)
     private void takeEvent(ChargeEvent event, def param = null) {
-        print "CarChargingManager $chargeState --$event${param? '('+param+')' : ''}-> "
+        def evTrigger =  "CarChargingManager $chargeState --$event${param? '('+param+')' : ''}-> "
         switch (event) {
             case ChargeEvent.Activate:
                 switch (chargeState) {
@@ -106,7 +106,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeState.HasSurplus:
                         stopCharging()
                     case ChargeState.NoSurplus:
-                        PvChargeStrategy.chargeStrategy.stopStrategy(this)
+                        PvChargeStrategy.chargeStrategy.stopStrategy()
                         break
                 }
                 exitActive()
@@ -164,12 +164,12 @@ class CarChargingManager implements WallboxStateSubscriber {
                 }
                 break
         }
-        println "$chargeState"
+        println "$evTrigger $chargeState"
     }
 
     private enterActive() {
         WallboxMonitor.monitor.subscribeState this
-        if (WallboxMonitor.monitor.loadingState == WallboxMonitor.CarLoadingState.NO_CAR) {
+        if (WallboxMonitor.monitor.current.state == WallboxMonitor.CarChargingState.NO_CAR) {
             ChargeState.NoCarConnected
         } else {
             enterCarConnected()
@@ -222,6 +222,8 @@ class CarChargingManager implements WallboxStateSubscriber {
     static void main(String[] args) {
         CarChargingManager manager = new CarChargingManager()
         PvChargeStrategy.chargeStrategy.chargingManager = manager
+        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 5)
+        PvChargeStrategy.chargeStrategy.params = params
         manager.active = true
         Thread.sleep(3000)
         manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)

@@ -33,7 +33,7 @@ class WallboxMonitor {
     /** task to read power values periodically */
     private PeriodicExecutor executor
 
-    static enum CarLoadingState {
+    static enum CarChargingState {
         UNDEFINED,
         NO_CAR,
         CHARGING,
@@ -41,7 +41,7 @@ class WallboxMonitor {
         CHARGING_STOPPED,
     }
 
-    private CarLoadingState newState, state = CarLoadingState.UNDEFINED
+    private CarChargingState newState, state = CarChargingState.UNDEFINED
 
     private static WallboxMonitor wbMonitor
 
@@ -70,16 +70,16 @@ class WallboxMonitor {
     @ActiveMethod(blocking = true)
     private boolean hasStateChanged(WallboxValues values) {
         if (values?.carState == Wallbox.CarState.IDLE) {
-            newState = CarLoadingState.NO_CAR
+            newState = CarChargingState.NO_CAR
         } else if (values?.carState == Wallbox.CarState.CHARGING) {
-            newState = CarLoadingState.CHARGING
+            newState = CarChargingState.CHARGING
         } else if (values?.carState == Wallbox.CarState.COMPLETE
                 && values?.allowedToCharge == true) {
             // to be checked, same as stopped by car???
-            newState = CarLoadingState.FULLY_CHARGED
+            newState = CarChargingState.FULLY_CHARGED
         } else if (values?.forceState == Wallbox.ForceState.OFF
                 && values.allowedToCharge == false ) {
-            newState = CarLoadingState.CHARGING_STOPPED
+            newState = CarChargingState.CHARGING_STOPPED
         }
         if (newState != state) {
             state = newState
@@ -100,14 +100,14 @@ Takes some time before load current is back to requested
  */
 
     @ActiveMethod(blocking = true)
-    WallboxValues getCurrent() {
-        wallbox.wallboxValues
+    def getCurrent() {
+        [values: wallbox.wallboxValues, state: state]
     }
 
-    @ActiveMethod(blocking = true)
-    CarLoadingState getLoadingState() {
-        state
-    }
+//    @ActiveMethod(blocking = true)
+//    CarChargingState getChargingState() {
+//        state
+//    }
 
     @ActiveMethod
     void subscribeValue(WallboxValueSubscriber subscriber) {
@@ -167,7 +167,7 @@ Takes some time before load current is back to requested
     static void main(String[] args) {
         def WallboxStateSubscriber stateSubscriber = new WallboxStateSubscriber() {
             @Override
-            void takeWallboxState(CarLoadingState carState) {
+            void takeWallboxState(CarChargingState carState) {
                 println carState
             }
         }
@@ -190,7 +190,7 @@ Takes some time before load current is back to requested
 }
 
 interface WallboxStateSubscriber {
-    void takeWallboxState(WallboxMonitor.CarLoadingState carState)
+    void takeWallboxState(WallboxMonitor.CarChargingState carState)
 }
 
 interface WallboxValueSubscriber {

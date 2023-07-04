@@ -6,6 +6,7 @@ import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
+import static de.geobe.energy.automation.WallboxMonitor.CarChargingState
 
 /**
  * Responsibility:
@@ -13,7 +14,6 @@ import groovyx.gpars.activeobject.ActiveObject
 @ActiveObject
 class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber, WallboxStateSubscriber*/ {
     private PvChargeStrategyParams params = new PvChargeStrategyParams()
-    private int stacksize = 5
     private List<PowerValues> valueTrace = []
 
     private static PvChargeStrategy pvChargeStrategy
@@ -24,15 +24,6 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
         }
         pvChargeStrategy
     }
-//
-//    private enum State {
-//        IDLE,
-//        WAIT_FOR_SURPLUS,
-//        CHANGED_SURPLUS,
-//        HAS_SURPLUS
-//    }
-//    private State currentState = State.IDLE
-//
 
     private CarChargingManager carChargingManager
 
@@ -46,26 +37,23 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
         println "start strategy"
         PowerMonitor.monitor.subscribe this
         carChargingManager = manager
-//        WallboxMonitor.monitor.subscribeValue ((WallboxValueSubscriber) this)
-//        WallboxMonitor.monitor.subscribeState ((WallboxStateSubscriber) this)
     }
 
     @ActiveMethod
-    void stopStrategy(CarChargingManager) {
+    void stopStrategy() {
+        println 'stop strategy'
         PowerMonitor.monitor.unsubscribe this
         carChargingManager = null
-//        WallboxMonitor.monitor.unsubscribeValue this
-//        WallboxMonitor.monitor.unsubscribeState this
     }
 
     @ActiveMethod(blocking = false)
-    void takePowerValues(PowerValues powerValues) {
-        if (valueTrace.size() > stacksize) {
+    void takePowerValues(PowerValues pValues) {
+        println "new power values $pValues"
+        if (valueTrace.size() >= params.toleranceStackSize) {
             valueTrace.removeLast()
         }
-        valueTrace.push powerValues
+        valueTrace.push pValues
         evalPower()
-        println powerValues
     }
 
     @ActiveMethod(blocking = true)
@@ -79,10 +67,13 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
      */
     private evalPower() {
         def powerValues = valueTrace.first()
-        def wbValues = WallboxMonitor.monitor.current
+        def wb = WallboxMonitor.monitor.current
+        WallboxValues wbValues = wb.values
+        CarChargingState carCargingState = wb.state
         def powerBalance = powerValues.powerSolar - powerValues.consumptionHome
         // more consumption as could be served by battery (negative balance) && loading car
         if (powerBalance < params.stopThreshold && wbValues.energy > 0) {
+            println 'stop charging immediately'
             // are we currently loading car with more than minimal load current?
             if (wbValues.requestedCurrent > Wallbox.wallbox.minCurrent) {
                 // check if reduction of load current would be sufficient
@@ -95,46 +86,60 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
                     resetHistory()
                 }
             }
-        } else if (valueTrace.size() >= stacksize) {
+        } else if (valueTrace.size() >= params.toleranceStackSize) {
             // we have collected data for some time so we can work with rolling averages
             int meanPSun = ((int) (valueTrace.collect { it.powerSolar }.sum())).intdiv(valueTrace.size())
             int meanCHome = ((int) (valueTrace.collect { it.consumptionHome }.sum())).intdiv(valueTrace.size())
-            // min and max values in that time
-//            int minPSun = valueTrace.collect {it.powerSolar}.min()
-//            int maxPSun = valueTrace.collect {it.powerSolar}.max()
-            // variance in that time
-//            def deltaPSun = maxPSun - minPSun
-//            println "Sun mean: $meanPSun, min: $minPSun, max: $maxPSun, var: $deltaPSun"
-            // battery state of charge
-            def soc = powerValues.socBattery
-            def bmin = params.minUseBat
-            def bmax = params.maxUseBat
-            def maxBatteryCharge = params.batPower
-            // how much should be used for battery charge
-            def batteryCharge = (soc <= bmin) ? maxBatteryCharge : // load maximal when battery below bmin
-                    ((soc >= bmax) ? 0 :                     // no need to load when above bmax
-                            (bmax - soc).intdiv(bmax - bmin) * maxBatteryCharge)  // else interpolate
-            def carCharging = wbValues.energy > 1000
-            def mayBatteryUnload = soc > bmax ? maxBatteryCharge : 0
-            def availablePowerBalance = meanPSun - meanCHome - batteryCharge + mayBatteryUnload
-            def amp4car = availablePowerBalance.intdiv(3 * 230)
-            println "amp4car calculation $amp4car <- availablePowerBalance $availablePowerBalance, " +
-                    "batteryCharge $batteryCharge, mayBatteryUnload $mayBatteryUnload," +
-                    "carCharging $carCharging"
-            // amp4car could be negative, 0 means no change
-            if (carCharging && amp4car != 0) {
-                def amp4loading = wbValues.requestedCurrent + amp4car
+            println "meanPSun: $meanPSun, meanCHome: $meanCHome"
+            // how much power should be used for car charging depending on house battery soc
+            def availablePVBalance = powerToAmp(meanPSun - meanCHome)
+            def availableFromBattery = powerToAmp(powerRamp(powerValues.socBattery))
+            def carCharging = carCargingState == CarChargingState.CHARGING && wbValues.energy > 1000
+            // different strategies ig car is loading or not
+            if (carCharging) {
+                def amp4loading = wbValues.requestedCurrent + availablePVBalance
                 if (amp4loading >= Wallbox.wallbox.minCurrent) {
+                    println 'loading from PV only'
                     sendSurplus(amp4loading)
+                } else if (amp4loading + availableFromBattery >= Wallbox.wallbox.minCurrent) {
+                    println 'keep charging with battery support'
+                    sendSurplus(Wallbox.wallbox.minCurrent)
                 } else {
+                    println 'stop charging'
                     sendNoSurplus()
                 }
                 resetHistory()
-            } else if (!carCharging && amp4car >= Wallbox.wallbox.minCurrent) {
-                sendSurplus(amp4car)
+            } else if (availablePVBalance >= Wallbox.wallbox.minCurrent) {
+                println 'start charging'
+                sendSurplus(availablePVBalance)
                 resetHistory()
+            } else {
+                println 'no PV power for loading'
             }
+        }
+    }
 
+    private int powerToAmp(int power, int phases = 3) {
+        power.intdiv(phases * 230)
+    }
+
+    /**
+     *  calculate power offset for car loading depending on battery state of charge (soc).<br>
+     *  I.e. which power must be subtracted from available PV power to load house battery when soc is low or <br>
+     *  which additional power may be taken from house battery when soc is above socmax
+     *
+     * @param soc current state of charge
+     * @return power offset for current soc, maybe positive or negative
+     */
+    private Integer powerRamp(int soc) {
+        if (soc < params.minChargeUseBat) {
+            return -params.batPower
+        } else if (soc >= params.fullChargeUseBat) {
+            float fac = (soc - params.fullChargeUseBat) / (100 - params.fullChargeUseBat)
+            return params.minBatUnloadPower + fac * (params.batPower - params.minBatUnloadPower)
+        } else if (soc < params.fullChargeUseBat) {   // && soc >= params.minUsePower
+            float fac = (soc - params.minChargeUseBat) / (params.fullChargeUseBat - params.minChargeUseBat)
+            return - params.batPower + fac * (params.batPower - params.minBatUnloadPower)
         }
     }
 
@@ -149,6 +154,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
      * request loading with amp ampere
      */
     private void sendSurplus(int amps) {
+        println "send carChargingManager?.takeSurplus($amps)"
         carChargingManager?.takeSurplus(amps)
     }
 
@@ -156,17 +162,29 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
      * request stoploading
      */
     private void sendNoSurplus() {
+        println "send carChargingManager?.takeSurplus($amps)"
         carChargingManager?.takeSurplus(0)
     }
 
     static void main(String[] args) {
-        PvChargeStrategy strategyActor = PvChargeStrategy.getLoadStrategy()
+        PvChargeStrategy strategyActor = PvChargeStrategy.chargeStrategy
+//        println "soc: 40 ${strategyActor.powerRamp(40)}"
+//        println "soc: 50 ${strategyActor.powerRamp(50)}"
+//        println "soc: 51 ${strategyActor.powerRamp(51)}"
+//        println "soc: 60 ${strategyActor.powerRamp(60)}"
+//        println "soc: 70 ${strategyActor.powerRamp(70)}"
+//        println "soc: 79 ${strategyActor.powerRamp(79)}"
+//        println "soc: 80 ${strategyActor.powerRamp(80)}"
+//        println "soc: 81 ${strategyActor.powerRamp(81)}"
+//        println "soc: 90 ${strategyActor.powerRamp(90)}"
+//        println "soc: 95 ${strategyActor.powerRamp(95)}"
+//        println "soc: 100 ${strategyActor.powerRamp(100)}"
         strategyActor.startStrategy()
-        Thread.sleep(90000)
+        Thread.sleep(180000)
         strategyActor.stopStrategy()
         Thread.sleep(10000)
         strategyActor.startStrategy()
-        Thread.sleep(30000)
+        Thread.sleep(10000)
         strategyActor.stopStrategy()
         PowerMonitor.monitor.shutdown()
     }
