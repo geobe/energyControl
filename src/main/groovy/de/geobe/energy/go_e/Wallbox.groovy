@@ -30,6 +30,7 @@ class Wallbox {
     final String wallboxIp
     final short maxCurrent
     final short minCurrent
+    final short maxStartCurrent
     boolean allowedToCharge         // alw - ro
     short requestedCurrent          // amp - rw
     CarState carState               // car - ro
@@ -70,6 +71,7 @@ class Wallbox {
         wallboxIp = props.wallboxIp
         maxCurrent = Short.parseShort(props.maxCurrent)
         minCurrent = Short.parseShort(props.minCurrent)
+        maxStartCurrent = Short.parseShort(props.maxStartCurrent)
         readRequest = "http://$wallboxIp/api/status?filter="
         setRequest = "http://$wallboxIp/api/set?"
     }
@@ -96,7 +98,7 @@ class Wallbox {
      * sends request to wallbox api to start loading
      * @return human readable response
      */
-    def startLoading() {
+    def startCharging() {
         // seems that NEUTRAL delegates loading state to the car (which makes sense)
         def uri = setRequest + "frc=${ForceState.NEUTRAL.ordinal()}"
         new URL(uri).text
@@ -106,7 +108,7 @@ class Wallbox {
      * sends request to wallbox api to stop loading
      * @return human readable response
      */
-    def stopLoading() {
+    def stopCharging() {
         def uri = setRequest + "frc=${ForceState.OFF.ordinal()}"
         new URL(uri).text
     }
@@ -136,13 +138,13 @@ class Wallbox {
         Wallbox wb = Wallbox.wallbox
         println wb.getWallboxValues()
         println wb.setLoadingCurrent((short) 8)
-        wb.startLoading()
+        wb.startCharging()
         for (i in 0..<10 ) {
             i++
             Thread.sleep(1500)
             println wb.getWallboxValues()
         }
-        wb.stopLoading()
+        wb.stopCharging()
         for (i in 0..<10 ) {
             i++
             Thread.sleep(1500)

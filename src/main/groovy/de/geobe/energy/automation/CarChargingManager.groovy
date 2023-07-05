@@ -55,6 +55,7 @@ class CarChargingManager implements WallboxStateSubscriber {
     @ActiveMethod(blocking = true)
     @Override
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
+        print "WB state: $carState -> "
         switch (carState) {
             case WallboxMonitor.CarChargingState.NO_CAR:
             case WallboxMonitor.CarChargingState.UNDEFINED:
@@ -149,7 +150,9 @@ class CarChargingManager implements WallboxStateSubscriber {
                 switch (chargeState) {
                     case ChargeState.NoSurplus:
                         chargeState = ChargeState.HasSurplus
+                        setCurrent(param)
                         startCharging()
+                        break
                     case ChargeState.HasSurplus:
                         setCurrent(param)
                         break
@@ -201,14 +204,18 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     private stopCharging() {
         println "stop charging"
+        Wallbox.wallbox.stopCharging()
+        setCurrent(0)
     }
 
     private startCharging() {
         println "start charging"
+        Wallbox.wallbox.startCharging()
     }
 
     private setCurrent(int amp = 0) {
         println "set current to $amp"
+        Wallbox.wallbox.requestedCurrent = amp
     }
 
     private startTibberMonitor() {
@@ -222,12 +229,12 @@ class CarChargingManager implements WallboxStateSubscriber {
     static void main(String[] args) {
         CarChargingManager manager = new CarChargingManager()
         PvChargeStrategy.chargeStrategy.chargingManager = manager
-        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 5)
+        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 12)
         PvChargeStrategy.chargeStrategy.params = params
         manager.active = true
         Thread.sleep(3000)
         manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)
-        Thread.sleep(120000)
+        Thread.sleep(60 * 60 * 1000) // 1 hour
         manager.active=false
         Thread.sleep(3000)
         manager.shutDown()

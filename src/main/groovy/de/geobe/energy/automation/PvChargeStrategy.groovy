@@ -48,7 +48,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
 
     @ActiveMethod(blocking = false)
     void takePowerValues(PowerValues pValues) {
-        println "new power values $pValues"
+//        println "new power values $pValues"
         if (valueTrace.size() >= params.toleranceStackSize) {
             valueTrace.removeLast()
         }
@@ -69,6 +69,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
         def powerValues = valueTrace.first()
         def wb = WallboxMonitor.monitor.current
         WallboxValues wbValues = wb.values
+        def requestedCurrent = wbValues.requestedCurrent
         CarChargingState carCargingState = wb.state
         def powerBalance = powerValues.powerSolar - powerValues.consumptionHome
         // more consumption as could be served by battery (negative balance) && loading car
@@ -80,7 +81,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
                 def couldSave = 3 * 230 * (wbValues.requestedCurrent - Wallbox.wallbox.minCurrent)
                 if (powerBalance + couldSave >= params.stopThreshold) {
                     // request minimal load current
-                    sendSurplus(Wallbox.wallbox.minCurrent)
+                    sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
                 } else {
                     sendNoSurplus()
                     resetHistory()
@@ -90,31 +91,43 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
             // we have collected data for some time so we can work with rolling averages
             int meanPSun = ((int) (valueTrace.collect { it.powerSolar }.sum())).intdiv(valueTrace.size())
             int meanCHome = ((int) (valueTrace.collect { it.consumptionHome }.sum())).intdiv(valueTrace.size())
-            println "meanPSun: $meanPSun, meanCHome: $meanCHome"
+            println powerValues
+            print "meanPSun: $meanPSun, meanCHome: $meanCHome, "
             // how much power should be used for car charging depending on house battery soc
             def availablePVBalance = powerToAmp(meanPSun - meanCHome)
             def availableFromBattery = powerToAmp(powerRamp(powerValues.socBattery))
-            def carCharging = carCargingState == CarChargingState.CHARGING && wbValues.energy > 1000
-            // different strategies ig car is loading or not
-            if (carCharging) {
-                def amp4loading = wbValues.requestedCurrent + availablePVBalance
+            def isCarCharging = carCargingState == CarChargingState.CHARGING && wbValues.energy > 1000
+            def carChargingAmps = powerToAmp(wbValues.energy)
+            println "avPV: $availablePVBalance, avBatt: $availableFromBattery, " +
+                    "charging: $isCarCharging, iCharge: $carChargingAmps"
+            // different strategies if car is loading or not
+            if (isCarCharging) {
+                def amp4loading = requestedCurrent + availablePVBalance
+//                def amp4loading = carChargingAmps + availablePVBalance
                 if (amp4loading >= Wallbox.wallbox.minCurrent) {
                     println 'loading from PV only'
-                    sendSurplus(amp4loading)
+                    sendSurplus(amp4loading, requestedCurrent)
                 } else if (amp4loading + availableFromBattery >= Wallbox.wallbox.minCurrent) {
                     println 'keep charging with battery support'
-                    sendSurplus(Wallbox.wallbox.minCurrent)
+                    sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
                 } else {
                     println 'stop charging'
                     sendNoSurplus()
                 }
                 resetHistory()
-            } else if (availablePVBalance >= Wallbox.wallbox.minCurrent) {
-                println 'start charging'
-                sendSurplus(availablePVBalance)
-                resetHistory()
             } else {
-                println 'no PV power for loading'
+                if (availablePVBalance >= Wallbox.wallbox.minCurrent) {
+                    println 'start charging PV only (limited current)'
+                    sendSurplus(Math.min(availablePVBalance, Wallbox.wallbox.maxStartCurrent), requestedCurrent)
+                    resetHistory()
+                } else if (availablePVBalance + availableFromBattery >= Wallbox.wallbox.minCurrent) {
+                    println 'start charging with battery support'
+                    sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
+                    resetHistory()
+                } else {
+                    println 'no PV power for loading'
+                    sendNoSurplus()
+                }
             }
         }
     }
@@ -153,16 +166,18 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
     /**
      * request loading with amp ampere
      */
-    private void sendSurplus(int amps) {
-        println "send carChargingManager?.takeSurplus($amps)"
-        carChargingManager?.takeSurplus(amps)
+    private void sendSurplus(int amps, def actual) {
+//        println "send carChargingManager.takeSurplus($amps)"
+        if (amps != actual) {
+            carChargingManager?.takeSurplus(amps)
+        }
     }
 
     /**
      * request stoploading
      */
     private void sendNoSurplus() {
-        println "send carChargingManager?.takeSurplus($amps)"
+//        println "send carChargingManager.takeSurplus($amps)"
         carChargingManager?.takeSurplus(0)
     }
 
