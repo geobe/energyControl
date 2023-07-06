@@ -209,13 +209,13 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private startCharging() {
-        println "start charging"
+        println " start charging"
         Wallbox.wallbox.startCharging()
     }
 
     private setCurrent(int amp = 0) {
-        println "set current to $amp"
-        Wallbox.wallbox.requestedCurrent = amp
+        println " set current to $amp"
+        Wallbox.wallbox.chargingCurrent = amp
     }
 
     private startTibberMonitor() {
@@ -229,7 +229,7 @@ class CarChargingManager implements WallboxStateSubscriber {
     static void main(String[] args) {
         CarChargingManager manager = new CarChargingManager()
         PvChargeStrategy.chargeStrategy.chargingManager = manager
-        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 12)
+        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 5)
         PvChargeStrategy.chargeStrategy.params = params
         manager.active = true
         Thread.sleep(3000)

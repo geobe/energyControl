@@ -118,7 +118,7 @@ class Wallbox {
      * @param current loading current in A, is limited between min and max values from properties
      * @return human readable response
      */
-    def setLoadingCurrent(short current) {
+    def setChargingCurrent(short current) {
         if (current < minCurrent) {
             current = minCurrent
         } else if (current > maxCurrent) {
@@ -137,7 +137,7 @@ class Wallbox {
     static void main(String[] args) {
         Wallbox wb = Wallbox.wallbox
         println wb.getWallboxValues()
-        println wb.setLoadingCurrent((short) 8)
+        println wb.setChargingCurrent((short) 8)
         wb.startCharging()
         for (i in 0..<10 ) {
             i++
