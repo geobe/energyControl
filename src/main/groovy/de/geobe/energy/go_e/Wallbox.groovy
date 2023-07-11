@@ -145,7 +145,7 @@ class Wallbox {
             println wb.getWallboxValues()
         }
         wb.stopCharging()
-        for (i in 0..<10 ) {
+        for (i in 0..<3 ) {
             i++
             Thread.sleep(1500)
             println wb.getWallboxValues()

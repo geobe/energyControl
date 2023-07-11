@@ -179,7 +179,7 @@ Takes some time before load current is back to requested
         }
         WallboxMonitor.monitor.subscribeValue valueSubscriber
         WallboxMonitor.monitor.subscribeState stateSubscriber
-        Thread.sleep 10000
+        Thread.sleep 12000
         WallboxMonitor.monitor.unsubscribeValue valueSubscriber
         WallboxMonitor.monitor.unsubscribeState stateSubscriber
         Thread.sleep 1000
