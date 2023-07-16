@@ -1,0 +1,63 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 1000 width
+
+'act -left-> act : [takePowerValues : eval]
+state "Active" as act {
+
+    act: on: powerValues : \n\tcheck stop immediate,\n\tcalculate values,\n\tdelegate to substate
+
+    state "takePowerValues()" as pv <<entryPoint>>
+    state "startStrategy()" as start <<entryPoint>>
+    state "stopStrategy()" as stop <<entryPoint>>
+
+    start -down-> nc : [init]
+
+
+    state "NotCharging" as nc
+    nc: entry: sendNoSurplus
+
+ '   state "Filling Stack" as fill
+
+    state "evalPowerValues <<transient>>" as eval
+
+    state "Charging" as charge {
+
+        state "StartUpCharging" as sc
+        sc: entry: sendSurplus(min)
+
+        state "ContinueCharging" as ch
+        ch: entry: sendSurplus(calc)
+
+        state "TestAmpCarReduction" as tr
+        tr: entry: sendSurplus(min)
+
+        state "HasAmpCarReduction" as hr
+        hr: entry: sendSurplus(min)
+
+        nc --> sc : [checkSurplus]
+
+        eval --> [H] : [noSurplus\nampReduced]
+
+    }
+    state exit <<exitPoint>>
+
+    eval -left-> [H*] : [checkSurplus]
+    eval --> exit : [waitForAverage]
+    eval -down-> sc : [reduceImmediate]
+
+    charge -up-> nc : [noSurplus]
+
+    sc -down-> ch : [checkSurplus]
+    ch -left-> ch : [checkSurplus]
+    ch -down-> tr : [ampReduced]
+    tr -up-> ch : [checkSurplus]
+    tr -down-> hr : [ampReduced]
+    hr -up-> ch : [checkSurplus]
+}
+pv --> eval
+[*] -down-> start
+'exit -down-> [*] : [stopStrategy]
+stop -up-> [*]
+@enduml

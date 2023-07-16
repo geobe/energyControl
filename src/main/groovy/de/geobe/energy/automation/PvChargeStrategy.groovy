@@ -25,7 +25,19 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
         pvChargeStrategy
     }
 
+    static enum ChargingState {
+        NotCharging,
+        StartUpCharging,
+        Charging,
+        TestAmpCarReduction,
+        HasAmpCarReduction
+    }
+
+    private ChargingState chargingState = ChargingState.NotCharging
+
     private CarChargingManager carChargingManager
+
+
 
     @ActiveMethod
     void setChargingManager(CarChargingManager manager) {
@@ -107,17 +119,41 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
                     "${isCarCharging ? 'charging with ' + wbValues.energy : ''}  reqAmp: $wbValues.requestedCurrent. "
             // different strategies if car is loading or not
             if (isCarCharging) {
-                def amp4loading = requestedCurrent + availablePVBalance
-//                def amp4loading = carChargingAmps + availablePVBalance
+                def amp4loading = Math.min(requestedCurrent + availablePVBalance, Wallbox.wallbox.maxCurrent)
+                // check if car is reducing current because nearly fully charged
+                if (carChargingAmps <= requestedCurrent - 1 ) {
+                    switch (chargingState) {
+                        case ChargingState.Charging:
+                            chargingState = ChargingState.TestAmpCarReduction
+                        case ChargingState.TestAmpCarReduction:
+                            chargingState = ChargingState.HasAmpCarReduction
+                            amp4loading = requestedCurrent
+                            break
+                        case ChargingState.HasAmpCarReduction:
+                            if (wbValues.energy == 0) {
+                                sendNoSurplus()
+                                stopStrategy()
+                                println ' --> eval done, fully charged'
+                            }
+                    }
+                }
                 if (amp4loading >= Wallbox.wallbox.minCurrent) {
                     print 'charging from PV only '
-                    sendSurplus(amp4loading, requestedCurrent)
+                    // charging not in startup phase or requested charging current to be reduced
+                    if (chargingState == ChargingState.Charging || amp4loading < requestedCurrent) {
+                        sendSurplus(amp4loading, requestedCurrent)
+                    }
+                    chargingState = chargingState in [ChargingState.NotCharging, ChargingState.StartUpCharging] ?
+                            ChargingState.Charging : chargingState
                 } else if (amp4loading + availableFromBattery >= Wallbox.wallbox.minCurrent) {
                     print 'keep charging with battery support '
                     sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
+                    chargingState = chargingState in [ChargingState.NotCharging, ChargingState.StartUpCharging] ?
+                            ChargingState.Charging : chargingState
                 } else {
                     print 'stop charging '
                     sendNoSurplus()
+                    chargingState = ChargingState.NotCharging
                 }
                 resetHistory()
             } else {
@@ -125,16 +161,20 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
                     print 'start charging PV only (limited current) '
                     sendSurplus(Math.min(availablePVBalance, Wallbox.wallbox.maxStartCurrent), 0)
                     resetHistory()
-                } else if (availablePVBalance + availableFromBattery >= Wallbox.wallbox.minCurrent) {
+                    chargingState = ChargingState.StartUpCharging
+                } else if (availablePVBalance + availableFromBattery - params.batStartHysteresis
+                        >= Wallbox.wallbox.minCurrent) {
                     print 'start charging with battery support '
                     sendSurplus(Wallbox.wallbox.minCurrent, 0)
                     resetHistory()
+                    chargingState = ChargingState.StartUpCharging
                 } else {
-                    print 'no PV power for loading '
+                    print 'not enough PV power for charging '
                     // just in case wallbox is just slowly starting to charge
                     if (wbValues.energy > 0) {
                         sendNoSurplus()
                     }
+                    chargingState = ChargingState.NotCharging
                 }
             }
             println ' --> eval done'

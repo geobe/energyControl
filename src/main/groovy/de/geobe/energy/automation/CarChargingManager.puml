@@ -67,11 +67,17 @@ state "Active" as act {
         ls: entry: stopCharging()
       }
 
+      state "FullyCharged" as fc
+      fc: entry: stopCharging()
+
       cl --> sst : chargeStrategyChanged : checkStrategy()
       sst --> lps : [chargePvSurplus]
       sst --> ls : [chargeStop]
       sst --> lt : [chargeTibber]
       sst --> la : [chargeAnyway]
+      lps --> fc : [fullyCharged]
+      lt --> fc : [fullyCharged]
+      la --> fc : [fullyCharged]
     }
 
 }

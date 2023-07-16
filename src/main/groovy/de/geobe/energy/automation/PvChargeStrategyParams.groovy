@@ -3,7 +3,8 @@ package de.geobe.energy.automation
 record PvChargeStrategyParams(
         int batPower = 3000,
         int batCapacity = 17500,
-        int stopThreshold = -4000,
+        int stopThreshold = -3000,
+        int batStartHysteresis = 500,
         int minChargeUseBat = 60,
         int fullChargeUseBat = 80,
         int minBatLoadPower = 200,
@@ -14,6 +15,7 @@ record PvChargeStrategyParams(
         batPower = o.batPower
         batCapacity = o.batCapacity
         stopThreshold = o.stopThreshold
+        batStartHysteresis = o.batStartHysteresis
         minChargeUseBat = o.minChargeUseBat
         fullChargeUseBat = o.fullChargeUseBat
         minBatLoadPower = o.minBatLoadPower

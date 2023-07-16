@@ -234,8 +234,8 @@ class CarChargingManager implements WallboxStateSubscriber {
         manager.active = true
         Thread.sleep(3000)
         manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)
-//        Thread.sleep(60 * 60 * 1000) // 1 hour
-        Thread.sleep(10 * 60 * 1000) // 3 minutes
+        Thread.sleep(2 * 60 * 60 * 1000) // 1 hour
+//        Thread.sleep(10 * 60 * 1000) // 3 minutes
         manager.active=false
         Thread.sleep(3000)
         manager.shutDown()
