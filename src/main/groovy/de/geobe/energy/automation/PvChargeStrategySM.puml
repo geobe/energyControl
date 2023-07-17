@@ -34,8 +34,7 @@ state "Active" as act {
         tr: entry: sendSurplus(min)
 
         state "HasAmpCarReduction" as hr
-        hr: entry: sendSurplus(min)
-
+        hr: entry: Energy > 0 ?\n\tsendSurplus(min)
         nc --> sc : [checkSurplus]
 
         eval --> [H] : [noSurplus\nampReduced]
@@ -55,6 +54,7 @@ state "Active" as act {
     tr -up-> ch : [checkSurplus]
     tr -down-> hr : [ampReduced]
     hr -up-> ch : [checkSurplus]
+    hr -right-> exit : [energy == 0]
 }
 pv --> eval
 [*] -down-> start

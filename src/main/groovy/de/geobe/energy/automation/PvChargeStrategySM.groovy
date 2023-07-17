@@ -12,7 +12,7 @@ import static de.geobe.energy.automation.WallboxMonitor.CarChargingState
  * Responsibility:
  */
 @ActiveObject
-class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscriber, WallboxStateSubscriber*/ {
+class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     private PvChargeStrategyParams params = new PvChargeStrategyParams()
     private List<PowerValues> valueTrace = []
 
@@ -52,12 +52,10 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
 
     private CarChargingManager carChargingManager
 
-
-
-    @ActiveMethod
-    void setChargingManager(CarChargingManager manager) {
-        carChargingManager = manager
-    }
+//    @ActiveMethod
+//    void setChargingManager(CarChargingManager manager) {
+//        carChargingManager = manager
+//    }
 
     @ActiveMethod(blocking = true)
     void startStrategy(CarChargingManager manager) {
@@ -89,24 +87,13 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
 
     }
 
-    private performActiveState(ChargingEvent event) {
-        switch (event) {
-            case ChargingEvent.init:
-                //in any state
-                chargingState = ChargingState.NotCharging
-                sendNoSurplus()
-                break
-            case ChargingEvent.checkSurplus:
-                switch (chargingState) {
-                    case ChargingState.NotCharging:
-                    case ChargingState.StartUpCharging:
-                    case ChargingState.NotCharging:
-                    case ChargingState.NotCharging:
-                }
-        }
-    }
-
-
+    /**
+     * test for more consumption as could be served by PV and battery (negative balance) while loading car
+     * @param balance PV production minus home consumption
+     * @param requested charging current requested by wallbox
+     * @param charging is car charging?
+     * @return immediate action needed or none
+     */
     private ImmediateAction checkReduceImmediate(int balance, int requested, boolean charging) {
         if (balance < params.stopThreshold && charging) {
             // are we currently loading car with more than minimal load current?
@@ -120,11 +107,17 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
                     ImmediateAction.Stop
                 }
             } else {
-                ImmediateAction.None
+                ImmediateAction.Stop
             }
+        } else {
+            ImmediateAction.None
         }
     }
 
+    /**
+     * detect if loading is finished, i.e. car takes no energy though supplied
+     * @return true if ended
+     */
     private boolean isEndingCharge(int requestedCurrent, int usedEnergy) {
         powerToAmp(usedEnergy) <= requestedCurrent - 1
     }
@@ -142,7 +135,7 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
         def powerBalance = powerValues.powerSolar - powerValues.consumptionHome
         def isCarCharging = carChargingState == CarChargingState.CHARGING && wbValues.energy > 1000
         ChargingEvent chargingEvent = ChargingEvent.noSurplus
-        // more consumption as could be served by battery (negative balance) && loading car
+
         switch (checkReduceImmediate(powerBalance, requestedCurrent, isCarCharging)) {
             case ImmediateAction.Stop:
                 chargingEvent = ChargingEvent.noSurplus
@@ -173,6 +166,10 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
             amp4loading = Math.min(requestedCurrent + availablePVBalance, Wallbox.wallbox.maxCurrent)
         }
 
+        // tracing output
+        def values = "$powerValues,  " +
+                "balance $powerBalance, req $requestedCurrent, avSun $meanPSun, avHome $meanCHome"
+        def evTrace = " ChargeStrategy: $chargingState --$chargingEvent--> "
         // now we can execute the internal state chart
         switch (chargingEvent) {
             case ChargingEvent.noSurplus:
@@ -180,26 +177,38 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
                 sendNoSurplus()
                 resetHistory()
                 chargingState = ChargingState.NotCharging
-                return
+                break
             case  ChargingEvent.reduceImmediate:
                 sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
                 resetHistory()
                 chargingState = ChargingState.StartUpCharging
-                return
+                break
             case ChargingEvent.waitForAverage:
-                return
+                break
             case ChargingEvent.ampReduced:
                 switch (ChargingState) {
                     case ChargingState.ContinueCharging:
-                    case ChargingState.TestAmpCarReduction:
-                    case ChargingState.HasAmpCarReduction:
                         sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
                         resetHistory()
-                        chargingState = chargingState == ChargingState.ContinueCharging ?
-                                ChargingState.TestAmpCarReduction : (chargingState == ChargingState.TestAmpCarReduction ?
-                                ChargingState.HasAmpCarReduction : chargingState)
-                        return
+                        chargingState = ChargingState.TestAmpCarReduction
+                        break
+                    case ChargingState.TestAmpCarReduction:
+                        sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
+                        resetHistory()
+                        chargingState = ChargingState.HasAmpCarReduction
+                        break
+                    case ChargingState.HasAmpCarReduction:
+                        if (wbValues.energy == 0) {
+//                            chargingState = ChargingState.NotCharging
+                            sendFullyCharged()
+                        } else {
+                            sendSurplus(Wallbox.wallbox.minCurrent, requestedCurrent)
+                            resetHistory()
+                            chargingState = ChargingState.HasAmpCarReduction
+                        }
+                        break
                 }
+                break
             case ChargingEvent.checkSurplus:
                 switch (ChargingState) {
                     case ChargingState.NotCharging:
@@ -235,8 +244,13 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
                             chargingState = ChargingState.NotCharging
                         }
                         resetHistory()
-                        return
+                        break
                 }
+                break
+        }
+        if (ChargingEvent != ChargingEvent.waitForAverage) {
+            println "$values"
+            println "$evTrace$chargingState"
         }
     }
 
@@ -275,9 +289,8 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
      * request loading with amp ampere
      */
     private void sendSurplus(int amps, def actual) {
-//        println "send carChargingManager.takeSurplus($amps)"
         if (amps != actual) {
-            carChargingManager?.takeSurplus(amps)
+            carChargingManager?.takeChargingCurrent(amps)
         }
     }
 
@@ -285,8 +298,14 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
      * request stoploading
      */
     private void sendNoSurplus() {
-//        println "send carChargingManager.takeSurplus($amps)"
-        carChargingManager?.takeSurplus(0)
+        carChargingManager?.takeChargingCurrent(0)
+    }
+
+    /**
+     * inform that charging stopped (car battery fully charged)
+     */
+    private void sendFullyCharged() {
+        carChargingManager?.takeFullyCharged()
     }
 
     static void main(String[] args) {
@@ -301,3 +320,4 @@ class PvChargeStrategySM implements PowerValueSubscriber/*, WallboxValueSubscrib
         PowerMonitor.monitor.shutdown()
     }
 }
+

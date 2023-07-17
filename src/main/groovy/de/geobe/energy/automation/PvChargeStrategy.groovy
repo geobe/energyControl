@@ -218,7 +218,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
     private void sendSurplus(int amps, def actual) {
 //        println "send carChargingManager.takeSurplus($amps)"
         if (amps != actual) {
-            carChargingManager?.takeSurplus(amps)
+            carChargingManager?.takeChargingCurrent(amps)
         }
     }
 
@@ -227,7 +227,7 @@ class PvChargeStrategy implements PowerValueSubscriber/*, WallboxValueSubscriber
      */
     private void sendNoSurplus() {
 //        println "send carChargingManager.takeSurplus($amps)"
-        carChargingManager?.takeSurplus(0)
+        carChargingManager?.takeChargingCurrent(0)
     }
 
     static void main(String[] args) {

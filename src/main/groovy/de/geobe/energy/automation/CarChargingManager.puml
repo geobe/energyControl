@@ -1,16 +1,18 @@
 @startuml
 'https://plantuml.com/state-diagram
 
-scale 1400 width
+scale 1000 width
 
-[*] -down-> iact
+[*] -right-> iact
 
 state "Inactive" as iact
 state "Active" as act {
 
 
-    state "checkCar" as ccc <<choice>>
-    [*] -right-> ccc : checkCar()
+'    state "checkCar" as ccc <<choice>>
+'    [*] -right-> ccc : checkCar()
+    [*] --> nocl : [noCar]
+    [*] --> cl : [isCar]
 
     act: entry: WallboxMonitor.subscribeState(this)
     act: exit: WallboxMonitor.unsubscribeState(this)
@@ -22,12 +24,9 @@ state "Active" as act {
     state "CarConnected" as cl {
 '      cl: entry: getChargeStrategy()
 
-      json ChargeStrategy {
-        "ChargeStrategy": ["chargeStop", "chargePvSurplus", "chargeAnyway", "chargeTibber"]
-      }
 
-       state "selectStrategy" as sst <<choice>>
-       [*] -right-> sst : checkStrategy()
+'       state "selectStrategy" as sst <<choice>>
+'       [*] -down-> sst : checkStrategy()
 
       state "ChargePvSurplus" as lps {
         lps: entry: PvChargeStrategy.startStrategy(this)
@@ -70,19 +69,17 @@ state "Active" as act {
       state "FullyCharged" as fc
       fc: entry: stopCharging()
 
-      cl --> sst : chargeStrategyChanged : checkStrategy()
-      sst --> lps : [chargePvSurplus]
-      sst --> ls : [chargeStop]
-      sst --> lt : [chargeTibber]
-      sst --> la : [chargeAnyway]
+'      cl --> sst : chargeStrategyChanged : checkStrategy()
+      [*] -left-> lps : [chargePvSurplus]
+      [*] -right-> ls : [chargeStop]
+      [*] --> lt : [chargeTibber]
+      [*] --> la : [chargeAnyway]
       lps --> fc : [fullyCharged]
       lt --> fc : [fullyCharged]
       la --> fc : [fullyCharged]
     }
 
 }
-ccc --> nocl : [noCar]
-ccc --> cl : [isCar]
 cl -up-> nocl : carDisconnected
 
 nocl -down-> cl : carConnected
