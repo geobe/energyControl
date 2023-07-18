@@ -114,6 +114,7 @@ class CarChargingManager implements WallboxStateSubscriber {
 //    @ActiveMethod(blocking = true)
     private void takeEvent(ChargeEvent event, def param = null) {
         def evTrigger = "CarChargingManager $chargeState --$event${param ? '(' + param + ')' : ''}-> "
+        print evTrigger
         switch (event) {
             case ChargeEvent.Activate:
                 switch (chargeState) {
@@ -135,7 +136,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeState.HasSurplus:
                         stopCharging()
                     case ChargeState.NoSurplus:
-                        PvChargeStrategy.chargeStrategy.stopStrategy()
+                        PvChargeStrategySM.chargeStrategy.stopStrategy()
                         break
                 }
                 exitActive()
@@ -159,7 +160,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeState.HasSurplus:
                         stopCharging()
                     case ChargeState.NoSurplus:
-                        PvChargeStrategy.chargeStrategy.stopStrategy()
+                        PvChargeStrategySM.chargeStrategy.stopStrategy()
                         break
                 }
                 chargeState = ChargeState.NoCarConnected
@@ -245,7 +246,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                 startTibberMonitor()
                 return ChargeState.ChargeTibber
             case ChargeRule.CHARGE_PV_SURPLUS:
-                chargeStrategy = PvChargeStrategy.chargeStrategy
+                chargeStrategy = PvChargeStrategySM.chargeStrategy
                 chargeStrategy.startStrategy this
                 return ChargeState.NoSurplus
         }
@@ -258,13 +259,15 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private startCharging() {
-        println " start charging"
+        print " start charging"
         Wallbox.wallbox.startCharging()
+        println " --> $Wallbox.wallbox.wallboxValues"
     }
 
     private setCurrent(int amp = 0) {
-        println " set current to $amp"
+        print " set current to $amp"
         Wallbox.wallbox.chargingCurrent = amp
+        println " --> $Wallbox.wallbox.wallboxValues"
     }
 
     private startTibberMonitor() {
@@ -285,7 +288,7 @@ class CarChargingManager implements WallboxStateSubscriber {
 //        Thread.sleep(3000)
         manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)
 //        Thread.sleep(2 * 60 * 60 * 1000) // 1 hour
-        Thread.sleep(3 * 60 * 1000) // 3 minutes
+        Thread.sleep(10 * 60 * 1000) // 3 minutes
         manager.active = false
         Thread.sleep(3000)
         manager.shutDown()

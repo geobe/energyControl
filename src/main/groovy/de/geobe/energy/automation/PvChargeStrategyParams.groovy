@@ -4,7 +4,7 @@ record PvChargeStrategyParams(
         int batPower = 3000,
         int batCapacity = 17500,
         int stopThreshold = -3000,
-        int batStartHysteresis = 500,
+        int batStartHysteresis = 1, //ampere!
         int minChargeUseBat = 60,
         int fullChargeUseBat = 80,
         int minBatLoadPower = 200,
