@@ -8,11 +8,14 @@ scale 1000 width
 state "Inactive" as iact
 state "Active" as act {
 
+    state cStop <<choice>>
 
-'    state "checkCar" as ccc <<choice>>
-'    [*] -right-> ccc : checkCar()
-    [*] --> nocl : [noCar]
-    [*] --> cl : [isCar]
+     [*] --> cStop : [isCar]
+     cStop --> xs : [cmdStop]
+     cStop --> xs : [isExtStop]
+     cStop --> ccon : [else]
+     [*] --> nocl : [noCar]
+
 
     act: entry: WallboxMonitor.subscribeState(this)
     act: exit: WallboxMonitor.unsubscribeState(this)
@@ -21,12 +24,10 @@ state "Active" as act {
 '      nocl: entry: cancelCharging()
     }
 
-    state "CarConnected" as cl {
-'      cl: entry: getChargeStrategy()
+    state "ChargingStopped" as xs
+        xs: entry: stopCharging()
 
-
-'       state "selectStrategy" as sst <<choice>>
-'       [*] -down-> sst : checkStrategy()
+    state "CarConnected" as ccon {
 
       state "ChargePvSurplus" as lps {
         lps: entry: PvChargeStrategy.startStrategy(this)
@@ -62,30 +63,20 @@ state "Active" as act {
         la: exit:stopCharging()
       }
 
-      state "ChargingStopped" as ls {
-        ls: entry: stopCharging()
-      }
-
-      state "FullyCharged" as fc
-      fc: entry: stopCharging()
-
-'      cl --> sst : chargeStrategyChanged : checkStrategy()
-      [*] -left-> lps : [chargePvSurplus]
-      [*] -right-> ls : [chargeStop]
-      [*] --> lt : [chargeTibber]
-      [*] --> la : [chargeAnyway]
-      lps --> fc : [fullyCharged]
-      lt --> fc : [fullyCharged]
-      la --> fc : [fullyCharged]
+      ccon --> xs : cmdStop
+      [*] -down-> lps : [cmdChargePvSurplus]
+      [*] --> lt : [cmdChargeTibber]
+      [*] -right-> la : [cmdChargeAnyway]
     }
 
 }
-cl -up-> nocl : carDisconnected
+ccon -up-> nocl : carDisconnected
+ccon -up-> xs : extStopped
+ccon -up-> xs : fullyCharged
 
-nocl -down-> cl : carConnected
+nocl -right-> cStop : carConnected
 iact -down-> act : activate
 act -up-> iact : deactivate
-'act --> ccc : carChange
 
 note "CarChargingManager" as N1
 

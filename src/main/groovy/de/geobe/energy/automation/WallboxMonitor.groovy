@@ -38,7 +38,8 @@ class WallboxMonitor {
         NO_CAR,
         CHARGING,
         FULLY_CHARGED,
-        CHARGING_STOPPED,
+        CHARGING_STOPPED_BY_APP,
+        CHARGING_STOPPED_BY_CAR,
     }
 
     private CarChargingState newState, state = CarChargingState.UNDEFINED
@@ -71,15 +72,23 @@ class WallboxMonitor {
     private boolean hasStateChanged(WallboxValues values) {
         if (values?.carState == Wallbox.CarState.IDLE) {
             newState = CarChargingState.NO_CAR
-        } else if (values?.carState == Wallbox.CarState.CHARGING) {
+        } else if (values?.carState == Wallbox.CarState.CHARGING
+//                && values?.forceState == Wallbox.ForceState.NEUTRAL     // necessary condition ?
+        ) {
             newState = CarChargingState.CHARGING
+        } else if (values?.carState == Wallbox.CarState.COMPLETE
+                && values?.allowedToCharge == true
+                && values.forceState == Wallbox.ForceState.NEUTRAL
+        ) {
+            // to be checked, same as stopped by car???
+            newState = CarChargingState.CHARGING_STOPPED_BY_CAR
         } else if (values?.carState == Wallbox.CarState.COMPLETE
                 && values?.allowedToCharge == true) {
             // to be checked, same as stopped by car???
             newState = CarChargingState.FULLY_CHARGED
         } else if (values?.forceState == Wallbox.ForceState.OFF
                 && values.allowedToCharge == false ) {
-            newState = CarChargingState.CHARGING_STOPPED
+            newState = CarChargingState.CHARGING_STOPPED_BY_APP
         }
         if (newState != state) {
             state = newState
@@ -91,7 +100,7 @@ class WallboxMonitor {
 
 
 /*
-loading: WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=CHARGING, forceState=NEUTRAL, energy=4080, phaseSwitchMode=FORCE_3]
+charging: WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=CHARGING, forceState=NEUTRAL, energy=4080, phaseSwitchMode=FORCE_3]
 stop by car: WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=COMPLETE, forceState=NEUTRAL, energy=0, phaseSwitchMode=FORCE_3]
 stop by app: WallboxValues[allowedToCharge=false, requestedCurrent=6, carState=COMPLETE, forceState=OFF, energy=0, phaseSwitchMode=FORCE_3]
 no car:  WallboxValues[allowedToCharge=true, requestedCurrent=6, carState=IDLE, forceState=NEUTRAL, energy=0, phaseSwitchMode=FORCE_3]

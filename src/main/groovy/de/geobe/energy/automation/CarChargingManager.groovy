@@ -33,6 +33,7 @@ class CarChargingManager implements WallboxStateSubscriber {
         Deactivate,
         CarConnected,
         CarDisconnected,
+        ExternallyStopped,
         ChargeRuleChanged,
         Surplus,
         NoSurplus,
@@ -82,7 +83,8 @@ class CarChargingManager implements WallboxStateSubscriber {
                 takeEvent(ChargeEvent.CarDisconnected)
                 break
             case WallboxMonitor.CarChargingState.CHARGING:
-            case WallboxMonitor.CarChargingState.CHARGING_STOPPED:
+            case WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR:
+            case WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_APP:
             case WallboxMonitor.CarChargingState.FULLY_CHARGED:
                 takeEvent(ChargeEvent.CarConnected)
         }
@@ -280,6 +282,14 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     static void main(String[] args) {
         CarChargingManager manager = new CarChargingManager()
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                print "shutting down gently ..."
+                println ' done'
+
+            }
+        })
+
 //        PvChargeStrategy.chargeStrategy.chargingManager = manager
         PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 5)
         PvChargeStrategySM.chargeStrategy.params = params
@@ -288,7 +298,7 @@ class CarChargingManager implements WallboxStateSubscriber {
 //        Thread.sleep(3000)
         manager.takeChargeRule(ChargeRule.CHARGE_PV_SURPLUS)
 //        Thread.sleep(2 * 60 * 60 * 1000) // 1 hour
-        Thread.sleep(10 * 60 * 1000) // 3 minutes
+        Thread.sleep(1 * 60 * 1000) // 3 minutes
         manager.active = false
         Thread.sleep(3000)
         manager.shutDown()

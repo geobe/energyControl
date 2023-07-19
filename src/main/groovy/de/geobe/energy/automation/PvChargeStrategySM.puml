@@ -2,7 +2,7 @@
 'https://plantuml.com/state-diagram
 
 scale 1000 width
-
+state "Inactive" as ia
 'act -left-> act : [takePowerValues : eval]
 state "Active" as act {
 
@@ -12,7 +12,7 @@ state "Active" as act {
     state "startStrategy()" as start <<entryPoint>>
     state "stopStrategy()" as stop <<entryPoint>>
 
-    start -down-> nc : [init]
+    start -down-> nc : init
 
 
     state "NotCharging" as nc
@@ -35,29 +35,33 @@ state "Active" as act {
 
         state "HasAmpCarReduction" as hr
         hr: entry: Energy > 0 ?\n\tsendSurplus(min)
-        nc --> sc : [checkSurplus]
+        nc --> sc : checkSurplus
 
-        eval --> [H] : [noSurplus\nampReduced]
+        eval --> [H] : noSurplus\nampReduced
 
     }
     state exit <<exitPoint>>
 
-    eval -left-> [H*] : [checkSurplus]
-    eval --> exit : [waitForAverage]
-    eval -down-> sc : [reduceImmediate]
+    eval -left-> [H*] : checkSurplus
+    eval --> exit : waitForAverage
+    eval -down-> sc : reduceImmediate
 
-    charge -up-> nc : [noSurplus]
+    charge -up-> nc : noSurplus
 
-    sc -down-> ch : [checkSurplus]
-    ch -left-> ch : [checkSurplus]
-    ch -down-> tr : [ampReduced]
-    tr -up-> ch : [checkSurplus]
-    tr -down-> hr : [ampReduced]
-    hr -up-> ch : [checkSurplus]
+    sc -down-> ch : checkSurplus
+    sc -up-> sc : ampReduced
+    ch -left-> ch : checkSurplus
+    ch -down-> tr : ampReduced
+    tr -up-> ch : checkSurplus
+    tr -down-> hr : ampReduced
+    hr -up-> ch : checkSurplus
     hr -right-> exit : [energy == 0]
 }
+
 pv --> eval
 [*] -down-> start
 'exit -down-> [*] : [stopStrategy]
-stop -up-> [*]
+stop -up-> ia
+ia -down-> start
+'stop -up-> [*]
 @enduml
