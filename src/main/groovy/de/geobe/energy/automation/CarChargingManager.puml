@@ -3,81 +3,94 @@
 
 scale 1000 width
 
-[*] -right-> iact
+[*] -right-> inAct
 
-state "Inactive" as iact
+state "Inactive" as inAct
 state "Active" as act {
-
-    state cStop <<choice>>
-
-     [*] --> cStop : [isCar]
-     cStop --> xs : [cmdStop]
-     cStop --> xs : [isExtStop]
-     cStop --> ccon : [else]
-     [*] --> nocl : [noCar]
-
-
     act: entry: WallboxMonitor.subscribeState(this)
     act: exit: WallboxMonitor.unsubscribeState(this)
 
-    state "NoCarConnected" as nocl {
+     [*] -left-> noCar : [noCarConnected]
+
+    state "NoCarConnected" as noCar
 '      nocl: entry: cancelCharging()
-    }
 
-    state "ChargingStopped" as xs
-        xs: entry: stopCharging()
+    state "CarConnected" as carCon {
 
-    state "CarConnected" as ccon {
+        state "ChargingStopped" as cStop
+            cStop: entry: stopCharging()
+            cStop: exit: forceDefaultIfStopped()
 
-      state "ChargePvSurplus" as lps {
-        lps: entry: PvChargeStrategy.startStrategy(this)
-        lps: exit: PvChargeStrategy.stopStrategy(this)
+        state "ChargePvSurplus" as cSurplus {
+          cSurplus: entry: PvChargeStrategy.startStrategy(this)
+          cSurplus: entry: stopCharging()
+          cSurplus: exit: PvChargeStrategy.stopStrategy(this)
 
-        state "HasSurplus" as has {
-            has: entry: setCurrent(v)
-            has: entry: startCharging()
-            has: on: surplus(v) : setCurrent(v)
-            has: exit: stopCharging()
-        }
+            state "HasSurplus" as hasPlus {
+                hasPlus: entry: setCurrent(v)
+                hasPlus: entry: startCharging()
+                hasPlus: on: surplus(v) : setCurrent(v)
+                hasPlus: exit: stopCharging()
+            }
 
-        state "NoSurplus" as nos {
-          nos: on: noSurplus : ignore
-        }
+            state "NoSurplus" as noPlus {
+              noPlus: on: noSurplus : ignore
+            }
 
         state lpstart <<start>>
-      }
-      nos -down-> has : surplus(v)
-      has -up-> nos : noSurplus
-      lpstart -right-> nos
 
-      state "ChargeTibber" as lt {
-      lt: entry: startTibberMonitor
-      lt: exit: stopTibberMonitor
-      lt: on: tibberGo : startCharging()
-      lt: on: tibberHalt : stopCharging()
       }
 
-      state "ChargeAnyway" as la {
-        la: entry: startCharging()
-        la: entry: setCurrent(maxCurrent)
-        la: exit:stopCharging()
-      }
+      state "ChargeTibber" as cTibber
+      cTibber: entry: startTibberMonitor
+      cTibber: exit: stopTibberMonitor
+      cTibber: on: tibberGo : startCharging()
+      cTibber: on: tibberHalt : stopCharging()
 
-      ccon --> xs : cmdStop
-      [*] -down-> lps : [cmdChargePvSurplus]
-      [*] --> lt : [cmdChargeTibber]
-      [*] -right-> la : [cmdChargeAnyway]
+
+      state "ChargeAnyway" as cAnyway
+        cAnyway: entry: startCharging()
+        cAnyway: entry: setCurrent(maxCurrent)
+        cAnyway: exit:stopCharging()
+
+      state "switch" as choiceCmd <<choice>>
+
+      note top of choiceCmd
+        choice has semantic of switch/case,
+        \tsee sequence of cases
+      end note
+
+      note "anyStop = FullyCharged || \n\tStoppedByCar||\n\tStoppedByApp||\n\tcmdChargeStop" as NcarCon
+
+      [H] -left-> choiceCmd : chargeCmdChanged
+      [*] --> choiceCmd
     }
+     [*] --> carCon : [isCarConnected]
+     cSurplus -down-> cStop : anyStop
+     cTibber -down-> cStop : anyStop
+     cAnyway -down-> cStop : anyStop
+     carCon -up-> noCar : carDisconnected
+'     noCar -down-> choiceCmd : carConnected
 
 }
-ccon -up-> nocl : carDisconnected
-ccon -up-> xs : extStopped
-ccon -up-> xs : fullyCharged
 
-nocl -right-> cStop : carConnected
-iact -down-> act : activate
-act -up-> iact : deactivate
 
-note "CarChargingManager" as N1
+choiceCmd -left-> cSurplus : [4: cmdChargePvSurplus]
+choiceCmd -down-> cTibber : [3: cmdChargeTibber]
+choiceCmd --> cAnyway : [2: cmdChargeAnyway]
+choiceCmd --> cStop : [1: anyStop]
+cStop -up-> choiceCmd : extStartCmd
+
+'carCon --> cStop : fullyCharged
+
+noCar --> carCon : carConnected
+inAct -down-> act : activate
+act -up-> inAct : deactivate
+
+noPlus -down-> hasPlus : surplus(v)
+hasPlus -up-> noPlus : noSurplus
+lpstart -right-> noPlus
+
+note "CarChargingManager" as NTop
 
 @enduml

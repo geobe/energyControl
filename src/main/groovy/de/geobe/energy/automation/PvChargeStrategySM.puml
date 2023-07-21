@@ -6,13 +6,13 @@ state "Inactive" as ia
 'act -left-> act : [takePowerValues : eval]
 state "Active" as act {
 
-    act: on: powerValues : \n\tcheck stop immediate,\n\tcalculate values,\n\tdelegate to substate
+'    act: on: powerValues : \n\tcheck stop immediate,\n\tcalculate values,\n\tdelegate to substate
 
     state "takePowerValues()" as pv <<entryPoint>>
     state "startStrategy()" as start <<entryPoint>>
     state "stopStrategy()" as stop <<entryPoint>>
 
-    start -down-> nc : init
+    start -down-> nc
 
 
     state "NotCharging" as nc
@@ -21,6 +21,8 @@ state "Active" as act {
  '   state "Filling Stack" as fill
 
     state "evalPowerValues <<transient>>" as eval
+        eval: entry: checkReduceImmediate()
+        eval: entry: genEventFromValues()
 
     state "Charging" as charge {
 
@@ -37,7 +39,7 @@ state "Active" as act {
         hr: entry: Energy > 0 ?\n\tsendSurplus(min)
         nc --> sc : checkSurplus
 
-        eval --> [H] : noSurplus\nampReduced
+        eval --> [H] : noSurplus ||\nampReduced
 
     }
     state exit <<exitPoint>>
@@ -59,7 +61,7 @@ state "Active" as act {
 }
 
 pv --> eval
-[*] -down-> start
+[*] -left-> ia
 'exit -down-> [*] : [stopStrategy]
 stop -up-> ia
 ia -down-> start
