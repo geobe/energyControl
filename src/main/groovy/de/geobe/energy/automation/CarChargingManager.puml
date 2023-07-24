@@ -1,7 +1,7 @@
 @startuml
 'https://plantuml.com/state-diagram
 
-scale 1000 width
+scale 1200 width
 
 [*] -right-> inAct
 
@@ -25,13 +25,22 @@ state "Active" as act {
           cSurplus: entry: PvChargeStrategy.startStrategy(this)
           cSurplus: entry: stopCharging()
           cSurplus: exit: PvChargeStrategy.stopStrategy(this)
+'          cSurplus: exit: stopCharging()
+
+          state "Surplus" as sp {
+           sp: exit: stopCharging()
 
             state "HasSurplus" as hasPlus {
-                hasPlus: entry: setCurrent(v)
-                hasPlus: entry: startCharging()
+'                hasPlus: entry: setCurrent(v)
                 hasPlus: on: surplus(v) : setCurrent(v)
-                hasPlus: exit: stopCharging()
             }
+
+            state "WaitForExtCharge" as waitCh
+                waitCh: entry: setCurrent(v)
+                waitCh: entry: startCharging()
+                waitCh: on: surplus(v) : setCurrent(v)
+
+        }
 
             state "NoSurplus" as noPlus {
               noPlus: on: noSurplus : ignore
@@ -62,34 +71,32 @@ state "Active" as act {
 
       note "anyStop = FullyCharged || \n\tStoppedByCar||\n\tStoppedByApp||\n\tcmdChargeStop" as NcarCon
 
-      [H] -left-> choiceCmd : chargeCmdChanged
+      [H] -l-> choiceCmd : chargeCmdChanged
       [*] --> choiceCmd
     }
      [*] --> carCon : [isCarConnected]
-     cSurplus -down-> cStop : anyStop
-     cTibber -down-> cStop : anyStop
-     cAnyway -down-> cStop : anyStop
-     carCon -up-> noCar : carDisconnected
-'     noCar -down-> choiceCmd : carConnected
 
 }
+cSurplus -down-> cStop : anyStop
+cTibber -down-> cStop : anyStop
+cAnyway --> cStop : anyStop
+carCon -up-> noCar : carDisconnected
 
-
-choiceCmd -left-> cSurplus : [4: cmdChargePvSurplus]
-choiceCmd -down-> cTibber : [3: cmdChargeTibber]
+choiceCmd -l-> cSurplus : [4: cmdChargePvSurplus]
 choiceCmd --> cAnyway : [2: cmdChargeAnyway]
 choiceCmd --> cStop : [1: anyStop]
+choiceCmd --> cTibber : [3: cmdChargeTibber]
 cStop -up-> choiceCmd : extStartCmd
-
-'carCon --> cStop : fullyCharged
 
 noCar --> carCon : carConnected
 inAct -down-> act : activate
 act -up-> inAct : deactivate
 
-noPlus -down-> hasPlus : surplus(v)
-hasPlus -up-> noPlus : noSurplus
-lpstart -right-> noPlus
+noPlus -right-> sp : surplus(v)
+waitCh -down-> hasPlus : extChargeCmd
+waitCh -down-> hasPlus : [isCharging]
+sp -u-> noPlus : noSurplus
+lpstart -left-> noPlus
 
 note "CarChargingManager" as NTop
 

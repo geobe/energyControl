@@ -36,7 +36,9 @@ class WallboxMonitor {
     static enum CarChargingState {
         UNDEFINED,
         NO_CAR,
+        WAIT_CAR,
         CHARGING,
+        CHARGING_ANYWAY,
         FULLY_CHARGED,
         CHARGING_STOPPED_BY_APP,
         CHARGING_STOPPED_BY_CAR,
@@ -60,42 +62,51 @@ class WallboxMonitor {
             valueSubscribers.each {
                 it.takeWallboxValues(cwv)
             }
-            if (hasStateChanged(cwv)) {
-                stateSubscribers.each {
-                    it.takeWallboxState(state)
+            if (stateSubscribers) {
+                newState = calcChargingState(cwv)
+                if (newState != state) {
+                    state = newState
+                    println "values: $cwv\n\t-> CarChargingState: $state"
+                    stateSubscribers.each {
+                        it.takeWallboxState(state)
+                    }
                 }
             }
         }
     }
 
     @ActiveMethod(blocking = true)
-    private boolean hasStateChanged(WallboxValues values) {
+    private CarChargingState calcChargingState(WallboxValues values) {
+        CarChargingState result
         if (values?.carState == Wallbox.CarState.IDLE) {
-            newState = CarChargingState.NO_CAR
+            result = CarChargingState.NO_CAR
+        } else if (values?.carState == Wallbox.CarState.WAIT_CAR) {
+            result = CarChargingState.WAIT_CAR
         } else if (values?.carState == Wallbox.CarState.CHARGING
 //                && values?.forceState == Wallbox.ForceState.NEUTRAL     // necessary condition ?
         ) {
-            newState = CarChargingState.CHARGING
+            if (values.requestedCurrent == wallbox.maxCurrent) {
+                // unconditionally switch to maximal charging current
+                result = CarChargingState.CHARGING_ANYWAY
+            } else {
+                // charge with default charging mode
+                result = CarChargingState.CHARGING
+            }
         } else if (values?.carState == Wallbox.CarState.COMPLETE
                 && values?.allowedToCharge == true
                 && values.forceState == Wallbox.ForceState.NEUTRAL
         ) {
             // to be checked, same as stopped by car???
-            newState = CarChargingState.CHARGING_STOPPED_BY_CAR
+            result = CarChargingState.CHARGING_STOPPED_BY_CAR
         } else if (values?.carState == Wallbox.CarState.COMPLETE
                 && values?.allowedToCharge == true) {
             // to be checked, same as stopped by car???
-            newState = CarChargingState.FULLY_CHARGED
+            result = CarChargingState.FULLY_CHARGED
         } else if (values?.forceState == Wallbox.ForceState.OFF
                 && values.allowedToCharge == false ) {
-            newState = CarChargingState.CHARGING_STOPPED_BY_APP
+            result = CarChargingState.CHARGING_STOPPED_BY_APP
         }
-        if (newState != state) {
-            state = newState
-            true
-        } else {
-            false
-        }
+        result
     }
 
 
@@ -110,7 +121,9 @@ Takes some time before load current is back to requested
 
     @ActiveMethod(blocking = true)
     def getCurrent() {
-        [values: wallbox.wallboxValues, state: state]
+        def values = wallbox.wallboxValues
+        def currentState = calcChargingState(values)
+        [values: values, state: currentState]
     }
 
 //    @ActiveMethod(blocking = true)
@@ -138,6 +151,7 @@ Takes some time before load current is back to requested
     @ActiveMethod
     void subscribeState(WallboxStateSubscriber subscriber) {
         def willStart = noSubscribers()
+        println "added stateSubscriber $subscriber"
         stateSubscribers.add subscriber
         if (willStart) {
             start()

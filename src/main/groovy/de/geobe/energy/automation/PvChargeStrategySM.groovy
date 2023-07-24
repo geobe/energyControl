@@ -26,6 +26,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     }
 
     static enum ChargingState {
+        Inactive,
         NotCharging,
         StartUpCharging,
         ContinueCharging,
@@ -48,7 +49,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
         Reduce
     }
 
-    private ChargingState chargingState = ChargingState.NotCharging
+    private ChargingState chargingState = ChargingState.Inactive
 
     private CarChargingManager carChargingManager
 
@@ -59,11 +60,13 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
 //        carChargingManager = manager
 //    }
 
-    @ActiveMethod(blocking = true)
+    @ActiveMethod(blocking = false)
     void startStrategy(CarChargingManager manager) {
         println "start strategy"
         PowerMonitor.monitor.subscribe this
         carChargingManager = manager
+        chargingState = ChargingState.NotCharging
+        sendNoSurplus()
     }
 
     @ActiveMethod
@@ -71,6 +74,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
         println 'stop strategy'
         PowerMonitor.monitor.unsubscribe this
         carChargingManager = null
+        chargingState = ChargingState.Inactive
     }
 
     @ActiveMethod(blocking = false)
@@ -162,7 +166,13 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
             meanPSun = ((int) (valueTrace.collect { it.powerSolar }.sum())).intdiv(valueTrace.size())
             meanCHome = ((int) (valueTrace.collect { it.consumptionHome }.sum())).intdiv(valueTrace.size())
             // how much power should be used for car charging depending on house battery soc
-            availablePVBalance = powerToAmp(meanPSun - meanCHome)
+            if (chargingState in [ChargingState.NotCharging, ChargingState.StartUpCharging]) {
+                //use latest home consumption value
+                availablePVBalance = powerToAmp(meanPSun - powerValues.consumptionHome)
+            } else {
+                //use average home consumption value
+                availablePVBalance = powerToAmp(meanPSun - meanCHome)
+            }
             availableFromBattery = powerToAmp(powerRamp(powerValues.socBattery))
             carChargingAmps = powerToAmp(wbValues.energy)
             amp4loading = Math.min(requestedCurrent + availablePVBalance, Wallbox.wallbox.maxCurrent)
