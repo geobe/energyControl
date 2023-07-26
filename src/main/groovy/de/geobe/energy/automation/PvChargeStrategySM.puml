@@ -57,7 +57,7 @@ state "Active" as act {
     tr -up-> ch : checkSurplus
     tr -down-> hr : ampReduced
     hr -up-> ch : checkSurplus
-    hr -right-> exit : [energy == 0]
+    hr --> nc : [energy == 0]
 }
 
 pv --> eval

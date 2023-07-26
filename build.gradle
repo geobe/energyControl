@@ -30,6 +30,8 @@ dependencies {
     implementation 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
     implementation 'org.codehaus.gpars:gpars:1.2.1'
     implementation 'org.slf4j:slf4j-simple:2.0.6'
+    implementation 'com.sparkjava:spark-core:2.9.4'
+    implementation 'io.pebbletemplates:pebble:3.2.1'
     // https://mvnrepository.com/artifact/javax.xml.bind/jaxb-api
     implementation 'javax.xml.bind:jaxb-api:2.3.1'
 

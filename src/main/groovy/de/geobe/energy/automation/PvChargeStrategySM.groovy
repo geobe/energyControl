@@ -1,3 +1,27 @@
+/*
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2023. Georg Beier. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package de.geobe.energy.automation
 
 import de.geobe.energy.e3dc.PowerValues
@@ -161,27 +185,33 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                 }
         }
         // we work with rolling averages
-        int meanPSun, meanCHome, availablePVBalance, availableFromBattery, carChargingAmps, amp4loading
+        int meanPSun, meanCHome, surplusPVEnergy, surplusPVAmps, availableFromBattery, amp4loading, batteryEnergy
         if (chargingEvent in [ChargingEvent.checkSurplus, ChargingEvent.ampReduced]) {
             meanPSun = ((int) (valueTrace.collect { it.powerSolar }.sum())).intdiv(valueTrace.size())
             meanCHome = ((int) (valueTrace.collect { it.consumptionHome }.sum())).intdiv(valueTrace.size())
             // how much power should be used for car charging depending on house battery soc
-            if (chargingState in [ChargingState.NotCharging, ChargingState.StartUpCharging]) {
+            if (chargingState == ChargingState.NotCharging) {
                 //use latest home consumption value
-                availablePVBalance = powerToAmp(meanPSun - powerValues.consumptionHome)
+                surplusPVEnergy = meanPSun - meanCHome
+//                surplusPVAmps = powerToAmp(meanPSun - powerValues.consumptionHome)
+            } else if (chargingState == ChargingState.StartUpCharging) {
+                // consider charging power contained in home consumption
+//                surplusPVAmps = powerToAmp(meanPSun - (powerValues.consumptionHome - wbValues.energy))
+                surplusPVEnergy = meanPSun - (powerValues.consumptionHome - wbValues.energy)
             } else {
                 //use average home consumption value
-                availablePVBalance = powerToAmp(meanPSun - meanCHome)
+//                surplusPVAmps = powerToAmp(meanPSun - meanCHome)
+                surplusPVEnergy = meanPSun - meanCHome
             }
-            availableFromBattery = powerToAmp(powerRamp(powerValues.socBattery))
-            carChargingAmps = powerToAmp(wbValues.energy)
-            amp4loading = Math.min(requestedCurrent + availablePVBalance, Wallbox.wallbox.maxCurrent)
+            batteryEnergy = powerRamp(powerValues.socBattery)
+            surplusPVAmps = powerToAmp(surplusPVEnergy )
+            availableFromBattery = powerToAmp(batteryEnergy)
+            amp4loading = Math.min(requestedCurrent + surplusPVAmps, Wallbox.wallbox.maxCurrent)
         }
 
         // tracing output
-        def values = "sun: $powerValues.powerSolar, bat: $powerValues.socBattery%, car: $wbValues.energy " +
-                "balance $powerBalance, req $requestedCurrent, avgSun $meanPSun, avBalance $availablePVBalance " +
-                "loadStart ${availablePVBalance + availableFromBattery - params.batStartHysteresis}"
+        def values = "sun: $powerValues.powerSolar, bat: $powerValues.socBattery%, batEnergy $batteryEnergy, car: $wbValues.energy " +
+                "balance $powerBalance, req $requestedCurrent, avgSun $meanPSun, plusEnergy $surplusPVEnergy "
         def evTrace = " ChargeStrategy: $chargingState --$chargingEvent"
         int caseTrace = 0
         // now we can execute the internal state chart
@@ -206,10 +236,16 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                 switch (chargingState) {
                     case ChargingState.NotCharging:
                     case ChargingState.StartUpCharging:
-                        caseTrace = 4
-                        sendSurplus(Wallbox.wallbox.minCurrent)
+                        if (surplusPVAmps >= Wallbox.wallbox.minCurrent) {
+                            caseTrace = 401
+                            sendSurplus(Wallbox.wallbox.minCurrent)
+                            chargingState = ChargingState.StartUpCharging
+                        } else {
+                            caseTrace = 402
+                            sendNoSurplus()
+                            chargingState = ChargingState.NotCharging
+                        }
                         resetHistory()
-                        chargingState = ChargingState.StartUpCharging
                         break
                     case ChargingState.ContinueCharging:
                         caseTrace = 5
@@ -226,8 +262,10 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                     case ChargingState.HasAmpCarReduction:
                         if (wbValues.energy == 0) {
                             caseTrace = 701
-//                            chargingState = ChargingState.NotCharging
-                            sendFullyCharged()
+                            chargingState = ChargingState.NotCharging
+                            resetHistory()
+                            sendNoSurplus()
+//                            sendFullyCharged()
                         } else {
                             caseTrace = 702
                             sendSurplus(Wallbox.wallbox.minCurrent)
@@ -240,17 +278,19 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
             case ChargingEvent.checkSurplus:
                 switch (chargingState) {
                     case ChargingState.NotCharging:
-                        if (availablePVBalance >= Wallbox.wallbox.minCurrent ||
-                                availablePVBalance + availableFromBattery - params.batStartHysteresis
-                                >= Wallbox.wallbox.minCurrent) {
+                        def startAmps = surplusPVAmps + availableFromBattery
+                        // some amp hysteresis to avoid erratic on/off/on/off
+                        if (startAmps - params.batStartHysteresis >= Wallbox.wallbox.minCurrent) {
                             caseTrace = 801
-                            sendSurplus(Math.min(availablePVBalance, Wallbox.wallbox.maxStartCurrent))
+                            // always start with minimal current
+                            sendSurplus(Wallbox.wallbox.minCurrent)
                             resetHistory()
                             chargingState = ChargingState.StartUpCharging
                         } else {
                             caseTrace = 802
                             // just in case wallbox is just slowly starting to charge
                             if (wbValues.energy > 0) {
+                                caseTrace = 803
                                 sendNoSurplus()
                             }
                             chargingState = ChargingState.NotCharging
