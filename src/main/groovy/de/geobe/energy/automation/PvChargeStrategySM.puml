@@ -21,10 +21,9 @@ state "Active" as act {
  '   state "Filling Stack" as fill
 
     state "evalPowerValues <<transient>>" as eval
-        eval: entry: checkReduceImmediate()
         eval: entry: genEventFromValues()
 
-    state "Charging" as charge {
+    state "Charging" as chg {
 
         state "StartUpCharging" as sc
         sc: entry: sendSurplus(min)
@@ -37,26 +36,27 @@ state "Active" as act {
 
         state "HasAmpCarReduction" as hr
         hr: entry: Energy > 0 ?\n\tsendSurplus(min)
-        nc --> sc : checkSurplus
+        nc --> sc : startCharging
 
-        eval --> [H] : noSurplus ||\nampReduced
+        eval --> [H] : stopCharging ||\nampReduced
 
     }
     state exit <<exitPoint>>
 
-    eval -left-> [H*] : checkSurplus
+    eval -left-> [H*] : startCharging ||\ncontinueCharging
     eval --> exit : waitForAverage
     eval -down-> sc : reduceImmediate
 
-    charge -up-> nc : noSurplus
 
-    sc -down-> ch : checkSurplus
-    sc -up-> sc : ampReduced
-    ch -left-> ch : checkSurplus
+    chg -up-> nc : stopCharging
+
+    sc -down-> ch : startCharging ||\ncontinueCharging
+    sc --> tr : ampReduced
+    ch -left-> ch : startCharging ||\ncontinueCharging
     ch -down-> tr : ampReduced
-    tr -up-> ch : checkSurplus
+    tr -up-> ch : startCharging ||\ncontinueCharging
     tr -down-> hr : ampReduced
-    hr -up-> ch : checkSurplus
+    hr -up-> ch : startCharging ||\ncontinueCharging
     hr --> nc : [energy == 0]
 }
 

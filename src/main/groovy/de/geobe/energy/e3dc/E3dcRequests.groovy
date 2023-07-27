@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -101,7 +101,7 @@ class E3dcRequests {
     ]
 
     /**
-     * RequestElement data list to get calculated battery state of charge (higher percision).<br>
+     * RequestElement data list to get calculated battery state of continueCharging (higher percision).<br>
      * This is an example for a nested list: RequestElement for TAG_BAT_REQ_DATA contains a list of requests.
      */
     static batteryDataRequests = [

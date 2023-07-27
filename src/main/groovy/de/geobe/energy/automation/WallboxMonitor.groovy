@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -82,7 +82,7 @@ class WallboxMonitor {
     private Runnable readWallbox = new Runnable() {
         @Override
         void run() {
-            def cwv = wallbox.wallboxValues
+            def cwv = wallbox.values
             valueSubscribers.each {
                 it.takeWallboxValues(cwv)
             }
@@ -113,7 +113,7 @@ class WallboxMonitor {
                 // unconditionally switch to maximal charging current
                 result = CarChargingState.CHARGING_ANYWAY
             } else {
-                // charge with default charging mode
+                // continueCharging with default charging mode
                 result = CarChargingState.CHARGING
             }
         } else if (values?.carState == Wallbox.CarState.COMPLETE
@@ -145,7 +145,7 @@ Takes some time before load current is back to requested
 
     @ActiveMethod(blocking = true)
     def getCurrent() {
-        def values = wallbox.wallboxValues
+        def values = wallbox.values
         def currentState = calcChargingState(values)
         [values: values, state: currentState]
     }

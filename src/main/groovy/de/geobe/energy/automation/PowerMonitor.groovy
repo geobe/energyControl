@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -27,6 +27,11 @@ package de.geobe.energy.automation
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.e3dc.IStorageInteractionRunner
+import de.geobe.energy.go_e.IWallboxValueSource
+import de.geobe.energy.go_e.Wallbox
+import de.geobe.energy.go_e.WallboxValues
+import groovy.transform.ImmutableOptions
+import groovy.transform.RecordType
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 
@@ -44,6 +49,8 @@ class PowerMonitor {
     private TimeUnit timeUnit = TimeUnit.SECONDS
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
+    /** Reference to Wallbox values */
+    private final IWallboxValueSource wbValues
     /** all valueSubscribers to power values */
     private volatile List<PowerValueSubscriber> subscribers = []
     /** task to read power values periodically */
@@ -51,15 +58,27 @@ class PowerMonitor {
 
     private static PowerMonitor monitor
 
+    /**
+     * only for functional tests to inject monitor mock object
+     * @param testMonitor
+     */
+    static synchronized void setMonitor(PowerMonitor testMonitor) {
+        if (monitor) {
+            throw new RuntimeException('PowerMonitor Singleton must not be overwritten')
+        }
+        monitor = testMonitor
+    }
+
     static synchronized PowerMonitor getMonitor() {
         if(! monitor) {
-            monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner)
+            monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, Wallbox.wallbox)
         }
         monitor
     }
 
-    private PowerMonitor(IStorageInteractionRunner interactionRunner) {
+    private PowerMonitor(IStorageInteractionRunner interactionRunner, IWallboxValueSource wallboxValueSource) {
         powerInfo = interactionRunner
+        wbValues = wallboxValueSource
     }
 
     /**
@@ -70,8 +89,10 @@ class PowerMonitor {
         @Override
         void run() {
             def cuv = powerInfo.currentValues
+            def wbv = wbValues.values
+            def pmv = new PMValues(cuv, wbv.energy, wbv.requestedCurrent, wbv.carState)
             subscribers.each {
-                it.takePowerValues(cuv)
+                it.takePowerValues(pmv)
             }
         }
     }
@@ -118,17 +139,26 @@ class PowerMonitor {
         def m = getMonitor()
         PowerValueSubscriber p = new PowerValueSubscriber() {
             @Override
-            void takePowerValues(PowerValues powerValues) {
-                println powerValues
+            void takePowerValues(PMValues pmValues) {
+                println pmValues
             }
         }
         m.subscribe p
-        Thread.sleep(10000)
+        Thread.sleep(20000)
         m.stop()
         m.shutdown()
     }
 }
 
 interface PowerValueSubscriber {
-    void takePowerValues(PowerValues powerValues)
+    void takePowerValues(PMValues powerValues)
 }
+
+@ImmutableOptions(knownImmutableClasses = [PowerValues])
+record PMValues (PowerValues powerValues, short wbEnergy, short requestedCurrent, Wallbox.CarState carState) {
+    @Override
+    String toString() {
+        "$powerValues, wbEnergy: $wbEnergy, req: $requestedCurrent, carState: $carState"
+    }
+}
+

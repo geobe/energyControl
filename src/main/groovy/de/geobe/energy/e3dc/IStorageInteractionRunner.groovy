@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -25,6 +25,7 @@
 package de.geobe.energy.e3dc
 
 import groovy.transform.ImmutableOptions
+import groovy.transform.ToString
 import org.joda.time.DateTime
 
 import java.time.Instant
@@ -71,7 +72,12 @@ interface IStorageInteractionRunner {
  * data structure to hold actual power data
  */
 @ImmutableOptions(knownImmutableClasses = [Instant])
-record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {}
+record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {
+    @Override
+    String toString() {
+        "bat: $powerBattery, grid: $powerGrid, sun: $powerSolar, home: $consumptionHome, soc: $socBattery"
+    }
+}
 
 /**
  * data structure to hold historic summarized power data

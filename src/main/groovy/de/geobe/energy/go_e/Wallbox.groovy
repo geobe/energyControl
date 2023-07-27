@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -26,8 +26,9 @@ package de.geobe.energy.go_e
 
 import groovy.json.JsonSlurper
 import groovy.transform.ImmutableOptions
+import groovy.transform.ToString
 
-class Wallbox {
+class Wallbox implements IWallboxValueSource {
     enum ForceState {
         NEUTRAL,
         OFF,
@@ -102,9 +103,9 @@ class Wallbox {
 
     /**
      * update wallbox property values from physical wallbox
-     * @return updated wallbox object
+     * @return updated wallboxValues object
      */
-    def getWallboxValues() {
+    WallboxValues getValues() {
         def response = jsonSlurper.parseText(new URL(readRequest + "$FILTER").text)
         allowedToCharge = response.alw
         requestedCurrent = response.amp
@@ -114,7 +115,7 @@ class Wallbox {
         eTotal = energy[11]
         phaseSwitchMode = PhaseSwitchMode.values()[response.psm]
         new WallboxValues(allowedToCharge, requestedCurrent,
-                carState,forceState, eTotal, phaseSwitchMode
+                carState, forceState, eTotal, phaseSwitchMode
         )
     }
 
@@ -160,19 +161,19 @@ class Wallbox {
 
     static void main(String[] args) {
         Wallbox wb = Wallbox.wallbox
-        println wb.getWallboxValues()
+        println wb.getValues()
         println wb.setChargingCurrent((short) 8)
         wb.startCharging()
         for (i in 0..<10 ) {
             i++
             Thread.sleep(1500)
-            println wb.getWallboxValues()
+            println wb.getValues()
         }
         wb.stopCharging()
         for (i in 0..<3 ) {
             i++
             Thread.sleep(1500)
-            println wb.getWallboxValues()
+            println wb.getValues()
         }
     }
 
@@ -192,7 +193,7 @@ class Wallbox {
 
     @Override
     String toString() {
-        return "Allowed to charge: $allowedToCharge, requested current: $requestedCurrent, car CarChargingState: $carState, " +
+        return "Allowed to continueCharging: $allowedToCharge, requested current: $requestedCurrent, car CarChargingState: $carState, " +
                 "force state: $forceState, phase switch mode: $phaseSwitchMode\n energy: $energy"
     }
 }
@@ -206,3 +207,7 @@ record WallboxValues(
         short energy,
         Wallbox.PhaseSwitchMode phaseSwitchMode
 ) {}
+
+interface IWallboxValueSource {
+    WallboxValues getValues()
+}

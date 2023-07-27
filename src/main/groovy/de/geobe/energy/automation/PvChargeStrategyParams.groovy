@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023. Georg Beier. All rights reserved.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Permission is hereby granted, free of continueCharging, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -25,15 +25,15 @@
 package de.geobe.energy.automation
 
 record PvChargeStrategyParams(
-        int batPower = 3000,
-        int batCapacity = 17500,
-        int stopThreshold = -3000,
-        int batStartHysteresis = 1, //ampere!
-        int minChargeUseBat = 60,
-        int fullChargeUseBat = 80,
-        int minBatLoadPower = 200,
-        int minBatUnloadPower = 200,
-        int toleranceStackSize = 10
+        int batPower = 3000,            // Watt
+        int batCapacity = 17500,        // Wh
+        int stopThreshold = -3000,      // Watt
+        int batStartHysteresis = 300,   // Watt
+        int minChargeUseBat = 60,       // Percent
+        int fullChargeUseBat = 80,      // Percent
+        int minBatLoadPower = 200,      // Watt
+        int minBatUnloadPower = 200,    // Watt
+        int toleranceStackSize = 10     // # of values on valueStack for averages
 ) {
     PvChargeStrategyParams(PvChargeStrategyParams o) {
         batPower = o.batPower
