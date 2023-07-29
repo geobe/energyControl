@@ -81,6 +81,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     private CarChargingManager carChargingManager
 
     private int lastAmpsSent = 0
+    private int skipCount = 0
 
 //    @ActiveMethod
 //    void setChargingManager(CarChargingManager manager) {
@@ -105,12 +106,12 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     }
 
     @ActiveMethod(blocking = false)
-    void takePowerValues(PMValues pValues) {
+    void takePMValues(PMValues pmValues) {
 //        println "new power values $pValues"
         if (valueTrace.size() >= params.toleranceStackSize) {
             valueTrace.removeLast()
         }
-        valueTrace.push pValues
+        valueTrace.push (pmValues)
         evalPower()
     }
 
@@ -127,25 +128,25 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
      * @param charging is car charging?
      * @return immediate action needed or none
      */
-    private ImmediateAction checkReduceImmediate(int balance, int requested, boolean charging) {
-        if (balance < params.stopThreshold && charging) {
-            // are we currently loading car with more than minimal load current?
-            if (requested > Wallbox.wallbox.minCurrent) {
-                // check if reduction of load current would be sufficient
-                def couldSave = 3 * 230 * (requested - Wallbox.wallbox.minCurrent)
-                if (balance + couldSave >= params.stopThreshold) {
-                    // request minimal load current
-                    ImmediateAction.Reduce
-                } else {
-                    ImmediateAction.Stop
-                }
-            } else {
-                ImmediateAction.Stop
-            }
-        } else {
-            ImmediateAction.None
-        }
-    }
+//    private ImmediateAction checkReduceImmediate(int balance, int requested, boolean charging) {
+//        if (balance < params.stopThreshold && charging) {
+//            // are we currently loading car with more than minimal load current?
+//            if (requested > Wallbox.wallbox.minCurrent) {
+//                // check if reduction of load current would be sufficient
+//                def couldSave = 3 * 230 * (requested - Wallbox.wallbox.minCurrent)
+//                if (balance + couldSave >= params.stopThreshold) {
+//                    // request minimal load current
+//                    ImmediateAction.Reduce
+//                } else {
+//                    ImmediateAction.Stop
+//                }
+//            } else {
+//                ImmediateAction.Stop
+//            }
+//        } else {
+//            ImmediateAction.None
+//        }
+//    }
 
     /**
      * detect if loading is reduced or finished, i.e. car takes less or no energy though supplied
@@ -161,19 +162,23 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     private evalPower() {
         print '.'
         def currentValues = valueTrace.first()
+//        println currentValues
         def powerValues = currentValues.powerValues
-        def requestedCurrent = currentValues.requestedCurrent
-        CarChargingState carChargingState = currentValues.carState
-        int availableChargingPower = powerValues.powerSolar - powerValues.consumptionHome + currentValues.wbEnergy
+        def wallboxValues = currentValues.wallboxValues
+        def requestedCurrent = wallboxValues.requestedCurrent
+        Wallbox.CarState carState = wallboxValues.carState
+        int availableChargingPower = powerValues.powerSolar - powerValues.consumptionHome + wallboxValues.energy
         def requestedChargingPower = requestedCurrent * powerFactor
 
-        def isCarCharging = carChargingState == CarChargingState.CHARGING
+        def isCarCharging = carState == CarChargingState.CHARGING
         def powerBalance = availableChargingPower - requestedChargingPower
 
         ChargingEvent chargingEvent
         int availableCurrent
         int meanPSun = 0
         int meanCHome = 0
+        int batBalance = 0
+        int chargeGradient = 0
 
         // if powerBalance deeply negative, check if we have to stop immediately
         if (isCarCharging && powerBalance <= params.stopThreshold ) {
@@ -195,18 +200,19 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                 it.powerValues.powerSolar
             }.sum())).intdiv(valueTrace.size())
             meanCHome = ((int) (valueTrace.collect {
-                it.powerValues.consumptionHome - it.wbEnergy
+                it.powerValues.consumptionHome - it.wallboxValues.energy
             }.sum())).intdiv(valueTrace.size())
-            int chargeGradient = 0
+            chargeGradient = 0
             for (i in 1..<valueTrace.size()) {
-                chargeGradient += valueTrace[i].wbEnergy - valueTrace[i-1].wbEnergy
+                chargeGradient += valueTrace[i].wallboxValues.energy - valueTrace[i-1].wallboxValues.energy
             }
             // now work with rolling averages to ignore short time fluctuations
-            availableChargingPower = meanPSun - meanCHome + powerRamp(powerValues.socBattery)
+            batBalance = powerRamp(powerValues.socBattery)
+            availableChargingPower = meanPSun - meanCHome + batBalance
             availableCurrent = Math.floorDiv(availableChargingPower, powerFactor)
             if (availableCurrent < Wallbox.wallbox.minCurrent) {
                 chargingEvent = ChargingEvent.stopCharging
-            } else if (chargeGradient < 0) {
+            } else if (isCarCharging && chargeGradient < 500 && wallboxValues.energy < requestedChargingPower - 500) {
                 chargingEvent = ChargingEvent.ampReduced
             } else {
                 def startPower = availableChargingPower - params.batStartHysteresis
@@ -219,21 +225,27 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
         }
 
         // tracing output
-        def values = "sun: $powerValues.powerSolar, bat: $powerValues.socBattery%, batEnergy $batteryEnergy," +
-                " car: $currentValues.wbEnergy, surplus: $availableChargingPower, req $requestedCurrent," +
-                " avgSun: $meanPSun, avgHome: $meanCHome"
+        def stateBefore = chargingState
+        def values = "sun: $powerValues.powerSolar, soc: $powerValues.socBattery%, batEnergy $powerValues.powerBattery," +
+                " car: $wallboxValues.energy, req $requestedCurrent, gradient: $chargeGradient" +
+                ", surplus: $availableChargingPower, avgSun: $meanPSun, avgHome: $meanCHome, bat: $batBalance"
         def evTrace = " ChargeStrategy: $chargingState --$chargingEvent"
         int caseTrace = 0
         // now we can execute the internal state chart
         switch (chargingEvent) {
             case ChargingEvent.stopCharging:
-            case ChargingEvent.init:
-                caseTrace = 1
-                sendNoSurplus()
-                resetHistory()
-                chargingState = ChargingState.NotCharging
+                switch (chargingState) {
+                    case ChargingState.NotCharging:
+                        caseTrace = 101
+                        break
+                    default:
+                        caseTrace = 102
+                        sendNoSurplus()
+                        resetHistory()
+                        chargingState = ChargingState.NotCharging
+                }
                 break
-            case  ChargingEvent.reduceImmediate:
+            case  ChargingEvent.reduceToMin:
                 caseTrace = 2
                 sendSurplus(Wallbox.wallbox.minCurrent)
                 resetHistory()
@@ -245,6 +257,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
             case ChargingEvent.ampReduced:
                 switch (chargingState) {
                     case ChargingState.NotCharging:
+                        caseTrace = 4
                         break
                     case ChargingState.StartUpCharging:
                     case ChargingState.ContinueCharging:
@@ -276,16 +289,15 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                 }
                 break
             case ChargingEvent.startCharging:
-                if (chargingState == ChargingState.NotCharging) {
+                switch (chargingState) {
+                    case ChargingState.NotCharging:
                         caseTrace = 801
                         // always start with minimal current
                         sendSurplus(Wallbox.wallbox.minCurrent)
                         resetHistory()
                         chargingState = ChargingState.StartUpCharging
                         break
-                }
-            case ChargingEvent.continueCharging:
-                switch (chargingState) {
+                    case ChargingState.StartUpCharging:
                     case ChargingState.ContinueCharging:
                     case ChargingState.TestAmpCarReduction:
                     case ChargingState.HasAmpCarReduction:
@@ -296,10 +308,29 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                         break
                 }
                 break
+            case ChargingEvent.continueCharging:
+                switch (chargingState) {
+                    case ChargingState.ContinueCharging:
+                    case ChargingState.TestAmpCarReduction:
+                    case ChargingState.HasAmpCarReduction:
+                    case ChargingState.StartUpCharging:
+                        caseTrace = 901
+                        sendSurplus(availableCurrent)
+                        resetHistory()
+                        chargingState = ChargingState.ContinueCharging
+                        break
+                    case ChargingState.NotCharging:
+                        caseTrace = 902
+                        // not enough power to start charging
+                        break
+                }
+                break
         }
-        if (chargingEvent != ChargingEvent.waitForAverage || chargingState == ChargingState.NotCharging) {
+        if (skipCount++ >= 12 || chargingState != stateBefore || (availableCurrent && availableCurrent != lastAmpsSent)) {
             println "$values"
+            println "--> skip: $skipCount, stateBefore: $stateBefore, availableCurrent: $availableCurrent, lastAmpsSent: $lastAmpsSent"
             println "$evTrace($caseTrace)--> $chargingState\n"
+            skipCount = 0
         }
     }
 
@@ -308,22 +339,24 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     }
 
     /**
-     *  calculate power offset for car loading depending on battery state of continueCharging (soc).<br>
+     *  calculate power offset for car loading depending on house battery state of charge (soc).<br>
      *  I.e. which power must be subtracted from available PV power to load house battery when soc is low or <br>
      *  which additional power may be taken from house battery when soc is above socmax
      *
-     * @param soc current state of continueCharging
+     * @param soc current state of house battery state of charge
      * @return power offset for current soc, maybe positive or negative
      */
     private Integer powerRamp(int soc) {
         if (soc < params.minChargeUseBat) {
+            // charge with maximal power
             return -params.batPower
         } else if (soc >= params.fullChargeUseBat) {
+            // allow discharging house battery in fevour of car
             float fac = (soc - params.fullChargeUseBat) / (100 - params.fullChargeUseBat)
-            return params.minBatUnloadPower + fac * (params.batPower - params.minBatUnloadPower)
+            return params.minBatUnloadPower + fac * (params.maxBatUnloadPower - params.minBatUnloadPower)
         } else if (soc < params.fullChargeUseBat) {   // && soc >= params.minUsePower
             float fac = (soc - params.minChargeUseBat) / (params.fullChargeUseBat - params.minChargeUseBat)
-            return - params.batPower + fac * (params.batPower - params.minBatUnloadPower)
+            return - params.batPower + fac * (params.batPower - params.minBatLoadPower)
         }
     }
 

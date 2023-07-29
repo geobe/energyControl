@@ -389,7 +389,7 @@ class CarChargingManager implements WallboxStateSubscriber {
      */
     private ChargeCommand forceDefault() {
 //        if (chargeCmd == ChargeCommand.CHARGE_STOP) {
-            chargeCmd = defaultChargeCmd
+        chargeCmd = defaultChargeCmd
 //            ChargeCommand.CHARGE_ANYWAY
 //        }
         chargeCmd
@@ -433,15 +433,19 @@ class CarChargingManager implements WallboxStateSubscriber {
                 println ' done'
             }
         })
-        PvChargeStrategyParams params = new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0)
+        PvChargeStrategyParams params =
+                new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 1500)
         PvChargeStrategySM.chargeStrategy.params = params
         // activate manager first
         manager.active = true
         // let it initialize a while, then set command
-        Thread.sleep 10000
+        Thread.sleep 3000
         manager.takeChargeCmd(ChargeCommand.CHARGE_PV_SURPLUS)
-        Thread.sleep(2 * 60 * 60 * 1000) // 2 hours
-//        Thread.sleep(5 * 60 * 1000) // 3 minutes
+        for (i in 1..90) {
+            Thread.sleep(1 * 60 * 1000) // 1 minute
+            println "-----------------> running $i minute${i > 1?'s':''} <--------------------------"
+        }
+//        Thread.sleep(2 * 60 * 60 * 1000) // 2 hours
         manager.shutDown()
         PeriodicExecutor.shutdown()
         println "Testrun finished"

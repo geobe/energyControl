@@ -75,7 +75,7 @@ interface IStorageInteractionRunner {
 record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {
     @Override
     String toString() {
-        "bat: $powerBattery, grid: $powerGrid, sun: $powerSolar, home: $consumptionHome, soc: $socBattery"
+        "Power -> sun: $powerSolar, soc: $socBattery, home: $consumptionHome, bat: $powerBattery, grid: $powerGrid"
     }
 }
 

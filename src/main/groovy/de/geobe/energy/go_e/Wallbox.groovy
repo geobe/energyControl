@@ -206,7 +206,12 @@ record WallboxValues(
         Wallbox.ForceState forceState,
         short energy,
         Wallbox.PhaseSwitchMode phaseSwitchMode
-) {}
+) {
+    @Override
+    String toString() {
+        "Wallbox -> mayCharge: $allowedToCharge, req: $requestedCurrent, car: $carState, force: $forceState, energy: $energy, phases: $phaseSwitchMode"
+    }
+}
 
 interface IWallboxValueSource {
     WallboxValues getValues()

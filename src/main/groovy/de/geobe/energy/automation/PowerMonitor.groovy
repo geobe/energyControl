@@ -30,8 +30,6 @@ import de.geobe.energy.e3dc.IStorageInteractionRunner
 import de.geobe.energy.go_e.IWallboxValueSource
 import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
-import groovy.transform.ImmutableOptions
-import groovy.transform.RecordType
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 
@@ -88,11 +86,9 @@ class PowerMonitor {
     private Runnable readPower = new Runnable() {
         @Override
         void run() {
-            def cuv = powerInfo.currentValues
-            def wbv = wbValues.values
-            def pmv = new PMValues(cuv, wbv.energy, wbv.requestedCurrent, wbv.carState)
+            def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
             subscribers.each {
-                it.takePowerValues(pmv)
+                it.takePMValues(pmValues)
             }
         }
     }
@@ -139,7 +135,7 @@ class PowerMonitor {
         def m = getMonitor()
         PowerValueSubscriber p = new PowerValueSubscriber() {
             @Override
-            void takePowerValues(PMValues pmValues) {
+            void takePMValues(PMValues pmValues) {
                 println pmValues
             }
         }
@@ -151,14 +147,19 @@ class PowerMonitor {
 }
 
 interface PowerValueSubscriber {
-    void takePowerValues(PMValues powerValues)
+    void takePMValues(PMValues pmValues)
 }
 
-@ImmutableOptions(knownImmutableClasses = [PowerValues])
-record PMValues (PowerValues powerValues, short wbEnergy, short requestedCurrent, Wallbox.CarState carState) {
+class PMValues {
+    PowerValues powerValues
+    WallboxValues wallboxValues
+    PMValues(PowerValues powerValues, WallboxValues wallboxValues) {
+        this.powerValues = powerValues
+        this.wallboxValues = wallboxValues
+    }
     @Override
     String toString() {
-        "$powerValues, wbEnergy: $wbEnergy, req: $requestedCurrent, carState: $carState"
+        "$powerValues\n$wallboxValues"
     }
 }
 
