@@ -326,7 +326,10 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
                 }
                 break
         }
-        if (skipCount++ >= 12 || chargingState != stateBefore || (availableCurrent && availableCurrent != lastAmpsSent)) {
+        skipCount++
+        if ((skipCount >= 12 && chargingEvent != ChargingEvent.waitForAverage) ||
+                chargingState != stateBefore ||
+                (availableCurrent && lastAmpsSent && availableCurrent != lastAmpsSent)) {
             println "$values"
             println "--> skip: $skipCount, stateBefore: $stateBefore, availableCurrent: $availableCurrent, lastAmpsSent: $lastAmpsSent"
             println "$evTrace($caseTrace)--> $chargingState\n"

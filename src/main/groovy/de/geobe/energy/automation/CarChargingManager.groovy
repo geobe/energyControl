@@ -152,6 +152,10 @@ class CarChargingManager implements WallboxStateSubscriber {
         }
     }
 
+    ChargeCommand getChargeCommand() {
+        chargeCmd
+    }
+
     @ActiveMethod(blocking = true)
     void takeChargingCurrent(int amps) {
         if (amps) {
@@ -287,6 +291,7 @@ class CarChargingManager implements WallboxStateSubscriber {
             case ChargeEvent.NoSurplus:
                 switch (chargeState) {
                     case ChargeState.HasSurplus:
+                    case ChargeState.WaitForExtCharge:
                         stopCharging()
                         chargeState = ChargeState.NoSurplus
                         break
@@ -434,7 +439,7 @@ class CarChargingManager implements WallboxStateSubscriber {
             }
         })
         PvChargeStrategyParams params =
-                new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 1500)
+                new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 2000)
         PvChargeStrategySM.chargeStrategy.params = params
         // activate manager first
         manager.active = true

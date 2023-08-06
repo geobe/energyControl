@@ -33,20 +33,22 @@ class PeriodicExecutor {
     private static ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(5)
 
     private long cycleTime
+    private long initialDelay
     private TimeUnit timeUnit
     final Runnable task
     private ScheduledFuture taskHandle
     private static int instanceCount = 0
     private int instanceId
 
-    PeriodicExecutor(Runnable task, long cycleTime, TimeUnit timeUnit) {
+    PeriodicExecutor(Runnable task, long cycleTime, TimeUnit timeUnit, long initialDelay = 0) {
         this.task = task
         this.cycleTime = cycleTime
         this.timeUnit = timeUnit
+        this.initialDelay = initialDelay
     }
 
     def start() {
-        taskHandle = executor.scheduleAtFixedRate(task, 0, cycleTime, timeUnit)
+        taskHandle = executor.scheduleAtFixedRate(task, initialDelay, cycleTime, timeUnit)
         instanceId = instanceCount
     }
 

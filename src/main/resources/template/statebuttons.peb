@@ -1,0 +1,26 @@
+        <div id="div-state" class=" {{ cmdColor }} w3-col w3-left"
+                hx-get="wallboxStrategy" hx-trigger="every 5s" hx-swap="outerHTML">
+            <div class="w3-col s12 w3-left w3-padding-small w3-dark-grey">
+              <h4>{{ wallboxStrategyHeader }}</h4>
+              </div>
+          <div class="w3-col s6 m3 l3 w3-left">
+              <input class="w3-radio" type="radio" name="sg-state" value="{{ cmdSurplus }}" {{ checkedSurplus }}
+              hx-post="/wallboxStrategy" hx-target="#div-state">
+                <label>{{ pvStrategy }}</label>
+            </div>
+          <div class="w3-col s6 m3 l3 w3-left">
+              <input class="w3-radio" type="radio" name="sg-state" value="{{ cmdTibber }}" {{ checkedTibber}}
+              hx-post="/wallboxStrategy" hx-target="#div-state" hx-swap="outerHTML">
+              <label>{{ tibberStrategy }}</label>
+              </div>
+          <div class="w3-col s6 m3 l3 w3-left">
+              <input class="w3-radio" type="radio" name="sg-state" value="{{ cmdAnyway }}" {{ checkedAnyway }}
+              hx-post="/wallboxStrategy" hx-target="#div-state" hx-swap="outerHTML">
+          <label>{{  anywayStrategy }}</label>
+          </div>
+          <div class="w3-col s6 m3 l3 w3-left">
+              <input class="w3-radio" type="radio" name="sg-state" value="{{ cmdStop }}" {{ checkedStop }}
+              hx-post="/wallboxStrategy" hx-target="#div-state" hx-swap="outerHTML">
+              <label>{{ stopStrategy }}</label>
+          </div>
+        </div>

@@ -42,10 +42,12 @@ import java.util.concurrent.TimeUnit
  */
 @ActiveObject
 class WallboxMonitor {
-    /** cycle time */
+    /** subscription cycle time */
     private long cycle = 5
-    /** Time unit */
+    /** subscription Time unit */
     private TimeUnit timeUnit = TimeUnit.SECONDS
+    /** first subscription initial delay */
+    private long initialDelay = 0
     /** Reference to wallbox */
     private Wallbox wallbox
     /** last Values read */
@@ -90,7 +92,7 @@ class WallboxMonitor {
                 newState = calcChargingState(cwv)
                 if (newState != state) {
                     state = newState
-                    println "values: $cwv\n\t-> CarChargingState: $state"
+//                    println "values: $cwv\n\t-> CarChargingState: $state"
                     stateSubscribers.each {
                         it.takeWallboxState(state)
                     }
@@ -196,7 +198,7 @@ Takes some time before load current is back to requested
     private start() {
         println "wbMonitor started with $cycle $timeUnit period"
         if (! executor) {
-            executor = new PeriodicExecutor(readWallbox, cycle, timeUnit)
+            executor = new PeriodicExecutor(readWallbox, cycle, timeUnit, initialDelay)
         }
         executor.start()
     }

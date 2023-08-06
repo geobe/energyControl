@@ -1,0 +1,90 @@
+{#
+<!--
+  ~ The MIT License (MIT)
+  ~
+  ~ Copyright (c) 2021.  Georg Beier. All rights reserved.
+  ~
+  ~ Permission is hereby granted, free of charge, to any person obtaining a copy
+  ~ of this software and associated documentation files (the "Software"), to deal
+  ~ in the Software without restriction, including without limitation the rights
+  ~ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  ~ copies of the Software, and to permit persons to whom the Software is
+  ~ furnished to do so, subject to the following conditions:
+  ~
+  ~ The above copyright notice and this permission notice shall be included in all
+  ~ copies or substantial portions of the Software.
+  ~
+  ~ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  ~ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  ~ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  ~ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  ~ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  ~ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  ~ SOFTWARE.
+  -->
+#}
+
+<!DOCTYPE html>
+<html>
+	<head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="/css/w3.css">
+        <link rel="stylesheet" href="/css/w3-theme-sampler.css">
+        <link rel="icon" href="/static/pumahead.ico">
+        <script src='/script/htmx-1.9.3.min.js'> </script>
+        <script src='/script/htmx-ws.js'> </script>
+{#
+         <script src='/script/chart-3.5.0.min.js'> </script>
+        <script src='/script/index.umd-3.5.0.min.js'> </script>
+#}
+		<title>{{ websiteTitle }}</title>
+	</head>
+	<body>
+        <div class="w3-row">
+            <div class="w3-container w3-teal w3-col s12 m8 l6" style="width:100%">
+                <h2>{{ websiteTitle }}</h2>
+            </div>
+        </div>
+<!-- Nav tabs -->
+        <div class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6" style="width:100%">
+            <button class="w3-bar-item w3-button"
+                    hx-get="/state"
+                    hx-target="#tab_content">
+                Smart Grid Status
+            </button>
+{#
+            <button class="w3-bar-item w3-button" id="history-graph-button"
+                    hx-get="/pvYieldGraph"
+                    hx-target="#tab_content">
+                PV Info
+            </button>
+#}
+            <button class="w3-bar-item w3-button"
+                    hx-post="/settings"
+                    hx-target="#tab_content">
+                Einstellungen
+            </button>
+            <button class="w3-bar-item w3-button"
+                    hx-post="/forecast"
+                    hx-target="#tab_content">
+                Wettervorhersage
+            </button>
+            <button class="w3-bar-item w3-button"
+                    hx-post="/stop"
+                    >
+                Stop Server
+            </button>
+        </div>
+<!-- dashboard pane -->
+        <div id="dashboard" hx-trigger="load">
+           {% include "./dashboard.peb" %}
+        </div>
+<!-- websocket connection -->
+        <div hx-ext="ws" ws-connect="/dash">
+        </div>
+<!-- Tab panes -->
+        <div id="tab_content" hx-trigger="load" style="width:100%">
+           {% include "./statebuttons.peb" %}
+        </div>
+	</body>
+</html>

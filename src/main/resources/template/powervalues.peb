@@ -1,0 +1,20 @@
+    <div id="power-values" {{ swabOob }} class="w3-col w3-padding-small s12 w3-light-grey w3-left" >
+        <div class="w3-col s6 m4 l2 w3-left">
+        {{ pvLabel }}: {{ pvValue }}&nbsp;W
+        </div>
+        <div class="w3-col s6 m4 l2  w3-left">
+        {{ gridLabel }}: {{ gridValue }}&nbsp;W
+        </div>
+        <div class="w3-col s6 m4 l2  w3-left">
+        {{ batteryLabel }}: {{ batteryValue }}&nbsp;W
+        </div>
+        <div class="w3-col s6 m4 l2  w3-left">
+        {{ homeLabel }}: {{ homeValue }}&nbsp;W
+        </div>
+        <div class="w3-col s6 m4 l2 w3-left">
+        {{ carLabel }}: {{ carValue }}&nbsp;W
+        </div>
+        <div class="w3-col s5 m3 l2  w3-left">
+        {{ socLabel }}: {{ socValue }}&nbsp;%
+        </div>
+    </div>

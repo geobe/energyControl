@@ -41,10 +41,12 @@ import java.util.concurrent.TimeUnit
  */
 @ActiveObject
 class PowerMonitor {
-    /** cycle time */
+    /** subscription cycle time */
     private long cycle = 5
-    /** Time unit */
+    /** subscription time unit */
     private TimeUnit timeUnit = TimeUnit.SECONDS
+    /** first subscription initial delay */
+    private long initialDelay = 0
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
     /** Reference to Wallbox values */
@@ -91,6 +93,12 @@ class PowerMonitor {
                 it.takePMValues(pmValues)
             }
         }
+    }
+
+    @ActiveMethod
+    void initCycle(long cycle, long initialDelay) {
+        this.cycle = cycle
+        this.initialDelay = initialDelay
     }
 
     @ActiveMethod(blocking = true)
