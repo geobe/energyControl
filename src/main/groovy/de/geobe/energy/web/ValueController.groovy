@@ -25,6 +25,7 @@
 package de.geobe.energy.web
 
 import de.geobe.energy.automation.CarChargingManager
+import de.geobe.energy.automation.ChargeStrategy
 import de.geobe.energy.automation.PMValues
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerValueSubscriber
@@ -42,6 +43,7 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket
 import spark.Request
 import spark.Response
 import spark.Route
+import spark.Spark
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -51,10 +53,14 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /** access to energy values */
     private PowerMonitor powerMonitor = PowerMonitor.monitor
     private WallboxMonitor wbMonitor = WallboxMonitor.monitor
+    /** shortcut to car charging manager singleton */
+    private carChargingManager = CarChargingManager.carChargingManager
     /** current Values */
     volatile WallboxValues wbValues
     volatile PowerValues pwrValues
     volatile WallboxMonitor.CarChargingState carChargingState
+    volatile CarChargingManager.ChargeManagerState chargeManagerState
+    volatile CarChargingManager.ChargeStrategy chargeStrategy
     /** store for websocket sessions */
     private ConcurrentLinkedDeque<Session> sessions = new ConcurrentLinkedDeque<>()
     /** translate pebble templates to java code */
@@ -64,23 +70,29 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def stateButtons = engine.getTemplate('template/statebuttons.peb')
     def dashboard = engine.getTemplate('template/dashboard.peb')
     def powerValuesTemplate = engine.getTemplate('template/powervalues.peb')
+    def chargeInfo = engine.getTemplate('template/chargeinfo.peb')
 
     @Override
     void takePMValues(PMValues pmValues) {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
-        updatePowerValues()
+        chargeStrategy = carChargingManager.chargeStrategy
+        chargeManagerState = carChargingManager.chargeManagerState
+        updateWsValues(powerValuesString() + chargeInfoString())
     }
 
     @Override
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         carChargingState = carState
+        updateWsValues(chargeInfoString())
     }
 
     void init() {
         pwrValues = powerMonitor.current
         wbValues = wbMonitor.current.values
         carChargingState = wbMonitor.current.state
+        chargeStrategy = carChargingManager.chargeStrategy
+        chargeManagerState = carChargingManager.chargeManagerState
 //        println "wallbox: $wbValues \ncar state: $carChargingState"
         powerMonitor.initCycle(5, 5)
         powerMonitor.subscribe(this)
@@ -89,8 +101,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /***************** Routing methods **************/
 
     Route indexRoute = { Request req, Response resp ->
-        def state = randomCmd()
-        def ctx = setChargeCommandContext(state)
+        def strategy = chargeStrategy
+        def ctx = setChargeCommandContext(strategy)
+        ctx.putAll setChargeManagementContext(chargeManagerState)
         ctx['websiteTitle'] = 'PowerManagement'
         ctx.putAll(joinDashboardContext())
         resp.status 200
@@ -99,7 +112,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Route dashboardRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
-        def state = randomCmd()
+//        def state = chargeStrategy
         resp.status 200
 //        if (accept.endsWith('json')) {
 //            def json = [
@@ -115,18 +128,50 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Route wallboxStrategyRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
-        def chargeCommand = randomCmd()
+        def chargeStrategy = chargeStrategy
         resp.status 200
-//        if (accept.endsWith('json')) {
-//            def json = [
-//                    state : chargeCommand,
-//                    status: 'OK'
-//            ]
-//            JsonOutput.toJson json
-//        } else {
-        def ctx = setChargeCommandContext(chargeCommand)
+        def ctx = setChargeCommandContext(chargeStrategy)
+        ctx.putAll setChargeManagementContext(chargeManagerState)
         streamOut(stateButtons, ctx)
-//        }
+    }
+
+    Route wallboxStrategyPost = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        def action = req?.params(':action')
+        def mg = mgmtStrings
+        def cc = chargeComandStrings
+        switch (action) {
+            case mg.mgmtActivate:
+                carChargingManager.setActive(true)
+                break
+            case mg.mgmtDeactivate:
+                carChargingManager.setActive(false)
+                break
+            case cc.cmdSurplus:
+                carChargingManager.takeChargeCmd(
+                        CarChargingManager.ChargeStrategy.CHARGE_PV_SURPLUS)
+                break
+            case cc.cmdTibber:
+                carChargingManager.takeChargeCmd(
+                        CarChargingManager.ChargeStrategy.CHARGE_TIBBER)
+                break
+            case cc.cmdAnyway:
+                carChargingManager.takeChargeCmd(
+                        CarChargingManager.ChargeStrategy.CHARGE_ANYWAY)
+                break
+            case cc.cmdStop:
+                carChargingManager.takeChargeCmd(
+                        CarChargingManager.ChargeStrategy.CHARGE_STOP)
+                break
+            default:
+                throw new RuntimeException("unexpected action $action")
+        }
+        resp.status 200
+        chargeStrategy = carChargingManager.chargeStrategy
+        chargeManagerState = carChargingManager.chargeManagerState
+        def upd = statesInfoString() + chargeInfoString()
+        updateWsValues(upd)
+        ''
     }
 
     /***************** webservice methods **************/
@@ -134,33 +179,22 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     @OnWebSocketConnect
     void onConnect(Session user) {
         sessions.add user
-//        try {
-//            user.remote.sendString(resp('Connected', 'connected2'))
-//        } catch (Exception e) {
-//            e.printStackTrace()
-//        }
     }
 
     @OnWebSocketClose
     void onClose(Session user, int statusCode, String reason) {
         if (sessions.remove user) {
-            println "removed on close: $user, status: $statusCode, $reason"
+//            println "removed on close: $user, status: $statusCode, $reason"
         }
     }
 
     @OnWebSocketMessage
     void onMessage(Session user, String message) {
         println "message from $user: $message"
-//        try {
-//            user.remote.sendString(resp(message, 'content'))
-//        } catch (Exception e) {
-//            e.printStackTrace()
-//        }
     }
 
-    def updatePowerValues() {
-        def out = powerValuesString()
-        sessions.findAll {it.isOpen()}.each {socket ->
+    def updateWsValues(String out) {
+        sessions.findAll { it.isOpen() }.each { socket ->
             try {
                 socket.remote.sendString(out)
             } catch (Exception ex) {
@@ -174,6 +208,21 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(powerStrings)
         ctx.putAll(powerValues())
         streamOut(powerValuesTemplate, ctx)
+    }
+
+    def chargeInfoString() {
+        def ctx = [swapOob: /hx-swap-oob='true'/]
+        ctx.putAll(stateStrings)
+        ctx.putAll(mgmtStrings)
+        ctx.putAll(stateValues())
+        streamOut(chargeInfo, ctx)
+    }
+
+    def statesInfoString() {
+        def ctx = [swapOob: /hx-swap-oob='true'/]
+        ctx.putAll(setChargeCommandContext(chargeStrategy))
+        ctx.putAll(setChargeManagementContext(chargeManagerState))
+        streamOut(stateButtons, ctx)
     }
 
     /********** helper methods ******/
@@ -190,36 +239,36 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         out.toString()
     }
 
-    private def cmdIndex = 5
-
-    def randomCmd() {
-//        int randomIndex = ThreadLocalRandom.current().nextInt(1, 4)
-        if (++cmdIndex >= 4) cmdIndex = 0
-        CarChargingManager.ChargeCommand.values()[cmdIndex]
+    def setChargeManagementContext(CarChargingManager.ChargeManagerState state) {
+        def ctx = [:]
+        ctx.putAll mgmtStrings
+        switch (state) {
+            case CarChargingManager.ChargeManagerState.Inactive:
+                ctx.checkedInactive = 'checked'
+                ctx.mgmtColor = 'w3-light-grey'
+                break
+            default:
+                ctx.checkedActive = 'checked'
+                ctx.mgmtColor = 'w3-yellow'
+        }
+        ctx
     }
 
-    def Map<Object, Object> setChargeCommandContext(CarChargingManager.ChargeCommand cmd) {
-        def ctx = chargeComandStrings()
-        ctx['cmdSurplus'] = CarChargingManager.ChargeCommand.CHARGE_PV_SURPLUS
-        ctx['cmdTibber'] = CarChargingManager.ChargeCommand.CHARGE_TIBBER
-        ctx['cmdAnyway'] = CarChargingManager.ChargeCommand.CHARGE_ANYWAY
-        ctx['cmdStop'] = CarChargingManager.ChargeCommand.CHARGE_STOP
-        switch (cmd) {
-            case CarChargingManager.ChargeCommand.CHARGE_PV_SURPLUS:
+    def setChargeCommandContext(CarChargingManager.ChargeStrategy strategy) {
+        def ctx = [:]
+        ctx.putAll chargeComandStrings
+        switch (strategy) {
+            case CarChargingManager.ChargeStrategy.CHARGE_PV_SURPLUS:
                 ctx['checkedSurplus'] = 'checked'
-                ctx['cmdColor'] = 'w3-yellow'
                 break
-            case CarChargingManager.ChargeCommand.CHARGE_TIBBER:
+            case CarChargingManager.ChargeStrategy.CHARGE_TIBBER:
                 ctx['checkedTibber'] = 'checked'
-                ctx['cmdColor'] = 'w3-lime'
                 break
-            case CarChargingManager.ChargeCommand.CHARGE_ANYWAY:
+            case CarChargingManager.ChargeStrategy.CHARGE_ANYWAY:
                 ctx['checkedAnyway'] = 'checked'
-                ctx['cmdColor'] = 'w3-orange'
                 break
-            case CarChargingManager.ChargeCommand.CHARGE_STOP:
+            case CarChargingManager.ChargeStrategy.CHARGE_STOP:
                 ctx['checkedStop'] = 'checked'
-                ctx['cmdColor'] = 'w3-light-grey'
                 break
             default:
                 throw new IllegalArgumentException()
@@ -227,22 +276,34 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx
     }
 
-    def final chargeComandStrings() {
-        def ctx = [
-                wallboxStrategyHeader: 'Ladestrategie',
-                pvStrategy           : 'Solar laden',
-                tibberStrategy       : 'Tibber laden',
-                anywayStrategy       : 'Sofort laden',
-                stopStrategy         : 'Nicht laden',
-        ]
-        ctx
-    }
+    final mgmtStrings = [
+            mgmtActive           : 'Lademanagement aktiv',
+            mgmtInactive         : 'Lademanagement inaktiv',
+            mgmtActivate         : 'Activate',
+            mgmtDeactivate       : 'Deactivate',
+            mgmtActivateConfirm  : 'Lademanagement aktivieren?',
+            mgmtDeactivateConfirm: 'Lademanagement deaktivieren?',
+    ]
+
+    final chargeComandStrings = [
+            cmdSurplus           : 'CHARGE_PV_SURPLUS',
+            cmdTibber            : 'CHARGE_TIBBER',
+            cmdAnyway            : 'CHARGE_ANYWAY',
+            cmdStop              : 'CHARGE_STOP',
+            wallboxStrategyHeader: 'Ladesteuerung',
+            noStrategy           : 'Steuerung aus',
+            pvStrategy           : 'Solar laden',
+            tibberStrategy       : 'Tibber laden',
+            anywayStrategy       : 'Sofort laden',
+            stopStrategy         : 'Nicht laden',
+    ]
 
     def LinkedHashMap<Object, Object> joinDashboardContext() {
         def ctx = [:]
         ctx.putAll(headingStrings)
         ctx.putAll(stateStrings)
         ctx.putAll(powerStrings)
+        ctx.putAll(mgmtStrings)
         ctx.putAll(stateValues())
         ctx.putAll(powerValues())
         ctx
@@ -252,58 +313,61 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
      * translation values for dashboard template abel parameters (prepare for i18n)
      */
     final stateStrings = [
-            chargingStateLabel   : 'Auto Ladestatus',
-            chargingStrategyLabel: 'Auto Ladestrategie',
-            tibberStrategyLabel  : 'Tibber Ladestrategie',
-            tibberPriceLabel     : 'Tibber Preis'
+            chargingStateLabel     : 'Auto Ladestatus',
+            chargeManagerStateLabel: 'Lademanager',
+            chargeStrategyLabel    : 'Auto Ladestrategie',
+            tibberStrategyLabel    : 'Tibber Ladestrategie',
+            tibberPriceLabel       : 'Tibber Preis'
     ]
 
     final headingStrings = [
-            powerTitle           : 'Energiewerte',
-            statesTitle          : 'Statuswerte',
+            powerTitle : 'Energiewerte',
+            statesTitle: 'Statuswerte',
     ]
 
     final powerStrings = [
-            pvLabel              : 'PV',
-            gridLabel            : 'Netz',
-            batteryLabel         : 'Batterie',
-            homeLabel            : 'Haus',
-            carLabel             : 'Auto',
-            socLabel             : 'Speicher',
+            pvLabel     : 'PV',
+            gridLabel   : 'Netz',
+            batteryLabel: 'Batterie',
+            homeLabel   : 'Haus',
+            carLabel    : 'Auto',
+            socLabel    : 'Speicher',
     ]
 
     /** Translations for various state values (enum values) */
-    def stateTx() {
-        def tx = [:]
-        tx.put(CarChargingManager.ChargeState.Inactive.toString(), 'inaktiv')
-        tx.put(CarChargingManager.ChargeState.NoCarConnected.toString(), 'kein Auto')
-        tx.put(CarChargingManager.ChargeState.ChargeTibber.toString(), 'Tibber laden')
-        tx.put(CarChargingManager.ChargeState.ChargeAnyway.toString(), 'Sofort laden')
-        tx.put(CarChargingManager.ChargeState.ChargingStopped.toString(), 'Nicht laden')
-        tx.put(CarChargingManager.ChargeState.HasSurplus.toString(), 'Solar Überschuss')
-        tx.put(CarChargingManager.ChargeState.NoSurplus.toString(), 'Kein Solar Überschuss')
-        tx.put(CarChargingManager.ChargeState.WaitForExtCharge.toString(), 'Auf Befehl warten')
-        tx.put(CarChargingManager.ChargeCommand.CHARGE_PV_SURPLUS.toString(), 'Solar laden')
-        tx.put(CarChargingManager.ChargeCommand.CHARGE_TIBBER.toString(), 'Tibber laden')
-        tx.put(CarChargingManager.ChargeCommand.CHARGE_ANYWAY.toString(), 'Sofort laden')
-        tx.put(CarChargingManager.ChargeCommand.CHARGE_STOP.toString(), 'Nicht laden')
-        tx.put(WallboxMonitor.CarChargingState.NO_CAR.toString(), 'kein Auto')
-        tx.put(WallboxMonitor.CarChargingState.WAIT_CAR.toString(), 'Auf Auto warten')
-        tx.put(WallboxMonitor.CarChargingState.CHARGING.toString(), 'Wird geladen')
-        tx.put(WallboxMonitor.CarChargingState.CHARGING_ANYWAY.toString(), 'wird sofort geladen')
-        tx.put(WallboxMonitor.CarChargingState.FULLY_CHARGED.toString(), 'aufgeladen')
-        tx.put(WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_APP.toString(), 'Stopp (App)')
-        tx.put(WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR.toString(), 'Stopp (Auto)')
-        tx
-    }
+    def stateTx = [
+            // CarChargingManager.ChargeManagerState
+            Inactive               : 'inaktiv',
+            NoCarConnected         : 'kein Auto',
+            ChargeTibber           : 'Tibber laden',
+            ChargeAnyway           : 'Sofort laden',
+            ChargingStopped        : 'Nicht laden',
+            HasSurplus             : 'Solar Überschuss',
+            NoSurplus              : 'Kein Solar Überschuss',
+            WaitForExtCharge       : 'Auf Befehl warten',
+            // CarChargingManager.ChargeStrategy
+            CHARGE_PV_SURPLUS      : 'Solar laden',
+            CHARGE_TIBBER          : 'Tibber laden',
+            CHARGE_ANYWAY          : 'Sofort laden',
+            CHARGE_STOP            : 'Nicht laden',
+            // WallboxMonitor.CarChargingState
+            NO_CAR                 : 'kein Auto',
+            WAIT_CAR               : 'Auf Auto warten',
+            CHARGING               : 'lädt',
+            CHARGING_ANYWAY        : 'sofort laden',
+            FULLY_CHARGED          : 'aufgeladen',
+            CHARGING_STOPPED_BY_APP: 'Stopp (App)',
+            CHARGING_STOPPED_BY_CAR: 'Stopp (Auto)',
+    ]
 
     /** realtime values for dashboard */
     def stateValues() {
         def ctx = [
-                chargingStateValue   : stateTx().get(carChargingState.toString()),
-                chargingStrategyValue: stateTx().get(CarChargingManager.ChargeCommand.CHARGE_PV_SURPLUS.toString()),
-                tibberStrategyValue  : 'none',
-                tibberPriceValue     : (int) (Math.random() * 30 + 15)
+                chargingStateValue     : stateTx.get(carChargingState.toString()),
+                chargeStrategyValue    : stateTx.get(chargeStrategy.toString()),
+                chargeManagerStateValue: stateTx.get(chargeManagerState.toString()),
+                tibberStrategyValue    : 'none',
+                tibberPriceValue       : (int) (Math.random() * 30 + 15)
         ]
     }
 

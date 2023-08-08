@@ -44,6 +44,8 @@ class EnergyControlUI {
 
         get('/wallboxStrategy', valueController.wallboxStrategyRoute)
 
+        post('/wallboxStrategy/:action', valueController.wallboxStrategyPost)
+
         get('/dashboard', valueController.dashboardRoute)
     }
 }

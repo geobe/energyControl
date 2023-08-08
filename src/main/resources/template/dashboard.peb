@@ -7,26 +7,11 @@
  #}
         {#<!-- power values -->#}
     <div class="w3-col s12 w3-left w3-padding-small w3-dark-grey">
-      <h4>{{ powerTitle }}</h4>
+      <h5>{{ powerTitle }}</h5>
     </div>
     {% include "./powervalues.peb" %}
         {#   <!-- state values etc: car charging state, car charging strategy, tibber strategy, price -->#}
     <div class="w3-col s12 w3-padding-small w3-dark-grey">
-      <h4>{{ statesTitle }}</h4>
+      <h5>{{ statesTitle }}</h5>
     </div>
-    <div class="w3-col s12 w3-padding-small w3-light-grey w3-left">
-        <div class="w3-col" >
-            <div class="w3-col s6 m6 l3">
-            {{ chargingStateLabel }}: {{ chargingStateValue }}
-            </div>
-            <div class="w3-col s6 m6 l3">
-            {{ chargingStrategyLabel }}: {{ chargingStrategyValue }}
-            </div>
-            <div class="w3-col s6 m6 l3">
-            {{ tibberStrategyLabel }}: {{ tibberStrategyValue }}
-            </div>
-            <div class="w3-col s6 m6 l3">
-            {{ tibberPriceLabel }}: {{ tibberPriceValue }}&nbsp;ct
-            </div>
-        </div>
-    </div>
+    {% include "./chargeinfo.peb" %}
