@@ -1,4 +1,4 @@
-    <div id="power-values" {{ swabOob }} class="w3-col w3-padding-small s12 w3-light-grey w3-left" >
+    <div id="power-values" class="w3-col w3-padding-small s12 w3-light-grey w3-left" >
         <div class="w3-col s6 m4 l2 w3-left">
         {{ pvLabel }}: {{ pvValue }}&nbsp;W
         </div>

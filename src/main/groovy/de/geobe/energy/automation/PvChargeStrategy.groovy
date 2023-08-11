@@ -35,17 +35,17 @@ import static de.geobe.energy.automation.WallboxMonitor.CarChargingState
  * Responsibility:
  */
 @ActiveObject
-class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
+class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
     private PvChargeStrategyParams params = new PvChargeStrategyParams()
     private List<PMValues> valueTrace = []
 
     static powerFactor = 3 * 230
 
-    private static PvChargeStrategySM pvChargeStrategy
+    private static PvChargeStrategy pvChargeStrategy
 
-    static synchronized PvChargeStrategySM getChargeStrategy() {
+    static synchronized PvChargeStrategy getChargeStrategy() {
         if (!pvChargeStrategy) {
-            pvChargeStrategy = new PvChargeStrategySM()
+            pvChargeStrategy = new PvChargeStrategy()
         }
         pvChargeStrategy
     }
@@ -119,6 +119,10 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     void setParams(PvChargeStrategyParams p) {
         params = new PvChargeStrategyParams(p)
 
+    }
+
+    PvChargeStrategyParams getParams() {
+        params
     }
 
     /**
@@ -396,7 +400,7 @@ class PvChargeStrategySM implements PowerValueSubscriber, ChargeStrategy {
     }
 
     static void main(String[] args) {
-        PvChargeStrategySM strategyActor = PvChargeStrategySM.chargeStrategy
+        PvChargeStrategy strategyActor = PvChargeStrategy.chargeStrategy
         strategyActor.startStrategy()
         Thread.sleep(180000)
         strategyActor.stopStrategy()

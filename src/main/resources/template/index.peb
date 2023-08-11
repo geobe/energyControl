@@ -41,7 +41,7 @@
 	</head>
 	<body>
         <div class="w3-row">
-            <div class="w3-container w3-teal w3-col s12 m8 l6" style="width:100%">
+            <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
                 <h2>{{ websiteTitle }}</h2>
             </div>
         </div>
@@ -75,16 +75,32 @@
                 Stop Server
             </button>
         </div>
+<!-- websocket connection -->
+        <div hx-ext="ws" ws-connect="/dash">
+        </div>
 <!-- dashboard pane -->
         <div id="dashboard" hx-trigger="load">
            {% include "./dashboard.peb" %}
-        </div>
-<!-- websocket connection -->
-        <div hx-ext="ws" ws-connect="/dash">
         </div>
 <!-- Tab panes -->
         <div id="tab_content" hx-trigger="load" style="width:100%">
            {% include "./statebuttons.peb" %}
         </div>
+        <div id="tab_content" hx-trigger="load" style="width:100%">
+           {% include "./settings.peb" %}
+        </div>
 	</body>
+
+<!-- javascript functions -->
+<script>
+function accordeon(id) {
+  var x = document.getElementById(id);
+  if (x.className.indexOf("w3-show") == -1) {
+    x.className += " w3-show";
+  } else {
+    x.className = x.className.replace(" w3-show", "");
+  }
+}
+</script>
+
 </html>

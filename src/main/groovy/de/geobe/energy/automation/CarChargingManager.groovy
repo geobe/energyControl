@@ -222,7 +222,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.HasSurplus:
                         stopCharging()
                     case ChargeManagerState.NoSurplus:
-                        PvChargeStrategySM.chargeStrategy.stopStrategy()
+                        PvChargeStrategy.chargeStrategy.stopStrategy()
                         break
                 }
                 exitActive()
@@ -268,7 +268,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.HasSurplus:
                         stopCharging()
                     case ChargeManagerState.NoSurplus:
-                        PvChargeStrategySM.chargeStrategy.stopStrategy()
+                        PvChargeStrategy.chargeStrategy.stopStrategy()
                         break
                     case ChargeManagerState.ChargingStopped:
                         forceDefault()
@@ -293,8 +293,10 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.WaitForExtCharge:
                         stopCharging()
                     case ChargeManagerState.NoSurplus:
-                        PvChargeStrategySM.chargeStrategy.stopStrategy()
+                        PvChargeStrategy.chargeStrategy.stopStrategy()
                         chargeState = enterCarConnected()
+                        break
+                    case ChargeManagerState.Inactive:
                         break
                 }
                 break
@@ -340,7 +342,7 @@ class CarChargingManager implements WallboxStateSubscriber {
         if (chargingState == WallboxMonitor.CarChargingState.NO_CAR) {
             result = ChargeManagerState.NoCarConnected
         } else { // carConnected
-            result = enterCarConnected()
+            result = enterCarConnected(false)
         }
         // start receiving state change events from wallbox monitor
         WallboxMonitor.monitor.subscribeState this
@@ -382,7 +384,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     ChargeManagerState.ChargeTibber
                     break
                 case ChargeStrategy.CHARGE_PV_SURPLUS:
-                    chargeStrategy = PvChargeStrategySM.chargeStrategy
+                    chargeStrategy = PvChargeStrategy.chargeStrategy
                     chargeStrategy.startStrategy this
                     if (actualCarChargingState in [
                             WallboxMonitor.CarChargingState.WAIT_CAR,
@@ -466,7 +468,7 @@ class CarChargingManager implements WallboxStateSubscriber {
         })
         PvChargeStrategyParams params =
                 new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 2000)
-        PvChargeStrategySM.chargeStrategy.params = params
+        PvChargeStrategy.chargeStrategy.params = params
         // activate manager first
         carChargingManager.active = true
         // let it initialize a while, then set command

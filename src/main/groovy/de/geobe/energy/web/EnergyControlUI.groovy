@@ -33,7 +33,9 @@ class EnergyControlUI {
 
     static void main(String[] args) {
 
-        ValueController valueController = new ValueController()
+        PebbleEngine engine = new PebbleEngine.Builder().build()
+
+        ValueController valueController = new ValueController(engine)
         valueController.init()
 
         staticFiles.location("public")
@@ -47,5 +49,7 @@ class EnergyControlUI {
         post('/wallboxStrategy/:action', valueController.wallboxStrategyPost)
 
         get('/dashboard', valueController.dashboardRoute)
+
+        post('/settings', valueController.energySettingsPost)
     }
 }
