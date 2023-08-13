@@ -126,33 +126,6 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
     }
 
     /**
-     * test for more consumption as could be served by PV and battery (negative balance) while loading car
-     * @param balance PV production minus home consumption
-     * @param requested charging current requested by wallbox
-     * @param charging is car charging?
-     * @return immediate action needed or none
-     */
-//    private ImmediateAction checkReduceImmediate(int balance, int requested, boolean charging) {
-//        if (balance < params.stopThreshold && charging) {
-//            // are we currently loading car with more than minimal load current?
-//            if (requested > Wallbox.wallbox.minCurrent) {
-//                // check if reduction of load current would be sufficient
-//                def couldSave = 3 * 230 * (requested - Wallbox.wallbox.minCurrent)
-//                if (balance + couldSave >= params.stopThreshold) {
-//                    // request minimal load current
-//                    ImmediateAction.Reduce
-//                } else {
-//                    ImmediateAction.Stop
-//                }
-//            } else {
-//                ImmediateAction.Stop
-//            }
-//        } else {
-//            ImmediateAction.None
-//        }
-//    }
-
-    /**
      * detect if loading is reduced or finished, i.e. car takes less or no energy though supplied
      * @return true if ended
      */
@@ -330,15 +303,15 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
                 }
                 break
         }
-        skipCount++
-        if ((skipCount >= 12 && chargingEvent != ChargingEvent.waitForAverage) ||
-                chargingState != stateBefore ||
-                (availableCurrent && lastAmpsSent && availableCurrent != lastAmpsSent)) {
-            println "$values"
-            println "--> skip: $skipCount, stateBefore: $stateBefore, availableCurrent: $availableCurrent, lastAmpsSent: $lastAmpsSent"
-            println "$evTrace($caseTrace)--> $chargingState\n"
-            skipCount = 0
-        }
+//        skipCount++
+//        if ((skipCount >= 12 && chargingEvent != ChargingEvent.waitForAverage) ||
+//                chargingState != stateBefore ||
+//                (availableCurrent && lastAmpsSent && availableCurrent != lastAmpsSent)) {
+//            println "$values"
+//            println "--> skip: $skipCount, stateBefore: $stateBefore, availableCurrent: $availableCurrent, lastAmpsSent: $lastAmpsSent"
+//            println "$evTrace($caseTrace)--> $chargingState\n"
+//            skipCount = 0
+//        }
     }
 
     private int powerToAmp(int power, int phases = 3) {

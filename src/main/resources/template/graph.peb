@@ -1,0 +1,19 @@
+    <div class="w3-col s12 w3-padding-small w3-dark-grey">
+      <h5>{{ graphTitle }}</h5>
+    </div>
+    <div>
+        <canvas id="myChart"></canvas>
+    </div>
+    {% autoescape "js" %}
+    {% include "./graphdata.peb" %}
+<script id="graph-impl">
+</script>
+    {% endautoescape %}
+<div>
+  <select class="w3-select" name="graphsize"
+  hx-post="/graph" hx-target="#graph-data" hx-swap="outerHTML">
+      <option value="360">30 Minuten</option>
+      <option value="180">15 Minuten</option>
+      <option value="60">5 Minuten</option>
+  </select>
+</div>

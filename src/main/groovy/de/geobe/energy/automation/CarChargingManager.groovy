@@ -312,6 +312,10 @@ class CarChargingManager implements WallboxStateSubscriber {
                         if (WallboxMonitor.monitor.current.state == WallboxMonitor.CarChargingState.CHARGING) {
                             chargeState = ChargeManagerState.HasSurplus
                         }
+                        // blocking, if not started charging by car
+                        // just go to charging state hasSurplus without adjusting current
+//                        chargeState = ChargeManagerState.HasSurplus
+//                        break
                     case ChargeManagerState.HasSurplus:
                         setCurrent(param)
                         break
@@ -332,10 +336,13 @@ class CarChargingManager implements WallboxStateSubscriber {
                 execStop()
                 break
         }
-        println "$evTrigger $chargeState"
+        println "$evTrigger $chargeState @ ${WallboxMonitor.monitor.current.state}"
     }
 
-    private ChargeManagerState enterActive() {
+    /**
+     * Superstate, find out substate to go to. See state chart.
+     */
+     private ChargeManagerState enterActive() {
         ChargeManagerState result
         def chargingState = WallboxMonitor.monitor.current.state
 //        println "enterActive, chargingState: $chargingState"
@@ -358,6 +365,11 @@ class CarChargingManager implements WallboxStateSubscriber {
         enterCarConnected(false)
     }
 
+    /**
+     * Superstate, find out substate to go to. See state chart.
+     * @param extCmdHasPrio if stop command from app or car has priority
+     * @return none
+     */
     private ChargeManagerState enterCarConnected(boolean extCmdHasPrio = true) {
         // remember original chargingState and avoid getting it sent repeatedly
         actualCarChargingState = WallboxMonitor.monitor.current.state
@@ -373,6 +385,10 @@ class CarChargingManager implements WallboxStateSubscriber {
             stopCharging()
             ChargeManagerState.ChargingStopped
         } else {
+            if (actualCarChargingState == WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR) {
+                // switch to CHARGING_STOPPED_BY_APP
+                stopCharging()
+            }
             switch (chargeCmd) {
                 case ChargeStrategy.CHARGE_ANYWAY:
                     startCharging()
@@ -436,9 +452,11 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private startCharging() {
-//        print " -start charging- "
         Wallbox.wallbox.startCharging()
-//        println " --> $Wallbox.wallbox.wallboxValues"
+    }
+
+    private forceCharging() {
+        Wallbox.wallbox.startChargingRemote()
     }
 
     private setCurrent(int amp = 0) {

@@ -25,7 +25,6 @@
 package de.geobe.energy.web
 
 import de.geobe.energy.automation.CarChargingManager
-import de.geobe.energy.automation.ChargeStrategy
 import de.geobe.energy.automation.PMValues
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerValueSubscriber
@@ -44,7 +43,6 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket
 import spark.Request
 import spark.Response
 import spark.Route
-import spark.Spark
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -74,6 +72,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     UiStringsDE ts = new UiStringsDE()
     /** more helper objects */
     EnergySettings es = new EnergySettings(this, ts)
+    GraphController gc = new GraphController()
 
     /** translate pebble templates to java code */
     PebbleEngine engine
@@ -82,8 +81,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def dashboard = engine.getTemplate('template/dashboard.peb')
     def powerValuesTemplate = engine.getTemplate('template/powervalues.peb')
     def chargeInfo = engine.getTemplate('template/chargeinfo.peb')
-    def settings = engine.getTemplate('template/settings.peb')
+//    def settings = engine.getTemplate('template/settings.peb')
     def settingsform = engine.getTemplate('template/settingsform.peb')
+    def graphTest = engine.getTemplate('template/graphtest.peb')
+    def graphData = engine.getTemplate('template/graphdata.peb')
 
     void init() {
         pwrValues = powerMonitor.current
@@ -103,7 +104,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         pwrValues = pmValues.powerValues
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
-        updateWsValues(powerValuesString() + chargeInfoString())
+        updateWsValues(powerValuesString() + chargeInfoString())// + statesInfoString)
         updateWsValues(statesInfoString())
     }
 
@@ -122,6 +123,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll setChargeManagementContext(chargeManagerState)
         ctx.putAll(joinDashboardContext())
         ctx.putAll(es.settingsFormContext())
+        ctx.putAll(gc.createGraphCtx(120, 3))
         resp.status 200
         streamOut(index, ctx)
     }
@@ -144,7 +146,6 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Route wallboxStrategyRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
-//        def chargeStrategy = chargeStrategy
         resp.status 200
         def ctx = setChargeCommandContext(chargeStrategy)
         ctx.putAll setChargeManagementContext(chargeManagerState)
@@ -213,6 +214,32 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         } else {
             upd
         }
+    }
+
+    Route graphRoute = {Request req, Response resp ->
+        def accept = req.headers('Accept')
+        resp.status 200
+        def ctx = gc.createGraphCtx(360,3)
+        graphTest = engine.getTemplate('template/graphtest.peb')
+        streamOut(graphTest, ctx)
+    }
+
+    Route graphPostRoute = {Request req, Response resp ->
+        def accept = req.headers('Accept')
+        def submission = req.queryParams()
+        int size
+        if(submission.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
+            size = req.queryParams('graphsize').toInteger()
+        } else {
+            size = 360
+        }
+        resp.status 200
+        println "size: $size"
+        def ctx = gc.createGraphCtx(size,3)
+        ctx.put('newChart', true)
+        def out = streamOut(graphData, ctx)
+        println out
+        out
     }
 
     /***************** webservice methods **************/

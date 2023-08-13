@@ -1,0 +1,66 @@
+{% autoescape  %}
+<script id="graph-data">
+    var labels = {{ labels }};
+{#    const datapoints1 = [0, 20, 20, 60, 60, 120, 42, 180, 120, 125, 105, 110, 170];#}
+{% for dataset in datasets %}
+    var dataset{{ loop.index }} = {{ dataset }};
+{% endfor %}
+
+    var data = {
+      labels: labels,
+      datasets: [
+{% for line in lines %}
+        {
+          label: '{{ line.label }}',
+          data: dataset{{ loop.index }},
+          borderColor: '{{ line.color }}',
+          fill: false
+        },
+{% endfor %}
+      ]
+    };
+
+    var ctx = document.getElementById('myChart');
+
+    var config = {
+      type: 'line',
+      data: data,
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: '{{ graphTitle }}'
+          },
+        },
+        interaction: {
+          intersect: false,
+        },
+        scales: {
+          x: {
+            display: true,
+            title: {
+              display: true
+            }
+          },
+          y: {
+            display: true,
+            title: {
+              display: true,
+              text: 'Value'
+            },
+            suggestedMin: -10,
+            suggestedMax: 200
+          }
+        }
+      },
+    };
+
+{% if newChart %}
+    lineChart.destroy();
+    lineChart = new Chart(ctx, config);
+{%else %}
+    var lineChart = new Chart(ctx, config);
+{% endif %}
+</script>
+{% endautoescape %}

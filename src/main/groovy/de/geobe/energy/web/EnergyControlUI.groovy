@@ -39,6 +39,7 @@ class EnergyControlUI {
         valueController.init()
 
         staticFiles.location("public")
+        staticFiles.expireTime(1)
 
         webSocket('/dash', valueController)
 
@@ -51,5 +52,9 @@ class EnergyControlUI {
         get('/dashboard', valueController.dashboardRoute)
 
         post('/settings', valueController.energySettingsPost)
+
+        get('/graph', valueController.graphRoute)
+
+        post('/graph', valueController.graphPostRoute)
     }
 }

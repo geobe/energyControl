@@ -33,10 +33,9 @@
         <link rel="icon" href="/static/pumahead.ico">
         <script src='/script/htmx-1.9.3.min.js'> </script>
         <script src='/script/htmx-ws.js'> </script>
-{#
-         <script src='/script/chart-3.5.0.min.js'> </script>
-        <script src='/script/index.umd-3.5.0.min.js'> </script>
-#}
+{#         <script src='/script/chart.min.js'> </script>#}
+{#         <script src='/script/chart.umd.js.map'> </script>#}
+         <script src='/script/chart-4.3.3.js'> </script>
 		<title>{{ websiteTitle }}</title>
 	</head>
 	<body>
@@ -88,6 +87,9 @@
         </div>
         <div id="tab_content" hx-trigger="load" style="width:100%">
            {% include "./settings.peb" %}
+        </div>
+        <div id="tab_content" hx-trigger="load" style="width:100%">
+           {% include "./graph.peb" %}
         </div>
 	</body>
 

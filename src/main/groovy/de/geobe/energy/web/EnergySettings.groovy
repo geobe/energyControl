@@ -40,6 +40,7 @@ class EnergySettings {
     EnergySettings(ValueController valueController, UiStringsDE uiStrings) {
         vc = valueController
         ts = uiStrings
+        processUpdate(restoreOrInitSettings())
     }
 
     /** simple access to PvChargeStrategy singleton */
@@ -56,10 +57,9 @@ class EnergySettings {
         pvcsParameterMap
     }
 
-    EnergySettings(PebbleEngine engine) {
-        this.engine = engine
-        pvcsParameterMap = restoreOrInitSettings()
-    }
+//    EnergySettings(PebbleEngine engine) {
+//        this.engine = engine
+//    }
 
     def settingsFormContext() {
         def ctx = [:]
@@ -79,12 +79,12 @@ class EnergySettings {
         ctx
     }
 
-    boolean processUpdate(Map formValues) {
+    boolean processUpdate(Map parameterMap) {
         def changed = [:]
         pvcsParameterMap.each { param ->
             def key = param.key
-            if (formValues.containsKey(key) && formValues[key] != param.value) {
-                changed.put(key, formValues[key])
+            if (parameterMap.containsKey(key) && parameterMap[key] != param.value) {
+                changed.put(key, parameterMap[key])
             }
         }
         if (changed) {

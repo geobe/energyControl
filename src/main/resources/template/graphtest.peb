@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="/css/w3.css">
+    <link rel="stylesheet" href="/css/w3-theme-sampler.css">
+    <script src='/script/htmx-1.9.3.min.js'> </script>
+    <script src='/script/htmx-ws.js'> </script>
+    <script src="/script/chart-4.3.3.js"></script>
+    <title>Formtest</title>
+</head>
+<body>
+<div>
+    <div class="w3-col s12 w3-padding-small w3-dark-grey">
+      <h5>{{ graphTitle }}</h5>
+    </div>
+    <canvas id="myChart"></canvas>
+</div>
+<div id="graph-script" hx-trigger="load" style="width:100%">
+   {% include "./graph.peb" %}
+</div>
+
+</body>
+</html>

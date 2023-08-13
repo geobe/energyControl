@@ -130,6 +130,16 @@ class Wallbox implements IWallboxValueSource {
     }
 
     /**
+     * sends request to wallbox api to start loading, overriding car state
+     * @return human readable response
+     */
+    def startChargingRemote() {
+        // seems that ON overrides loading state of car (master is control program)
+        def uri = setRequest + "frc=${ForceState.ON.ordinal()}"
+        new URL(uri).text
+    }
+
+    /**
      * sends request to wallbox api to stop loading
      * @return human readable response
      */
