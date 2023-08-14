@@ -72,7 +72,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     UiStringsDE ts = new UiStringsDE()
     /** more helper objects */
     EnergySettings es = new EnergySettings(this, ts)
-    GraphController gc = new GraphController()
+    GraphController gc = new GraphController(ts)
 
     /** translate pebble templates to java code */
     PebbleEngine engine
@@ -102,6 +102,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     void takePMValues(PMValues pmValues) {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
+//        gc.saveSnapshot(pwrValues, wbValues)
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
         updateWsValues(powerValuesString() + chargeInfoString())// + statesInfoString)

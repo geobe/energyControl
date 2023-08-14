@@ -71,6 +71,7 @@ class UiStringsDE {
             websiteTitle: 'PowerManagement',
             powerTitle  : 'Energiewerte',
             statesTitle : 'Statuswerte',
+            graphTitle  : 'Energie Status'
     ]
 
     final powerStrings = [
@@ -123,7 +124,19 @@ class UiStringsDE {
 
     final pvSettingStrings = [
             settingsTitle : 'Einstellungen',
-            settingsButton : 'Übernehmen'
+            settingsButton: 'Übernehmen'
+    ]
+
+    final graphLabels = [
+            ePv       : 'Solar',
+            eBattery  : 'Batterie',
+            eGrid     : 'Netz',
+            eHome     : 'Haus',
+            eCar      : 'Auto',
+            socBattery: '% Batterie',
+            timeAxis     : 'Zeit',
+            powerAxis : 'Leistung [W]',
+            socAxis   : 'Ladezustand [%]'
     ]
 
 }

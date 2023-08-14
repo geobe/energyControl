@@ -24,7 +24,10 @@
 
 package de.geobe.energy.web
 
-
+import de.geobe.energy.automation.CarChargingManager
+import de.geobe.energy.automation.PeriodicExecutor
+import de.geobe.energy.automation.PowerMonitor
+import de.geobe.energy.automation.WallboxMonitor
 import io.pebbletemplates.pebble.PebbleEngine
 
 import static spark.Spark.*
@@ -32,6 +35,15 @@ import static spark.Spark.*
 class EnergyControlUI {
 
     static void main(String[] args) {
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                println "shutting down gently ..."
+                shutdown()
+                Thread.sleep 1000
+                println 'done'
+            }
+        })
 
         PebbleEngine engine = new PebbleEngine.Builder().build()
 
@@ -56,5 +68,18 @@ class EnergyControlUI {
         get('/graph', valueController.graphRoute)
 
         post('/graph', valueController.graphPostRoute)
+
+        post('/stop') { req, res ->
+//            shutdown()
+            stop();
+            System.exit(0)
+        }
+    }
+
+    private static shutdown() {
+        CarChargingManager.carChargingManager.shutDown()
+        WallboxMonitor.monitor.shutdown()
+        PowerMonitor.monitor.shutdown()
+        PeriodicExecutor.shutdown()
     }
 }

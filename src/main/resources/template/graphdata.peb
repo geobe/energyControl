@@ -1,9 +1,8 @@
 {% autoescape  %}
 <script id="graph-data">
-    var labels = {{ labels }};
-{#    const datapoints1 = [0, 20, 20, 60, 60, 120, 42, 180, 120, 125, 105, 110, 170];#}
-{% for dataset in datasets %}
-    var dataset{{ loop.index }} = {{ dataset }};
+    var labels = {{ labels | raw }};
+{% for line in lines %}
+    var dataset{{ line.key }} = {{ line.dataset }};
 {% endfor %}
 
     var data = {
@@ -12,9 +11,10 @@
 {% for line in lines %}
         {
           label: '{{ line.label }}',
-          data: dataset{{ loop.index }},
+          data: dataset{{ line.key }},
           borderColor: '{{ line.color }}',
-          fill: false
+          fill: false,
+          yAxisID: '{{ line.yAxisID }}'
         },
 {% endfor %}
       ]
@@ -40,17 +40,29 @@
           x: {
             display: true,
             title: {
-              display: true
-            }
+              display: true,
+              text: '{{ timeAxis }}'
+            },
           },
-          y: {
+          'y-left': {
             display: true,
+            position: 'left',
             title: {
               display: true,
-              text: 'Value'
+              text: '{{ powerAxis }}'
             },
-            suggestedMin: -10,
-            suggestedMax: 200
+            suggestedMin: -2000,
+            suggestedMax: 5000
+          },
+          'y-right': {
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: '{{ socAxis }}'
+            },
+            suggestedMin: 0,
+            suggestedMax: 100
           }
         }
       },
