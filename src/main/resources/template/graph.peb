@@ -6,8 +6,6 @@
     </div>
     {% autoescape "js" %}
     {% include "./graphdata.peb" %}
-<script id="graph-impl">
-</script>
     {% endautoescape %}
 <div>
   <select class="w3-select" name="graphsize"

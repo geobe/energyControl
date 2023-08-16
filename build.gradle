@@ -15,7 +15,8 @@ repositories {
 
 apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/crossdev.gradle'
 
-mainClassName='de.geobe.energy.automation.CarChargingManager'
+mainClassName='de.geobe.energy.web.EnergyControlUI'
+//mainClassName='de.geobe.energy.automation.CarChargingManager'
 //mainClassName='de.geobe.energy.automation.CtlCTest'
 //mainClassName='de.geobe.energy.e3dc.E3dcInteractionRunner'
 //mainClassName='de.geobe.energy.automation.WallboxMonitor'

@@ -26,42 +26,61 @@ package de.geobe.energy.web
 
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.go_e.WallboxValues
-import io.pebbletemplates.pebble.PebbleEngine
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
-import static spark.Spark.*
-
 class GraphController {
 
+    static final String snapshotPostfix = '-snapshots.bin'
     /** storage for energy values */
     private ConcurrentLinkedDeque<Snapshot> snapshots = new ConcurrentLinkedDeque<>()
 
     /** all static template strings for spark */
     UiStringsDE ts
 
+    /** marker variable for last snapshots save to file */
+    private int lastSaveDayOfYear = -42
+
     DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
     DateTimeFormatter hour = DateTimeFormat.forPattern('HH:mm:ss')
     DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
     DateTimeFormatter second = DateTimeFormat.forPattern('ss')
+    DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
 
     GraphController(UiStringsDE uiStrings) {
         ts = uiStrings
     }
 
+    /**
+     * Initialize snapshots from file or add first value to snapshots
+     * @param uiStrings
+     */
+    def init(Snapshot snapshot) {
+        snapshots = readSnapshots()
+        if(todaysSnapshotExists()) {
+            println 'snapshots initialized from file'
+        } else {
+            'new snapshots started'
+            snapshots << snapshot
+        }
+
+    }
+
     def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
+        short cHome = powerValues.consumptionHome - wallboxValues.energy
         def snap = new Snapshot(
-                powerValues.timestamp.getEpochSecond(), // for JodaTime multiply with 1000
+                powerValues.timestamp.getEpochSecond() * 1000, // for JodaTime multiply with 1000
                 (short) powerValues.powerSolar,
                 (short) powerValues.powerBattery,
                 (short) powerValues.powerGrid,
-                (short) powerValues.consumptionHome,
-                (short) wallboxValues.energy,
+                cHome,
+                wallboxValues.energy,
                 (short) powerValues.socBattery
         )
+//        check
         snapshots.push snap
     }
 
@@ -69,38 +88,8 @@ class GraphController {
         snapshots.clear()
     }
 
-    def createGraphCtx(int size, int lineCount) {
-        def labels = []
-        def datasets = []
-        def lines = []
-
-        for (i in 0..<size) {
-            labels << i
-        }
-        for (j in 0..<lineCount) {
-            def dataset = []
-            for (k in 0..<size) {
-                dataset << (int) (8000.0 * Math.random() - 3000.0)
-            }
-            datasets << dataset
-            def colorKey = Colors.w3Color.keySet().asList()[j * 3]
-            lines << [
-                    label: 'line' + j,
-                    color: Colors.w3Color[colorKey]
-            ]
-        }
-        def ctx = [
-                labels    : labels.toString(),
-                datasets  : datasets,
-                lines     : lines
-        ]
-        ctx.putAll ts.graphLabels
-        ctx
-    }
-
     def createSnapshotCtx(int size, int offset = 0) {
         def labels = []
-//        def datasets = []
         def lines = []
 
         size = Math.min(size - offset, snapshots.size())
@@ -113,7 +102,8 @@ class GraphController {
             index++
         }
 
-        Map sample = worklist[0].toMap()
+        Map sample = new Snapshot().toMap()
+//        Map sample = worklist[0].toMap()
         Set keySet = sample.keySet() - 'instant'
 
         keySet.each { key ->
@@ -171,23 +161,84 @@ class GraphController {
         }
     }
 
+    def writeSnapshots() {
+        def dateStamp = DateTime.now()
+        if (dateStamp.getMinuteOfDay() <=1) {
+            dateStamp = dateStamp.minusDays(1)
+        }
+        def filename = "${stamp.print(dateStamp)}$snapshotPostfix"
+        def home = System.getProperty('user.home')
+        def settingsDir = "$home/.$EnergySettings.SETTINGS_DIR/"
+        def dir = new File(settingsDir)
+        if (!dir.exists()) {
+            dir.mkdir()
+        }
+        if (dir.isDirectory()) {
+            def file = new File(settingsDir, filename)
+            file.withObjectOutputStream {outputStream ->
+                outputStream.writeObject snapshots
+            }
+        }
+    }
+
+    ConcurrentLinkedDeque<Snapshot> readSnapshots(DateTime dateStamp = DateTime.now()) {
+        ConcurrentLinkedDeque<Snapshot> oldSnapshots
+        def home = System.getProperty('user.home')
+        def filename = "${stamp.print(dateStamp)}$snapshotPostfix"
+        def snapFile =
+                new File("$home/.$EnergySettings.SETTINGS_DIR/$filename".toString())
+        if (snapFile.exists()) {
+            snapFile.withObjectInputStream {inputStream ->
+                oldSnapshots = inputStream.readObject()
+            }
+        } else {
+            oldSnapshots = new ConcurrentLinkedDeque<>()
+        }
+        oldSnapshots
+    }
+
+    def todaysSnapshotExists() {
+        def filename = stamp.print(DateTime.now())+snapshotPostfix
+        def home = System.getProperty('user.home')
+        def settingsDir = "$home/.$EnergySettings.SETTINGS_DIR"
+        def snapFile = new File("$settingsDir/$filename")
+        snapFile.exists()
+    }
+
     static void main(String[] args) {
         def gc = new GraphController(new UiStringsDE())
         gc.mockShots(17280)
-        def engine = new PebbleEngine.Builder().build()
-        def template = engine.getTemplate('template/graphtest.peb')
-
-        staticFiles.location("public")
-
-        get('/') { req, resp ->
-            def accept = req.headers('Accept')
-            resp.status 200
-            def out = new StringWriter()
-            def ctx = gc.createSnapshotCtx(120)
-            template.evaluate(out, ctx)
-//            println out
-            out.toString()
+        gc.writeSnapshots()
+        if(gc.todaysSnapshotExists()) {
+            print 'todays snapshot file found'
         }
+        def oldSnapshots = gc.readSnapshots()
+        def snit = gc.snapshots.iterator()
+        def upit = oldSnapshots.iterator()
+        int n = 0
+        while (snit.hasNext() && upit.hasNext()) {
+            if(snit.next() != upit.next()) {
+                println "different records at $n"
+            }
+            n++
+        }
+        if(n != 17280) {
+            println "different length, 17280 <=> $n"
+        }
+//        def engine = new PebbleEngine.Builder().build()
+//        def template = engine.getTemplate('template/graphtest.peb')
+//
+//        staticFiles.location("public")
+//
+//        get('/') { req, resp ->
+//            def accept = req.headers('Accept')
+//            resp.status 200
+//            def out = new StringWriter()
+//            def ctx = gc.createSnapshotCtx(120)
+//            template.evaluate(out, ctx)
+////            println out
+//            out.toString()
+//        }
 
     }
 
@@ -200,13 +251,3 @@ class GraphController {
             socBattery: Colors.w3Color.deep_orange
     ]
 }
-
-record Snapshot(
-        long instant,
-        short ePv,
-        short eBattery,
-        short eGrid,
-        short eHome,
-        short eCar,
-        short socBattery
-) {}

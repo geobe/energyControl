@@ -34,6 +34,8 @@ import static spark.Spark.*
 
 class EnergyControlUI {
 
+    static ValueController valueController
+
     static void main(String[] args) {
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -47,7 +49,8 @@ class EnergyControlUI {
 
         PebbleEngine engine = new PebbleEngine.Builder().build()
 
-        ValueController valueController = new ValueController(engine)
+//        ValueController
+        valueController = new ValueController(engine)
         valueController.init()
 
         staticFiles.location("public")
@@ -70,7 +73,6 @@ class EnergyControlUI {
         post('/graph', valueController.graphPostRoute)
 
         post('/stop') { req, res ->
-//            shutdown()
             stop();
             System.exit(0)
         }
@@ -80,6 +82,7 @@ class EnergyControlUI {
         CarChargingManager.carChargingManager.shutDown()
         WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor.shutdown()
+        valueController?.shutdown()
         PeriodicExecutor.shutdown()
     }
 }

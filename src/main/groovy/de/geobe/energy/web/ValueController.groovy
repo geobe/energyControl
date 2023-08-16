@@ -24,22 +24,13 @@
 
 package de.geobe.energy.web
 
-import de.geobe.energy.automation.CarChargingManager
-import de.geobe.energy.automation.PMValues
-import de.geobe.energy.automation.PowerMonitor
-import de.geobe.energy.automation.PowerValueSubscriber
-import de.geobe.energy.automation.WallboxMonitor
-import de.geobe.energy.automation.WallboxStateSubscriber
+import de.geobe.energy.automation.*
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.go_e.WallboxValues
 import io.pebbletemplates.pebble.PebbleEngine
 import io.pebbletemplates.pebble.template.PebbleTemplate
 import org.eclipse.jetty.websocket.api.Session
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage
-import org.eclipse.jetty.websocket.api.annotations.WebSocket
+import org.eclipse.jetty.websocket.api.annotations.*
 import spark.Request
 import spark.Response
 import spark.Route
@@ -47,6 +38,7 @@ import spark.Route
 import java.util.concurrent.ConcurrentLinkedDeque
 
 @WebSocket
+//@ActiveObject
 class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     ValueController(PebbleEngine engine) {
@@ -64,6 +56,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile WallboxMonitor.CarChargingState carChargingState
     volatile CarChargingManager.ChargeManagerState chargeManagerState
     volatile CarChargingManager.ChargeStrategy chargeStrategy
+    volatile int graphDataSize = 360
 
     /** store for websocket sessions */
     private ConcurrentLinkedDeque<Session> sessions = new ConcurrentLinkedDeque<>()
@@ -89,27 +82,42 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     void init() {
         pwrValues = powerMonitor.current
         wbValues = wbMonitor.current.values
+        short cHome = pwrValues.consumptionHome - wbValues.energy
+        Snapshot snapshot = new Snapshot(
+                pwrValues.timestamp.toEpochMilli(),
+                (short) pwrValues.powerSolar,
+                (short) pwrValues.powerBattery,
+                (short) pwrValues.powerGrid,
+                cHome,
+                wbValues.energy,
+                (short) pwrValues.socBattery
+        )
+        gc.init(snapshot)
         carChargingState = wbMonitor.current.state
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
 //        println "wallbox: $wbValues \ncar state: $carChargingState"
-        powerMonitor.initCycle(5, 10)
+        powerMonitor.initCycle(5, 0)
         powerMonitor.subscribe(this)
         wbMonitor.subscribeState(this)
     }
 
     @Override
+//    @ActiveMethod(blocking = false)
     void takePMValues(PMValues pmValues) {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
-//        gc.saveSnapshot(pwrValues, wbValues)
+//        println "pwrValues: $pwrValues"
+        gc.saveSnapshot(pwrValues, wbValues)
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
         updateWsValues(powerValuesString() + chargeInfoString())// + statesInfoString)
         updateWsValues(statesInfoString())
+        updateWsValues(graphInfoString(graphDataSize))
     }
 
     @Override
+//    @ActiveMethod(blocking = false)
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         carChargingState = carState
         updateWsValues(chargeInfoString())
@@ -124,7 +132,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll setChargeManagementContext(chargeManagerState)
         ctx.putAll(joinDashboardContext())
         ctx.putAll(es.settingsFormContext())
-        ctx.putAll(gc.createGraphCtx(120, 3))
+        ctx.putAll(gc.createSnapshotCtx(120))
         resp.status 200
         streamOut(index, ctx)
     }
@@ -190,9 +198,6 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def upd = statesInfoString() + chargeInfoString()
         updateWsValues(upd)
         ''
-//        def ctx = setChargeCommandContext(chargeStrategy)
-//        ctx.putAll setChargeManagementContext(chargeManagerState)
-//        streamOut(stateButtons, ctx)
     }
 
     Route energySettingsPost = { Request req, Response resp ->
@@ -225,7 +230,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         streamOut(graphTest, ctx)
     }
 
-    Route graphPostRoute = {Request req, Response resp ->
+    Route graphPostRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
         def submission = req.queryParams()
         int size
@@ -234,13 +239,20 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         } else {
             size = 360
         }
+        graphDataSize = size
         resp.status 200
         println "size: $size"
-        def ctx = gc.createGraphCtx(size,3)
+        def ctx = gc.createSnapshotCtx(size)
         ctx.put('newChart', true)
         def out = streamOut(graphData, ctx)
         println out
         out
+    }
+
+    /** to be called at shutdown to save accumulated energy values */
+    def shutdown() {
+        println 'write snapshots'
+        gc.writeSnapshots()
     }
 
     /***************** webservice methods **************/
@@ -298,6 +310,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(setChargeCommandContext(chargeStrategy))
         ctx.putAll(setChargeManagementContext(chargeManagerState))
         streamOut(stateButtons, ctx)
+     }
+
+    def graphInfoString(int size = 120) {
+        def ctx = [:]
+        ctx.putAll(gc.createSnapshotCtx(size))
+        ctx.put('newChart', true)
+        streamOut(graphData, ctx)
     }
 
     /********** helper methods ******/

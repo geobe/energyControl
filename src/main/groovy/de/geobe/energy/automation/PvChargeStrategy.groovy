@@ -137,7 +137,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
      * The central power evaluation method
      */
     private evalPower() {
-        print '.'
+        print '*'
         def currentValues = valueTrace.first()
 //        println currentValues
         def powerValues = currentValues.powerValues

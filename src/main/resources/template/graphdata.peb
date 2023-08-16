@@ -27,6 +27,7 @@
       data: data,
       options: {
         responsive: true,
+        animation: false,
         plugins: {
           title: {
             display: true,
