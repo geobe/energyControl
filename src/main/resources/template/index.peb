@@ -38,6 +38,11 @@
          <script src='/script/chart-4.3.3.js'> </script>
 		<title>{{ websiteTitle }}</title>
 	</head>
+    <style>
+    label, p, w3-label  {
+      font-family: Arial, Helvetica, sans-serif ;
+    }
+    </style>
 	<body>
         <div class="w3-row">
             <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">

@@ -1,20 +1,20 @@
     <div id="charge-info" class="w3-col s12 w3-padding-small w3-light-grey w3-left">
         <div class="w3-col" >
-            <div class="w3-col s6 m4 l4">
+            <div class="w3-col s6 m4 l4" style="font-size:80%">
             {{ chargingStateLabel }}: {{ chargingStateValue }}
             </div>
-            <div class="w3-col s6 m4 l4">
+            <div class="w3-col s6 m4 l4" style="font-size:80%">
             {{ chargeStrategyLabel }}: {{ chargeStrategyValue }}
             </div>
-            <div class="w3-col s6 m4 l4">
+            <div class="w3-col s6 m4 l4" style="font-size:80%">
             {{ chargeManagerStateLabel }}: {{ chargeManagerStateValue }}
             </div>
         </div>
         <div class="w3-col" >
-            <div class="w3-col s6 m4 l4">
+            <div class="w3-col s6 m4 l4" style="font-size:80%">
             {{ tibberStrategyLabel }}: {{ tibberStrategyValue }}
             </div>
-            <div class="w3-col s6 m4 l4">
+            <div class="w3-col s6 m4 l4" style="font-size:80%">
             {{ tibberPriceLabel }}: {{ tibberPriceValue }}&nbsp;ct
             </div>
         </div>

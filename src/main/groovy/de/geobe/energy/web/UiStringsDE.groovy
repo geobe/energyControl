@@ -110,11 +110,11 @@ class UiStringsDE {
     ]
 
     final pvStrategySettingLabels = [
-            batPower          : 'P Wechselrichter [W]',
+            batPower          : 'Wechselrichter [W]',
             batCapacity       : 'Kapazität [Wh]',
-            stopThreshold     : 'Ladestopp bei [W]',
+            stopThreshold     : 'Ladestopp < [W]',
             batStartHysteresis: 'Starthysterese [W]',
-            minChargeUseBat   : 'max Laden bis [%]',
+            minChargeUseBat   : 'max. laden [%]',
             fullChargeUseBat  : 'Batterie -> ab [%]',
             minBatLoadPower   : 'min. Batterie <- [W]',
             minBatUnloadPower : 'min. Batterie -> [W]',
@@ -134,9 +134,19 @@ class UiStringsDE {
             eHome     : 'Haus',
             eCar      : 'Auto',
             socBattery: '% Batterie',
-            timeAxis     : 'Zeit',
+            timeAxis  : 'Zeit',
             powerAxis : 'Leistung [W]',
             socAxis   : 'Ladezustand [%]'
     ]
 
+    final graphControlStrings = [
+            hours4       : '4 Stunden',
+            hours2       : '2 Stunden',
+            hour1        : '1 Stunde',
+            minutes30    : '30 Minuten',
+            minutes15    : '15 Minuten',
+            minutes5     : '5 Minuten',
+            graphSize    : 'Anzeigelänge',
+            graphPosition: 'Anzeigeposition'
+    ]
 }

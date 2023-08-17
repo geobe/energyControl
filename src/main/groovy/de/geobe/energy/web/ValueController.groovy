@@ -234,18 +234,24 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def accept = req.headers('Accept')
         def submission = req.queryParams()
         int size
+        int offset
         if(submission.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
             size = req.queryParams('graphsize').toInteger()
         } else {
             size = 360
         }
+        if(submission.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
+            offset = 100 - req.queryParams('graphoffset').toInteger()
+        } else {
+            offset = 0
+        }
         graphDataSize = size
         resp.status 200
-        println "size: $size"
-        def ctx = gc.createSnapshotCtx(size)
+        println "size: $size, offset: $offset"
+        def ctx = gc.createSnapshotCtx(size, offset)
         ctx.put('newChart', true)
         def out = streamOut(graphData, ctx)
-        println out
+//        println out
         out
     }
 

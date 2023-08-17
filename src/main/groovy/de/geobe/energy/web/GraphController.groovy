@@ -44,9 +44,10 @@ class GraphController {
     /** marker variable for last snapshots save to file */
     private int lastSaveDayOfYear = -42
 
+    DateTimeFormatter date = DateTimeFormat.forPattern(' [EEE, dd.MM.yy]')
     DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
-    DateTimeFormatter hour = DateTimeFormat.forPattern('HH:mm:ss')
-    DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
+    DateTimeFormatter hour = DateTimeFormat.forPattern('H:mm:ss')
+    DateTimeFormatter minute = DateTimeFormat.forPattern('m:ss')
     DateTimeFormatter second = DateTimeFormat.forPattern('ss')
     DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
 
@@ -80,7 +81,12 @@ class GraphController {
                 wallboxValues.energy,
                 (short) powerValues.socBattery
         )
-//        check
+        def dayOfYear = new DateTime(powerValues.timestamp).dayOfYear
+        if(dayOfYear != lastSaveDayOfYear) {
+            writeSnapshots()
+            lastSaveDayOfYear = dayOfYear
+            clearSnapshots()
+        }
         snapshots.push snap
     }
 
@@ -88,15 +94,31 @@ class GraphController {
         snapshots.clear()
     }
 
-    def createSnapshotCtx(int size, int offset = 0) {
+    /**
+     *
+     * @param size # of data points "window" to be displayed
+     * @param offset relative position of "window" in percent
+     * @return map of values for pebble template
+     */
+    def createSnapshotCtx(int size, int off = 0) {
         def labels = []
         def lines = []
+        def datasize = snapshots.size()
+        int offset
+        int displaySize
+        if (datasize <= size) {
+            displaySize = datasize
+            offset = 0
+        } else {
+            displaySize = size
+            offset = (off * (datasize - displaySize)).intdiv(100)
+        }
 
-        size = Math.min(size - offset, snapshots.size())
+//        displaySize = Math.min(displaySize - offset, datasize)
         int index = 0
         List<Snapshot> worklist = []
         snapshots.each { Snapshot snap ->
-            if (index >= offset && index < offset + size) {
+            if (index >= offset && index < offset + displaySize) {
                 worklist.push snap
             }
             index++
@@ -120,14 +142,15 @@ class GraphController {
         worklist.eachWithIndex { snap, ix ->
             def time = new DateTime(snap.instant)
             def label
-            if (ix == 0) {
-                label = "'${full.print(time)}'"
-            } else if (ix % 60 == 0) {
+            def minOfHour = time.minuteOfHour().get()
+            if (ix == 0 || minOfHour == 0 || displaySize > 180) {
                 label = "'${hour.print(time)}'"
-            } else if (ix % 12 == 0) {
-                label = "'${minute.print(time)}'"
+//            } else if (isHour) {
+//                label = "'${hour.print(time)}'"
+//            } else if (ix % 12 == 0) {
+//                label = "'${minute.print(time)}'"
             } else {
-                label = "'${second.print(time)}'"
+                label = "'${minute.print(time)}'"
             }
             labels << label
             def snapMap = snap.toMap()
@@ -136,12 +159,14 @@ class GraphController {
                 line.dataset << snapMap[key]
             }
         }
+        def today = date.print DateTime.now()
         def ctx = [
-                graphTitle: ts.headingStrings.graphTitle,
+                graphTitle: ts.headingStrings.graphTitle + today,
                 labels    : labels.toString(),
                 lines     : lines
         ]
         ctx.putAll ts.graphLabels
+        ctx.putAll ts.graphControlStrings
         ctx
     }
 
@@ -243,7 +268,7 @@ class GraphController {
     }
 
     final lineColors = [
-            ePv       : Colors.w3Color.yellow,
+            ePv       : Colors.w3Color.amber,
             eBattery  : Colors.w3Color.orange,
             eGrid     : Colors.w3Color.blue_grey,
             eHome     : Colors.w3Color.purple,

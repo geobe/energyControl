@@ -1,12 +1,12 @@
 <form id="form-settings" hx-post="/settings">
     {% for s in ctxList %}
     <div class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
-        <label class="w3-label">{{ s.label }}</label>
+        <label class="w3-label" style="font-size: 80%;">{{ s.label }}</label>
         <input class="w3-input" id="{{ s.id }}" name="{{ s.name }}" type="number" {{ s.limits }}
             value={{ s.value }} style="width:90%" />
     </div>
     {% endfor %}
-    <div class="w3-col">
+    <div class="w3-col w3-padding-small">
         <button class="w3-btn w3-round w3-light-blue" type="submit">{{ settingsButton }}</button>
     </div>
 </form>

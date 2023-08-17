@@ -28,6 +28,14 @@
       options: {
         responsive: true,
         animation: false,
+        elements: {
+            point: {
+                pointStyle: false
+            },
+            line: {
+                borderWidth: 2
+            }
+        },
         plugins: {
           title: {
             display: true,

@@ -7,11 +7,21 @@
     {% autoescape "js" %}
     {% include "./graphdata.peb" %}
     {% endautoescape %}
-<div>
-  <select class="w3-select" name="graphsize"
-  hx-post="/graph" hx-target="#graph-data" hx-swap="outerHTML">
-      <option value="360">30 Minuten</option>
-      <option value="180">15 Minuten</option>
-      <option value="60">5 Minuten</option>
-  </select>
-</div>
+    <div id="size-select" class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
+        <label class="w3-label">{{ graphSize }}</label>
+        <select class="w3-select" name="graphsize"
+        hx-post="/graph" hx-target="#graph-data" hx-swap="outerHTML"
+        hx-on::before-request="document.getElementById('offset-slider').value = '50';">
+          <option value="2880">{{ hours4 }}</option>
+          <option value="1440">{{ hours2 }}</option>
+          <option value="720">{{ hour1 }}</option>
+          <option value="360" selected>{{ minutes30 }}</option>
+          <option value="180">{{ minutes15 }}</option>
+          <option value="60">{{ minutes5 }}</option>
+        </select>
+    </div>
+    <div class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
+        <label class="w3-label">{{ graphPosition }}</label>
+        <input id="offset-slider" class="w3-input" type="range" name="graphoffset" min="0" max="100" value="50"
+        hx-post="/graph" hx-target="#graph-data" hx-swap="outerHTML">
+    </div>
