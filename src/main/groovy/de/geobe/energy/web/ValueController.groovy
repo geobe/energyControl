@@ -30,6 +30,7 @@ import de.geobe.energy.go_e.WallboxValues
 import io.pebbletemplates.pebble.PebbleEngine
 import io.pebbletemplates.pebble.template.PebbleTemplate
 import org.eclipse.jetty.websocket.api.Session
+import org.eclipse.jetty.websocket.api.WriteCallback
 import org.eclipse.jetty.websocket.api.annotations.*
 import spark.Request
 import spark.Response
@@ -120,7 +121,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //    @ActiveMethod(blocking = false)
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         carChargingState = carState
-        updateWsValues(chargeInfoString())
+//        updateWsValues(chargeInfoString())
         println "carChargingState changed: $carChargingState"
     }
 
@@ -222,13 +223,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
-    Route graphRoute = {Request req, Response resp ->
-        def accept = req.headers('Accept')
-        resp.status 200
-        def ctx = gc.createGraphCtx(360,3)
-        graphTest = engine.getTemplate('template/graphtest.peb')
-        streamOut(graphTest, ctx)
-    }
+//    Route graphRoute = {Request req, Response resp ->
+//        def accept = req.headers('Accept')
+//        resp.status 200
+//        def ctx = gc.createSnapshotCtx(360)
+//        graphTest = engine.getTemplate('template/graphtest.peb')
+//        streamOut(graphTest, ctx)
+//    }
 
     Route graphPostRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
@@ -289,12 +290,28 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def updateWsValues(String out) {
         sessions.findAll { it.isOpen() }.each { socket ->
             try {
-                socket.remote.sendString(out)
+                socket.remote.sendString(out, writeCallback)
             } catch (Exception ex) {
                 ex.printStackTrace()
             }
         }
     }
+
+    private WriteCallback writeCallback = new WriteCallback() {
+        @Override
+        void writeFailed(Throwable x) {
+            if (x instanceof IllegalStateException) {
+                println "Websocket exception: ${((java.lang.IllegalStateException) x.message)}"
+            }
+        }
+
+        @Override
+        void writeSuccess() {
+
+        }
+    }
+
+    /************* end webservice methods **************/
 
     def powerValuesString() {
         def ctx = [:]
@@ -410,78 +427,5 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
         ctx
     }
-
-//    final mgmtStrings = [
-//            mgmtActive           : 'Lademanagement aktiv',
-//            mgmtInactive         : 'Lademanagement inaktiv',
-//            mgmtActivate         : 'Activate',
-//            mgmtDeactivate       : 'Deactivate',
-//            mgmtActivateConfirm  : 'Lademanagement aktivieren?',
-//            mgmtDeactivateConfirm: 'Lademanagement deaktivieren?',
-//    ]
-//
-//    final chargeComandStrings = [
-//            cmdSurplus           : 'CHARGE_PV_SURPLUS',
-//            cmdTibber            : 'CHARGE_TIBBER',
-//            cmdAnyway            : 'CHARGE_ANYWAY',
-//            cmdStop              : 'CHARGE_STOP',
-//            wallboxStrategyHeader: 'Ladesteuerung',
-//            noStrategy           : 'Steuerung aus',
-//            pvStrategy           : 'Solar laden',
-//            tibberStrategy       : 'Tibber laden',
-//            anywayStrategy       : 'Sofort laden',
-//            stopStrategy         : 'Nicht laden',
-//    ]
-//
-//    /**
-//     * translation values for dashboard template label parameters (prepare for i18n)
-//     */
-//    final stateStrings = [
-//            chargingStateLabel     : 'Auto Ladestatus',
-//            chargeManagerStateLabel: 'Lademanager',
-//            chargeStrategyLabel    : 'Auto Ladestrategie',
-//            tibberStrategyLabel    : 'Tibber Ladestrategie',
-//            tibberPriceLabel       : 'Tibber Preis'
-//    ]
-//
-//    final headingStrings = [
-//            powerTitle : 'Energiewerte',
-//            statesTitle: 'Statuswerte',
-//    ]
-//
-//    final powerStrings = [
-//            pvLabel     : 'PV',
-//            gridLabel   : 'Netz',
-//            batteryLabel: 'Batterie',
-//            homeLabel   : 'Haus',
-//            carLabel    : 'Auto',
-//            socLabel    : 'Speicher',
-//    ]
-//
-//    /** Translations for various state values (enum values) */
-//    def stateTx = [
-//            // CarChargingManager.ChargeManagerState
-//            Inactive               : 'inaktiv',
-//            NoCarConnected         : 'kein Auto',
-//            ChargeTibber           : 'Tibber laden',
-//            ChargeAnyway           : 'Sofort laden',
-//            ChargingStopped        : 'Nicht laden',
-//            HasSurplus             : 'Solar Überschuss',
-//            NoSurplus              : 'Kein Solar Überschuss',
-//            WaitForExtCharge       : 'Auf Befehl warten',
-//            // CarChargingManager.ChargeStrategy
-//            CHARGE_PV_SURPLUS      : 'Solar laden',
-//            CHARGE_TIBBER          : 'Tibber laden',
-//            CHARGE_ANYWAY          : 'Sofort laden',
-//            CHARGE_STOP            : 'Nicht laden',
-//            // WallboxMonitor.CarChargingState
-//            NO_CAR                 : 'kein Auto',
-//            WAIT_CAR               : 'Auf Auto warten',
-//            CHARGING               : 'lädt',
-//            CHARGING_ANYWAY        : 'sofort laden',
-//            FULLY_CHARGED          : 'aufgeladen',
-//            CHARGING_STOPPED_BY_APP: 'Stopp (App)',
-//            CHARGING_STOPPED_BY_CAR: 'Stopp (Auto)',
-//    ]
 
 }

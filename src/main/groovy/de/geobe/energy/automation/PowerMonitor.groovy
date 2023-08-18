@@ -89,8 +89,12 @@ class PowerMonitor {
         @Override
         void run() {
             def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
-            subscribers.each {
-                it.takePMValues(pmValues)
+            try {
+                subscribers.each {
+                    it.takePMValues(pmValues)
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace()
             }
         }
     }

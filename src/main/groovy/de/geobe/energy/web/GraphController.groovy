@@ -47,7 +47,7 @@ class GraphController {
     DateTimeFormatter date = DateTimeFormat.forPattern(' [EEE, dd.MM.yy]')
     DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
     DateTimeFormatter hour = DateTimeFormat.forPattern('H:mm:ss')
-    DateTimeFormatter minute = DateTimeFormat.forPattern('m:ss')
+    DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
     DateTimeFormatter second = DateTimeFormat.forPattern('ss')
     DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
 
@@ -65,15 +65,14 @@ class GraphController {
             println 'snapshots initialized from file'
         } else {
             'new snapshots started'
-            snapshots << snapshot
         }
-
+        snapshots.push snapshot
     }
 
     def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
         short cHome = powerValues.consumptionHome - wallboxValues.energy
         def snap = new Snapshot(
-                powerValues.timestamp.getEpochSecond() * 1000, // for JodaTime multiply with 1000
+                powerValues.timestamp.toEpochMilli(),
                 (short) powerValues.powerSolar,
                 (short) powerValues.powerBattery,
                 (short) powerValues.powerGrid,
@@ -81,8 +80,11 @@ class GraphController {
                 wallboxValues.energy,
                 (short) powerValues.socBattery
         )
-        def dayOfYear = new DateTime(powerValues.timestamp).dayOfYear
-        if(dayOfYear != lastSaveDayOfYear) {
+        def timestamp = powerValues.timestamp.toEpochMilli()
+        def lastTimestamp = snapshots.peek().instant
+        def dayOfYear = new DateTime(timestamp).dayOfYear
+        def lastDayOfYear = new DateTime(lastTimestamp).dayOfYear
+        if(dayOfYear != lastDayOfYear) {
             writeSnapshots()
             lastSaveDayOfYear = dayOfYear
             clearSnapshots()
