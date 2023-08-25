@@ -21,7 +21,7 @@ based on
 25.08.2023
 * Access to go-e wallbox
 * Wallbox control based on PV production
-* Web UI for wallbox load mode control ans visualization
+* Web UI for wallbox load mode control and visualization
 * Run and test on ~~Raspberry Pi~~ x86 mini pc (linux mint)
 #### Version 0.4-x
 TODO
