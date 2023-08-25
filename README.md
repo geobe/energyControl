@@ -1,4 +1,4 @@
-## energyControl Project
+ ## energyControl Project
 ### Energy management with PV, energy storage system, wallbox, heatpump and more
 Control and plan electric energy distribution to heatpump and wallbox 
 based on 
@@ -10,20 +10,27 @@ based on
 - and expected heat pump power consumption based on weather forecast.
 ### Development Status and Roadmap
 #### Version 0.1-beta
-18.03.2023 Access to tibber data works. New Queries can easily be integrated.
+18.03.2023 
+* Access to tibber data works.
+* New Queries can easily be integrated.
 #### Version 0.2-beta
-09.04.2023 Access to current live data and history data of e3dc storage works. 
-Operation modes of S10 storage device can be set.
-#### Version 0.3-snapshot
-Integration of solar position and irradiation intensity
+09.04.2023
+* Access to current live data and history data of e3dc storage works. 
+* Operation modes of S10 storage device can be set.
+#### Version 03-beta
+25.08.2023
+* Access to go-e wallbox
+* Wallbox control based on PV production
+* Web UI for wallbox load mode control ans visualization
+* Run and test on ~~Raspberry Pi~~ x86 mini pc (linux mint)
 #### Version 0.4-x
-Accessing DWD weather forecast
+TODO
+* Wallbox car charging at tibber low price times
+* E3DC charging at tibber low price times
 #### Version 0.5-x
-Access to go-e wallbox
-#### Version 0.6-x
-Run and test on Raspberry Pi
-#### Version 0.7-x
-Wallbox control based on PV production
+TODO
+* Accessing DWD weather forecast
+* Integration of solar position and irradiation intensity
 
 ### Design Objectives
 #### Meaning of Date and Time values
