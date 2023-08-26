@@ -1,0 +1,94 @@
+key:de:en
+* mgmtStrings::
+mgmtActive:Lademanagement aktiv:charge management active
+mgmtInactive:Lademanagement inaktiv:charge management inactive
+mgmtActivate:Activate:activate
+mgmtDeactivate:Deactivate:deactivate
+mgmtActivateConfirm:Lademanagement aktivieren?:activate charge management?
+mgmtDeactivateConfirm:Lademanagement deaktivieren?:deactivate charge management?
+* chargeComandStrings::
+cmdSurplus:CHARGE_PV_SURPLUS:CHARGE_PV_SURPLUS
+cmdTibber:CHARGE_TIBBER:CHARGE_TIBBER
+cmdAnyway:CHARGE_ANYWAY:CHARGE_ANYWAY
+cmdStop:CHARGE_STOP:CHARGE_STOP
+wallboxStrategyHeader:Ladesteuerung:charge control
+noStrategy:Steuerung aus:charge control off
+pvStrategy:Solar laden:pv charging
+tibberStrategy:Tibber laden:tibber charging
+anywayStrategy:Sofort laden:charge immediately
+stopStrategy:Nicht laden:don't charge
+* stateStrings::
+chargingStateLabel:Auto Ladestatus:car charging state
+chargeManagerStateLabel:Lademanager:charge manager
+chargeStrategyLabel:Auto Ladestrategie:car charge strategy
+tibberStrategyLabel:Tibber Ladestrategie:tibber charge strategy
+tibberPriceLabel:Tibber Preis:tibber price
+* headingStrings::
+websiteTitle:PowerManagement:PowerManagement
+powerTitle:Energiewerte:energy values
+statesTitle:Statuswerte:state values
+graphTitle:Energie Status:Energy State
+* powerStrings::
+pvLabel:PV:PV
+gridLabel:Netz:Grid
+batteryLabel:Batterie:Battery
+homeLabel:Haus:Home
+carLabel:Auto:Car
+socLabel:Speicher:SoC
+/** Translations for various state values (enum values) */::
+* stateTx::
+// CarChargingManager.ChargeManagerState::
+Inactive:inaktiv:inactive
+NoCarConnected:kein Auto:no car
+ChargeTibber:Tibber laden:tibber charging
+ChargeAnyway:Sofort laden:immediate charging
+ChargingStopped:Nicht laden:no charging
+HasSurplus:Solar Überschuss:PV surplus
+NoSurplus:Kein Solar Überschuss:no PV surplus
+WaitForExtCharge:Auf Befehl warten:wait for command
+// CarChargingManager.ChargeStrategy::
+CHARGE_PV_SURPLUS:Solar laden:PV charging
+CHARGE_TIBBER:Tibber laden:tibber charging
+CHARGE_ANYWAY:Sofort laden:immediate charging
+CHARGE_STOP:Nicht laden:no charging
+// WallboxMonitor.CarChargingState::
+NO_CAR:kein Auto:no car
+WAIT_CAR:Auf Auto warten:wait for car
+CHARGING:lädt:charging
+CHARGING_ANYWAY:sofort laden:immediate charging
+FULLY_CHARGED:aufgeladen:fully charged
+CHARGING_STOPPED_BY_APP:Stopp (App):stop by app
+CHARGING_STOPPED_BY_CAR:Stopp (Auto):stop by car
+* pvStrategySettingLabels::
+batPower:Wechselrichter [W]:Inverter [W]
+batCapacity:Kapazität [Wh]:Capacity [Wh]
+stopThreshold:Ladestopp < [W]:Charge Stop < [W]
+batStartHysteresis:Starthysterese [W]:Start Hysteresis [W]
+minChargeUseBat:max. laden [%]:max. charge [%]
+fullChargeUseBat:Batterie -> ab [%]:Battery → from [%]
+minBatLoadPower:min. Batterie <- [W]:min. Battery ←  [W]
+minBatUnloadPower:min. Batterie -> [W]:min Battery → [W]
+maxBatUnloadPower:max. Batterie -> [W]:max. Battery → [W]
+toleranceStackSize:Mitteln über [n]:Average count [n]
+* pvSettingStrings::
+settingsTitle:Einstellungen:Settings
+settingsButton:Übernehmen:OK
+* graphLabels::
+ePv:Solar:PV
+eBattery:Batterie:Battery
+eGrid:Netz:Grid
+eHome:Haus:Home
+eCar:Auto:Car
+socBattery:% Batterie:% Battery
+timeAxis:Zeit:Time
+powerAxis:Leistung [W]:Power [W]
+socAxis:Ladezustand [%]:SoC [%]
+* graphControlStrings::
+hours4:4 Stunden:4 hours
+hours2:2 Stunden:2 hours
+hour1:1 Stunde:1 hour
+minutes30:30 Minuten:30 minutes
+minutes15:15 Minuten:15 minutes
+minutes5:5 Minuten:5 minutes
+graphSize:Anzeigelänge:display size
+graphPosition:Anzeigeposition:display position
