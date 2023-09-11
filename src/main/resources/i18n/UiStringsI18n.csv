@@ -1,4 +1,7 @@
 key:de:en
+* languages::
+de:Deutsch:German
+en:Englisch:English
 * mgmtStrings::
 mgmtActive:Lademanagement aktiv:charge management active
 mgmtInactive:Lademanagement inaktiv:charge management inactive
@@ -84,6 +87,7 @@ timeAxis:Zeit:Time
 powerAxis:Leistung [W]:Power [W]
 socAxis:Ladezustand [%]:SoC [%]
 * graphControlStrings::
+hours8:8 Stunden:8 hours
 hours4:4 Stunden:4 hours
 hours2:2 Stunden:2 hours
 hour1:1 Stunde:1 hour
@@ -92,3 +96,6 @@ minutes15:15 Minuten:15 minutes
 minutes5:5 Minuten:5 minutes
 graphSize:Anzeigelänge:display size
 graphPosition:Anzeigeposition:display position
+graphPauseLabel:Aktualisieren:update
+graphPauseLabel2:Pause:pause
+graphUpdateLabel:Aktualisierungsrate:update rate

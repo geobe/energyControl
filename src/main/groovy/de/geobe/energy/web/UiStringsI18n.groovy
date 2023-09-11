@@ -26,6 +26,7 @@ class UiStringsI18n {
     List<String > translations
     String[] translationIndex
     Map translationStrings = [:]
+    Map translationsMap = [:]
 
     UiStringsI18n(String filename = '/i18n/UiStringsI18n.csv') {
         readFile(filename)
@@ -53,29 +54,47 @@ class UiStringsI18n {
                 group.put(entry.head(), entry)
             }
         }
+        // put last group into translations
+        if (key && group.size() > 0) {
+            translationStrings.put(key, group)
+        }
+    }
+
+    def i18nCtx(Map<String, Map<String, String>> ti18n) {
+        StringBuffer options = new StringBuffer()
+        translationIndex.eachWithIndex {key,i ->
+            def val = ti18n.languages[key]
+            if (val ) {
+                options.append "<option value='$key'${i == 1?' selected':''}>$val</option>\n".toString()
+            }
+        }
+        [languageOptions:options.toString()]
     }
 
     Map<String, Map<String, String>> translationsFor(String language) {
-        def index = translationIndex.findIndexOf {it.equalsIgnoreCase(language)}
-        index = index < 0 ? 0: index
-        println "index: $index"
-        Map<String, Map<String, String>> tx = [:]
-        translationStrings.each {txEntry ->
-            Map txGroup = txEntry.value
-            def txLocalized = [:]
-            txGroup.each {locEntry ->
-                txLocalized.put(locEntry.key, locEntry.value[index]?:locEntry.value[0])
+        if (! translationsMap[language]) {
+            def index = translationIndex.findIndexOf { it.equalsIgnoreCase(language) }
+            index = index < 0 ? 0 : index
+            println "index: $index"
+            Map<String, Map<String, String>> tx = [:]
+            translationStrings.each { txEntry ->
+                Map txGroup = txEntry.value
+                def txLocalized = [:]
+                txGroup.each { locEntry ->
+                    txLocalized.put(locEntry.key, locEntry.value[index] ?: locEntry.value[0])
+                }
+                tx.put(txEntry.key, txLocalized)
             }
-            tx.put(txEntry.key, txLocalized)
+            translationsMap.put(language, tx)
         }
-        tx
+        translationsMap[language]
     }
 
     static void main(String[] args) {
         def st = new UiStringsI18n()
 //        st.readFile()
         def tx = st.translationsFor('de')
-        println tx
+        println st.i18nCtx(tx)
     }
 
 }

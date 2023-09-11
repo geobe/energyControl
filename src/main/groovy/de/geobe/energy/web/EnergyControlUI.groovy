@@ -70,7 +70,11 @@ class EnergyControlUI {
 
 //        get('/graph', valueController.graphRoute)
 
-        post('/graph', valueController.graphPostRoute)
+        post('/graph', valueController.graphPost)
+
+        post('/graphUpdate', valueController.graphUpdatePost)
+
+        post('/language', valueController.languagePost)
 
         post('/stop') { req, res ->
             stop();

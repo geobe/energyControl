@@ -1,0 +1,37 @@
+    <div id="graph-commands" class="w3-col w3-padding-small w3-light-grey">
+        <div id="size-select" class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
+            <label class="w3-label">{{ graphSize }}</label>
+            <select class="w3-select" name="graphsize"
+            hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML"
+            hx-include="#graph-commands">
+              <option {{ val5760 }}>{{ hours8 }}</option>
+              <option {{ val2880 }}>{{ hours4 }}</option>
+              <option {{ val1440 }}>{{ hours2 }}</option>
+              <option {{ val720 }}>{{ hour1 }}</option>
+              <option {{ val360 }} selected>{{ minutes30 }}</option>
+              <option {{ val180 }}>{{ minutes15 }}</option>
+              <option {{ val60 }}>{{ minutes5 }}</option>
+            </select>
+        </div>
+        <div class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
+            <label class="w3-label">{{ graphPosition }}</label>
+            <input id="offset-slider" class="w3-input" type="range" name="graphoffset"
+             min="0" max="100" value="{{ graphOffset != null ? graphOffset : 100 }}"
+            hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML" hx-include="#graph-commands">
+        </div>
+        <div class="w3-padding-small s6 m3 l2 w3-left">
+            <label class="w3-label">{{ graphPauseLabel }}</label>
+            <div class="w3-padding-small">
+                <input id="graph-pause" class="w3-checkbox" type="checkbox" name="graphpause"
+                 {{ graphPaused ? 'checked' : '' }}
+                hx-post="/graphUpdate" hx-target="#graph-commands" hx-swap="outerHTML" hx-include="#graph-commands">
+                <label class="w3-label" for="graph-pause">{{ graphPauseLabel2 }}</label>
+            </div>
+        </div>
+        <div class="w3-padding-small s6 m3 l2 w3-left">
+            <label class="w3-label" for="graphupdate">{{ graphUpdateLabel }}</label>
+            <input id="graph-update" class="w3-input" type="range" name="graphupdate"
+             min="1" max="10" value="{{ graphUpdate ? graphUpdate : 1 }}"
+            hx-post="/graphUpdate" hx-target="#graph-commands" hx-swap="outerHTML" hx-include="#graph-commands">
+        </div>
+    </div>

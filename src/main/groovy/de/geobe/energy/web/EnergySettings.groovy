@@ -37,9 +37,9 @@ class EnergySettings {
     static final SETTINGS_DIR = 'energyctl'
     static final SETTINGS_FILE = 'settings.json'
 
-    EnergySettings(ValueController valueController, UiStringsDE uiStrings) {
+    EnergySettings(ValueController valueController, Map<String, Map<String, String>> uiStrings) {
         vc = valueController
-        ts = uiStrings
+//        ts = uiStrings
         processUpdate(restoreOrInitSettings())
     }
 
@@ -49,7 +49,7 @@ class EnergySettings {
     private Map pvcsParameterMap = new PvChargeStrategyParams().toMap()
 
     /** all static template strings for spark */
-    UiStringsDE ts
+//    Map<String, Map<String, String>> ts
     /** other controller classes */
     ValueController vc
 
@@ -61,13 +61,13 @@ class EnergySettings {
 //        this.engine = engine
 //    }
 
-    def settingsFormContext() {
+    def settingsFormContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll ts.pvSettingStrings
+        ctx.putAll ti18n.pvSettingStrings
         def inputListCtx = []
         pvStrategySettings.each {key ->
             def inputCtx = [
-                    label: ts.pvStrategySettingLabels[key],
+                    label: ti18n.pvStrategySettingLabels[key],
                     id: key,
                     name: key,
                     limits: pvStrategySettingLimits[key],
@@ -80,22 +80,24 @@ class EnergySettings {
     }
 
     boolean processUpdate(Map parameterMap) {
-        def changed = [:]
+        def filteredParameterMap = [:]
+        def changed = false
         pvcsParameterMap.each { param ->
             def key = param.key
-            if (parameterMap.containsKey(key) && parameterMap[key] != param.value) {
-                changed.put(key, parameterMap[key])
+            if (parameterMap.containsKey(key)) {
+                if (parameterMap[key] != pvcsParameterMap[key]) {
+                    changed = true
+                }
+                filteredParameterMap.put(key, parameterMap[key])
             }
         }
         if (changed) {
-            def pvParams = new PvChargeStrategyParams(changed)
+            def pvParams = new PvChargeStrategyParams(filteredParameterMap)
             pvcs.params = pvParams
             pvcsParameterMap = pvParams.toMap()
             saveSettings(pvcsParameterMap)
-            true
-        } else {
-            false
         }
+        changed
     }
 
     /**
@@ -111,7 +113,7 @@ class EnergySettings {
         if (dir.isDirectory()) {
             def json = JsonOutput.toJson(settings)
             json = JsonOutput.prettyPrint(json)
-            println "new JSON settings: $json"
+//            println "new JSON settings: $json"
             def settingsFile = new File(settingsDir, SETTINGS_FILE).withWriter { w ->
                 w << json
             }

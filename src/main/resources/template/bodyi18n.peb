@@ -1,0 +1,59 @@
+        <div class="w3-row">
+            <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
+                <h2>{{ websiteTitle }}</h2>
+            </div>
+        </div>
+<!-- Nav tabs -->
+        <div class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6" style="width:100%">
+{#
+            <button class="w3-bar-item w3-button"
+                    hx-get="/state"
+                    hx-target="#tab_content">
+                Smart Grid Status
+            </button>
+            <button class="w3-bar-item w3-button" id="history-graph-button"
+                    hx-get="/pvYieldGraph"
+                    hx-target="#tab_content">
+                PV Info
+            </button>
+            <button class="w3-bar-item w3-button"
+                    hx-post="/nosettings"
+                    hx-target="#tab_content">
+                Einstellungen
+            </button>
+            <button class="w3-bar-item w3-button"
+                    hx-post="/forecast"
+                    hx-target="#tab_content">
+                Wettervorhersage
+            </button>
+#}
+            <button class="w3-bar-item w3-button"
+                    hx-post="/stop"
+                    >
+                Stop Server
+            </button>
+            <select class="w3-button w3-right w3-margin-right"
+            hx-post="/language" hx-target="#body"
+            hx-swap="innerHtml" hx-include="#graph-commands" >
+                {{ languageOptions | raw }}
+{#                <option value="de" selected>{{ de }}</option>#}
+{#                <option value="en">{{ en }}</option>#}
+            <select>
+        </div>
+<!-- websocket connection -->
+        <div hx-ext="ws" ws-connect="/dash">
+        </div>
+<!-- dashboard pane -->
+        <div id="dashboard" hx-trigger="load">
+           {% include "./dashboard.peb" %}
+        </div>
+<!-- Info panes -->
+       {% include "./statebuttons.peb" %}
+       {% include "./settings.peb" %}
+        <div class="w3-col s12 w3-padding-small w3-dark-grey">
+          <h5>{{ graphTitle }}</h5>
+        </div>
+        <div>
+            <canvas id="myChart"></canvas>
+        </div>
+       {% include "./graph.peb" %}

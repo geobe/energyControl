@@ -39,7 +39,7 @@ class GraphController {
     private ConcurrentLinkedDeque<Snapshot> snapshots = new ConcurrentLinkedDeque<>()
 
     /** all static template strings for spark */
-    UiStringsDE ts
+    Map<String, Map<String, String>> ts
 
     /** marker variable for last snapshots save to file */
     private int lastSaveDayOfYear = -42
@@ -51,7 +51,7 @@ class GraphController {
     DateTimeFormatter second = DateTimeFormat.forPattern('ss')
     DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
 
-    GraphController(UiStringsDE uiStrings) {
+    GraphController(Map<String, Map<String, String>> uiStrings) {
         ts = uiStrings
     }
 
@@ -96,13 +96,33 @@ class GraphController {
         snapshots.clear()
     }
 
+    def createGraphControlCtx(Map<String, Map<String, String>> ti18n) {
+        def ctx = [:]
+        ctx.putAll ti18n.graphControlStrings
+        ctx
+    }
+
+    def createSizeValues(int size = 360) {
+        def sizes = [5760, 2880, 1440, 720, 360, 180, 60]
+        def ix = sizes.indexOf(size)
+        if (ix == -1) {
+            ix = 4
+        }
+        def values = [:]
+        sizes.eachWithIndex { int sz, int i ->
+            values['val' + sz] = "value=$sz ${i == ix ? ' selected' : ''}"
+        }
+        values
+    }
+
     /**
      *
      * @param size # of data points "window" to be displayed
+     * @param ti18n map of translation strings
      * @param offset relative position of "window" in percent
      * @return map of values for pebble template
      */
-    def createSnapshotCtx(int size, int off = 0) {
+    def createSnapshotCtx(int size, Map<String, Map<String, String>> ti18n, int off = 0) {
         def labels = []
         def lines = []
         def datasize = snapshots.size()
@@ -132,7 +152,7 @@ class GraphController {
 
         keySet.each { key ->
             def line = [
-                    label  : ts.graphLabels[key],
+                    label  : ti18n.graphLabels[key],
                     color  : lineColors[key],
                     key    : key,
                     yAxisID: (key == 'socBattery' ? 'y-right' : 'y-left'),
@@ -163,12 +183,12 @@ class GraphController {
         }
         def today = date.print DateTime.now()
         def ctx = [
-                graphTitle: ts.headingStrings.graphTitle + today,
+                graphTitle: ti18n.headingStrings.graphTitle + today,
                 labels    : labels.toString(),
                 lines     : lines
         ]
-        ctx.putAll ts.graphLabels
-        ctx.putAll ts.graphControlStrings
+        ctx.putAll ti18n.graphLabels
+        ctx.putAll ti18n.graphControlStrings
         ctx
     }
 
@@ -233,25 +253,26 @@ class GraphController {
     }
 
     static void main(String[] args) {
-        def gc = new GraphController(new UiStringsDE())
-        gc.mockShots(17280)
-        gc.writeSnapshots()
-        if(gc.todaysSnapshotExists()) {
-            print 'todays snapshot file found'
-        }
-        def oldSnapshots = gc.readSnapshots()
-        def snit = gc.snapshots.iterator()
-        def upit = oldSnapshots.iterator()
-        int n = 0
-        while (snit.hasNext() && upit.hasNext()) {
-            if(snit.next() != upit.next()) {
-                println "different records at $n"
-            }
-            n++
-        }
-        if(n != 17280) {
-            println "different length, 17280 <=> $n"
-        }
+        def gc = new GraphController([:])
+        println gc.createSizeValues(1440)
+//        gc.mockShots(17280)
+//        gc.writeSnapshots()
+//        if(gc.todaysSnapshotExists()) {
+//            print 'todays snapshot file found'
+//        }
+//        def oldSnapshots = gc.readSnapshots()
+//        def snit = gc.snapshots.iterator()
+//        def upit = oldSnapshots.iterator()
+//        int n = 0
+//        while (snit.hasNext() && upit.hasNext()) {
+//            if(snit.next() != upit.next()) {
+//                println "different records at $n"
+//            }
+//            n++
+//        }
+//        if(n != 17280) {
+//            println "different length, 17280 <=> $n"
+//        }
 //        def engine = new PebbleEngine.Builder().build()
 //        def template = engine.getTemplate('template/graphtest.peb')
 //

@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.3-beta'
+version '0.3.1-beta'
 
 repositories {
     mavenCentral()

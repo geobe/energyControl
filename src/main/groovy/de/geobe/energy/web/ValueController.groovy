@@ -57,28 +57,38 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile WallboxMonitor.CarChargingState carChargingState
     volatile CarChargingManager.ChargeManagerState chargeManagerState
     volatile CarChargingManager.ChargeStrategy chargeStrategy
+    // global display values
+    volatile defaultUiLanguage = 'de'
+    // display values that could be migrated to session variables
     volatile int graphDataSize = 360
+    volatile int updateFrequency = 1
+    volatile int updateCounter = 0
+    volatile boolean updatePause = false
+    volatile String uiLanguage = 'de'
 
     /** store for websocket sessions */
     private ConcurrentLinkedDeque<Session> sessions = new ConcurrentLinkedDeque<>()
 
     /** all static template strings for spark */
-    UiStringsDE ts = new UiStringsDE()
+    UiStringsI18n stringsI18n = new UiStringsI18n()
+    def tGlobal = stringsI18n.translationsFor(uiLanguage)
     /** more helper objects */
-    EnergySettings es = new EnergySettings(this, ts)
-    GraphController gc = new GraphController(ts)
+    EnergySettings es = new EnergySettings(this, tGlobal)
+    GraphController gc = new GraphController(tGlobal)
 
     /** translate pebble templates to java code */
     PebbleEngine engine
     def index = engine.getTemplate('template/index.peb')
+    def body = engine.getTemplate('template/bodyi18n.peb')
     def stateButtons = engine.getTemplate('template/statebuttons.peb')
     def dashboard = engine.getTemplate('template/dashboard.peb')
     def powerValuesTemplate = engine.getTemplate('template/powervalues.peb')
     def chargeInfo = engine.getTemplate('template/chargeinfo.peb')
 //    def settings = engine.getTemplate('template/settings.peb')
     def settingsform = engine.getTemplate('template/settingsform.peb')
-    def graphTest = engine.getTemplate('template/graphtest.peb')
+    def graph = engine.getTemplate('template/graph.peb')
     def graphData = engine.getTemplate('template/graphdata.peb')
+    def graphCommands = engine.getTemplate('template/graphcommands.peb')
 
     void init() {
         pwrValues = powerMonitor.current
@@ -112,9 +122,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         gc.saveSnapshot(pwrValues, wbValues)
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
-        updateWsValues(powerValuesString() + chargeInfoString())// + statesInfoString)
-        updateWsValues(statesInfoString())
-        updateWsValues(graphInfoString(graphDataSize))
+        updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
+        updateWsValues(statesInfoString(tGlobal))
+        updateCounter++
+        if (! updatePause && updateCounter >= updateFrequency) {
+            updateCounter = 0
+            updateWsValues(graphInfoString(tGlobal, graphDataSize))
+        }
     }
 
     @Override
@@ -129,13 +143,20 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Route indexRoute = { Request req, Response resp ->
         def strategy = chargeStrategy
-        def ctx = setChargeCommandContext(strategy)
-        ctx.putAll setChargeManagementContext(chargeManagerState)
-        ctx.putAll(joinDashboardContext())
-        ctx.putAll(es.settingsFormContext())
-        ctx.putAll(gc.createSnapshotCtx(120))
+        def ti18n = tGlobal
+        def ctx = setChargeCommandContext(strategy, ti18n)
+        ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
+        ctx.putAll(joinDashboardContext(ti18n))
+        ctx.putAll(es.settingsFormContext(ti18n))
+        ctx.putAll(gc.createSnapshotCtx(180, ti18n))
+        ctx.putAll(gc.createSizeValues(180))
+        ctx.putAll(stringsI18n.i18nCtx(ti18n))
         resp.status 200
         streamOut(index, ctx)
+    }
+
+    Route languagePost = { Request req, Response resp ->
+
     }
 
     Route dashboardRoute = { Request req, Response resp ->
@@ -149,7 +170,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //            ]
 //            JsonOutput.toJson json
 //        } else {
-        def ctx = joinDashboardContext()
+        def ti18n = tGlobal
+        def ctx = joinDashboardContext(ti18n)
         streamOut(dashboard, ctx)
 //        }
     }
@@ -157,16 +179,18 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     Route wallboxStrategyRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
         resp.status 200
-        def ctx = setChargeCommandContext(chargeStrategy)
-        ctx.putAll setChargeManagementContext(chargeManagerState)
+        def ti18n = tGlobal
+        def ctx = setChargeCommandContext(chargeStrategy, ti18n)
+        ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         streamOut(stateButtons, ctx)
     }
 
     Route wallboxStrategyPost = { Request req, Response resp ->
         def accept = req.headers('Accept')
         def action = req?.params(':action')
-        def mg = ts.mgmtStrings
-        def cc = ts.chargeComandStrings
+        def ti18n = tGlobal
+        def mg = ti18n.mgmtStrings
+        def cc = ti18n.chargeComandStrings
         switch (action) {
             case mg.mgmtActivate:
                 carChargingManager.setActive(true)
@@ -196,7 +220,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         resp.status 200
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
-        def upd = statesInfoString() + chargeInfoString()
+        def upd = statesInfoString(ti18n) + chargeInfoString(ti18n)
         updateWsValues(upd)
         ''
     }
@@ -205,17 +229,18 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def accept = req.headers('Accept')
         def submission = req.queryParams()
         def formValues = [:]
-        submission.each {param ->
+        submission.each { param ->
             def val = req.queryParams(param)
             if (val?.isInteger()) {
                 formValues.put(param, val.toInteger())
             }
         }
-        def  changed = es.processUpdate(formValues)
-        println formValues
+        def changed = es.processUpdate(formValues)
+//        println formValues
         resp.status 200
-        def upd = streamOut(settingsform, es.settingsFormContext())
-        if(changed) {
+        def ti18n = tGlobal
+        def upd = streamOut(settingsform, es.settingsFormContext(ti18n))
+        if (changed) {
             updateWsValues(upd)
             ''
         } else {
@@ -223,36 +248,41 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
-//    Route graphRoute = {Request req, Response resp ->
-//        def accept = req.headers('Accept')
-//        resp.status 200
-//        def ctx = gc.createSnapshotCtx(360)
-//        graphTest = engine.getTemplate('template/graphtest.peb')
-//        streamOut(graphTest, ctx)
-//    }
+    Route graphPost = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        def params = evalGraphPost(req, resp)
+        resp.status 200
+        def ti18n = tGlobal
+        graphDataSize = params.size
+        def ctx = gc.createSnapshotCtx(params.size, ti18n, 100 - params.graphOffset)
+        ctx.put('newChart', true)
+        ctx.putAll(params)
+        def out = streamOut(graph, ctx)
+        out
+    }
 
-    Route graphPostRoute = { Request req, Response resp ->
+    Route graphUpdatePost = { Request req, Response resp ->
         def accept = req.headers('Accept')
         def submission = req.queryParams()
-        int size
-        int offset
-        if(submission.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
-            size = req.queryParams('graphsize').toInteger()
+        def update
+        def updateRate
+        if (submission.contains('graphpause')) { //&& req.queryParams('graphsize').isInteger()) {
+            update = req.queryParams('graphpause')
         } else {
-            size = 360
+            update = false
         }
-        if(submission.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
-            offset = 100 - req.queryParams('graphoffset').toInteger()
+        if (submission.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
+            updateRate = req.queryParams('graphupdate').toInteger()
         } else {
-            offset = 0
+            updateRate = 1
         }
-        graphDataSize = size
+        def params = evalGraphPost(req, resp)
         resp.status 200
-        println "size: $size, offset: $offset"
-        def ctx = gc.createSnapshotCtx(size, offset)
-        ctx.put('newChart', true)
-        def out = streamOut(graphData, ctx)
-//        println out
+        def ti18n = tGlobal
+        def ctx = gc.createGraphControlCtx(ti18n)
+        ctx.putAll(params)
+//        ctx.put('graphUpdate', updateRate)
+        def out = streamOut(graphCommands, ctx)
         out
     }
 
@@ -260,6 +290,42 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def shutdown() {
         println 'write snapshots'
         gc.writeSnapshots()
+    }
+
+    Map evalGraphPost(Request req, Response resp) {
+        def accept = req.headers('Accept')
+        def submission = req.queryParams()
+        def graphUpdate
+        def graphPaused = req.queryParams('graphpause') != null
+        int size
+        int offset
+        if (submission.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
+            size = req.queryParams('graphsize').toInteger()
+        } else {
+            size = 360
+        }
+        if (submission.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
+            offset = req.queryParams('graphoffset').toInteger()
+        } else {
+            offset = 100
+        }
+        if (offset < 100) {
+            graphPaused = true
+        }
+        if (submission.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
+            graphUpdate = req.queryParams('graphupdate').toInteger()
+        } else {
+            graphUpdate = 1
+        }
+        updatePause = graphPaused
+        updateFrequency = graphUpdate
+        def params = [:]
+        params.put('graphPaused', graphPaused)
+        params.put('graphUpdate', graphUpdate)
+        params.put('size', size)
+        params.put('graphOffset', offset)
+        params.putAll(gc.createSizeValues(size))
+        params
     }
 
     /***************** webservice methods **************/
@@ -313,31 +379,31 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     /************* end webservice methods **************/
 
-    def powerValuesString() {
+    def powerValuesString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll(ts.powerStrings)
+        ctx.putAll(ti18n.powerStrings)
         ctx.putAll(powerValues())
         streamOut(powerValuesTemplate, ctx)
     }
 
-    def chargeInfoString() {
+    def chargeInfoString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll(ts.stateStrings)
-        ctx.putAll(ts.mgmtStrings)
-        ctx.putAll(stateValues())
+        ctx.putAll(ti18n.stateStrings)
+        ctx.putAll(ti18n.mgmtStrings)
+        ctx.putAll(stateValues(ti18n))
         streamOut(chargeInfo, ctx)
     }
 
-    def statesInfoString() {
+    def statesInfoString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll(setChargeCommandContext(chargeStrategy))
-        ctx.putAll(setChargeManagementContext(chargeManagerState))
+        ctx.putAll(setChargeCommandContext(chargeStrategy, ti18n))
+        ctx.putAll(setChargeManagementContext(chargeManagerState, ti18n))
         streamOut(stateButtons, ctx)
-     }
+    }
 
-    def graphInfoString(int size = 120) {
+    def graphInfoString(Map<String, Map<String, String>> ti18n, int size = 120) {
         def ctx = [:]
-        ctx.putAll(gc.createSnapshotCtx(size))
+        ctx.putAll(gc.createSnapshotCtx(size, ti18n))
         ctx.put('newChart', true)
         streamOut(graphData, ctx)
     }
@@ -357,23 +423,24 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
 
-    def joinDashboardContext() {
+    def joinDashboardContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll(ts.headingStrings)
-        ctx.putAll(ts.stateStrings)
-        ctx.putAll(ts.powerStrings)
-        ctx.putAll(ts.mgmtStrings)
-        ctx.putAll(stateValues())
+        ctx.putAll(ti18n.headingStrings)
+        ctx.putAll(ti18n.stateStrings)
+        ctx.putAll(ti18n.powerStrings)
+        ctx.putAll(ti18n.mgmtStrings)
+        ctx.putAll(ti18n.languages)
+        ctx.putAll(stateValues(ti18n))
         ctx.putAll(powerValues())
         ctx
     }
 
     /** realtime state values for dashboard */
-    def stateValues() {
+    def stateValues(Map<String, Map<String, String>> ti18n) {
         def ctx = [
-                chargingStateValue     : ts.stateTx.get(carChargingState.toString()),
-                chargeStrategyValue    : ts.stateTx.get(chargeStrategy.toString()),
-                chargeManagerStateValue: ts.stateTx.get(chargeManagerState.toString()),
+                chargingStateValue     : ti18n.stateTx.get(carChargingState.toString()),
+                chargeStrategyValue    : ti18n.stateTx.get(chargeStrategy.toString()),
+                chargeManagerStateValue: ti18n.stateTx.get(chargeManagerState.toString()),
                 tibberStrategyValue    : 'none',
                 tibberPriceValue       : (int) (Math.random() * 30 + 15)
         ]
@@ -391,9 +458,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ]
     }
 
-    def setChargeManagementContext(CarChargingManager.ChargeManagerState state) {
+    def setChargeManagementContext(CarChargingManager.ChargeManagerState state, Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll ts.mgmtStrings
+        ctx.putAll ti18n.mgmtStrings
         switch (state) {
             case CarChargingManager.ChargeManagerState.Inactive:
                 ctx.checkedInactive = 'checked'
@@ -406,9 +473,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx
     }
 
-    def setChargeCommandContext(CarChargingManager.ChargeStrategy strategy) {
+    def setChargeCommandContext(CarChargingManager.ChargeStrategy strategy, Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll ts.chargeComandStrings
+        ctx.putAll ti18n.chargeComandStrings
         switch (strategy) {
             case CarChargingManager.ChargeStrategy.CHARGE_PV_SURPLUS:
                 ctx['checkedSurplus'] = 'checked'
