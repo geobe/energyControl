@@ -45,6 +45,7 @@ class GraphController {
     private int lastSaveDayOfYear = -42
 
     DateTimeFormatter date = DateTimeFormat.forPattern(' [EEE, dd.MM.yy]')
+    DateTimeFormatter localDate = date
     DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
     DateTimeFormatter hour = DateTimeFormat.forPattern('H:mm:ss')
     DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
@@ -53,6 +54,10 @@ class GraphController {
 
     GraphController(Map<String, Map<String, String>> uiStrings) {
         ts = uiStrings
+    }
+
+    def updateDateFormat(String iso) {
+        localDate = date.withLocale(new Locale(iso))
     }
 
     /**
@@ -147,7 +152,6 @@ class GraphController {
         }
 
         Map sample = new Snapshot().toMap()
-//        Map sample = worklist[0].toMap()
         Set keySet = sample.keySet() - 'instant'
 
         keySet.each { key ->
@@ -181,7 +185,7 @@ class GraphController {
                 line.dataset << snapMap[key]
             }
         }
-        def today = date.print DateTime.now()
+        def today = localDate.print DateTime.now()
         def ctx = [
                 graphTitle: ti18n.headingStrings.graphTitle + today,
                 labels    : labels.toString(),
@@ -190,22 +194,6 @@ class GraphController {
         ctx.putAll ti18n.graphLabels
         ctx.putAll ti18n.graphControlStrings
         ctx
-    }
-
-    def mockShots(int n) {
-        def now = DateTime.now().getMillis().intdiv(1000) * 1000
-        for (i in 0..<n) {
-            def snap = new Snapshot(
-                    now - i * 5000,
-                    (short) (Math.random() * 8000 - 3000),
-                    (short) (Math.random() * 6000 - 3000),
-                    (short) (Math.random() * 8000 - 4000),
-                    (short) (Math.random() * -4000),
-                    (short) (Math.random() * 3000),
-                    (short) (Math.random() * 100)
-            )
-            snapshots << snap
-        }
     }
 
     def writeSnapshots() {
@@ -255,39 +243,6 @@ class GraphController {
     static void main(String[] args) {
         def gc = new GraphController([:])
         println gc.createSizeValues(1440)
-//        gc.mockShots(17280)
-//        gc.writeSnapshots()
-//        if(gc.todaysSnapshotExists()) {
-//            print 'todays snapshot file found'
-//        }
-//        def oldSnapshots = gc.readSnapshots()
-//        def snit = gc.snapshots.iterator()
-//        def upit = oldSnapshots.iterator()
-//        int n = 0
-//        while (snit.hasNext() && upit.hasNext()) {
-//            if(snit.next() != upit.next()) {
-//                println "different records at $n"
-//            }
-//            n++
-//        }
-//        if(n != 17280) {
-//            println "different length, 17280 <=> $n"
-//        }
-//        def engine = new PebbleEngine.Builder().build()
-//        def template = engine.getTemplate('template/graphtest.peb')
-//
-//        staticFiles.location("public")
-//
-//        get('/') { req, resp ->
-//            def accept = req.headers('Accept')
-//            resp.status 200
-//            def out = new StringWriter()
-//            def ctx = gc.createSnapshotCtx(120)
-//            template.evaluate(out, ctx)
-////            println out
-//            out.toString()
-//        }
-
     }
 
     final lineColors = [

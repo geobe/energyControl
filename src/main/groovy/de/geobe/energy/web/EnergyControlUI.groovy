@@ -39,7 +39,7 @@ class EnergyControlUI {
     static void main(String[] args) {
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
+            void run() {
                 println "shutting down gently ..."
                 shutdown()
                 Thread.sleep 1000
@@ -49,12 +49,12 @@ class EnergyControlUI {
 
         PebbleEngine engine = new PebbleEngine.Builder().build()
 
-//        ValueController
+        ValueController
         valueController = new ValueController(engine)
         valueController.init()
 
         staticFiles.location("public")
-        staticFiles.expireTime(1)
+        staticFiles.expireTime(10)
 
         webSocket('/dash', valueController)
 
@@ -74,10 +74,10 @@ class EnergyControlUI {
 
         post('/graphUpdate', valueController.graphUpdatePost)
 
-        post('/language', valueController.languagePost)
+        get('/language', valueController.languagePost)
 
         post('/stop') { req, res ->
-            stop();
+            stop()
             System.exit(0)
         }
     }

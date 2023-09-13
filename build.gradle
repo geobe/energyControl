@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.3.1-beta'
+version '0.3.2-i18n'
 
 repositories {
     mavenCentral()
@@ -16,11 +16,6 @@ repositories {
 apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/crossdev.gradle'
 
 mainClassName='de.geobe.energy.web.EnergyControlUI'
-//mainClassName='de.geobe.energy.automation.CarChargingManager'
-//mainClassName='de.geobe.energy.automation.CtlCTest'
-//mainClassName='de.geobe.energy.e3dc.E3dcInteractionRunner'
-//mainClassName='de.geobe.energy.automation.WallboxMonitor'
-//mainClassName='de.geobe.energy.go_e.Wallbox'
 
 dependencies {
     implementation platform('org.apache.groovy:groovy-bom:4.0.13')

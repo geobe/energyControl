@@ -60,7 +60,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     // global display values
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
-    volatile int graphDataSize = 360
+    volatile int graphDataSize = 180
     volatile int updateFrequency = 1
     volatile int updateCounter = 0
     volatile boolean updatePause = false
@@ -142,38 +142,55 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /***************** Routing methods **************/
 
     Route indexRoute = { Request req, Response resp ->
+        def submission = req.queryParams()
+        if (submission.contains('language')) {
+            def language = req.queryParams('language')
+            if(language) {
+                tGlobal = stringsI18n.translationsFor(language)
+                uiLanguage = language
+                gc.updateDateFormat(uiLanguage)
+            }
+        }
+        def ctx = bodyCtx(req, resp)
+        ctx.put('newCanvas', true)
+        streamOut(index, ctx)
+    }
+
+    Route languagePost = { Request req, Response resp ->
+        def submission = req.queryParams()
+        if (submission.contains('language')) {
+            def language = req.queryParams('language')
+            if(language) {
+                tGlobal = stringsI18n.translationsFor(language)
+                uiLanguage = language
+                gc.updateDateFormat(uiLanguage)
+            }
+        }
+//        resp.redirect("/".toString())
+        def ctx = bodyCtx(req, resp)
+        ctx.put('newCanvas', true)
+        streamOut(body, ctx)
+    }
+
+    def bodyCtx(Request req, Response resp) {
         def strategy = chargeStrategy
         def ti18n = tGlobal
         def ctx = setChargeCommandContext(strategy, ti18n)
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         ctx.putAll(joinDashboardContext(ti18n))
         ctx.putAll(es.settingsFormContext(ti18n))
-        ctx.putAll(gc.createSnapshotCtx(180, ti18n))
-        ctx.putAll(gc.createSizeValues(180))
-        ctx.putAll(stringsI18n.i18nCtx(ti18n))
-        resp.status 200
-        streamOut(index, ctx)
-    }
-
-    Route languagePost = { Request req, Response resp ->
-
+        ctx.putAll(gc.createSnapshotCtx(graphDataSize, ti18n))
+        ctx.putAll(gc.createSizeValues(graphDataSize))
+        ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
+        ctx
     }
 
     Route dashboardRoute = { Request req, Response resp ->
         def accept = req.headers('Accept')
-//        def state = chargeStrategy
         resp.status 200
-//        if (accept.endsWith('json')) {
-//            def json = [
-//                    state : state,
-//                    status: 'OK'
-//            ]
-//            JsonOutput.toJson json
-//        } else {
         def ti18n = tGlobal
         def ctx = joinDashboardContext(ti18n)
         streamOut(dashboard, ctx)
-//        }
     }
 
     Route wallboxStrategyRoute = { Request req, Response resp ->
@@ -263,25 +280,11 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Route graphUpdatePost = { Request req, Response resp ->
         def accept = req.headers('Accept')
-        def submission = req.queryParams()
-        def update
-        def updateRate
-        if (submission.contains('graphpause')) { //&& req.queryParams('graphsize').isInteger()) {
-            update = req.queryParams('graphpause')
-        } else {
-            update = false
-        }
-        if (submission.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
-            updateRate = req.queryParams('graphupdate').toInteger()
-        } else {
-            updateRate = 1
-        }
         def params = evalGraphPost(req, resp)
         resp.status 200
         def ti18n = tGlobal
         def ctx = gc.createGraphControlCtx(ti18n)
         ctx.putAll(params)
-//        ctx.put('graphUpdate', updateRate)
         def out = streamOut(graphCommands, ctx)
         out
     }
@@ -332,7 +335,6 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     @OnWebSocketConnect
     void onConnect(Session user) {
-//        println 'socket connected'
         sessions.add user
     }
 

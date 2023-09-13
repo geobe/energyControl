@@ -8,7 +8,7 @@
               <option {{ val2880 }}>{{ hours4 }}</option>
               <option {{ val1440 }}>{{ hours2 }}</option>
               <option {{ val720 }}>{{ hour1 }}</option>
-              <option {{ val360 }} selected>{{ minutes30 }}</option>
+              <option {{ val360 }}>{{ minutes30 }}</option>
               <option {{ val180 }}>{{ minutes15 }}</option>
               <option {{ val60 }}>{{ minutes5 }}</option>
             </select>

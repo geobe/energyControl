@@ -33,9 +33,7 @@
         <link rel="icon" href="/static/pumahead.ico">
         <script src='/script/htmx-1.9.3.min.js'> </script>
         <script src='/script/htmx-ws.js'> </script>
-{#         <script src='/script/chart.min.js'> </script>#}
-{#         <script src='/script/chart.umd.js.map'> </script>#}
-         <script src='/script/chart-4.3.3.js'> </script>
+        <script src='/script/chart-4.3.3.js'> </script>
 		<title>{{ websiteTitle }}</title>
 	</head>
     <style>
@@ -43,8 +41,8 @@
       font-family: Arial, Helvetica, sans-serif ;
     }
     </style>
-	<body id="body">
-	{% include "./bodyi18n.peb" %}
+	<body>
+    	{% include "./bodyi18n.peb" %}
 	</body>
 
 <!-- javascript functions -->

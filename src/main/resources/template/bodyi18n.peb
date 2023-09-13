@@ -1,3 +1,4 @@
+	    <div id="body-i18n">
         <div class="w3-row">
             <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
                 <h2>{{ websiteTitle }}</h2>
@@ -32,13 +33,12 @@
                     >
                 Stop Server
             </button>
-            <select class="w3-button w3-right w3-margin-right"
-            hx-post="/language" hx-target="#body"
-            hx-swap="innerHtml" hx-include="#graph-commands" >
-                {{ languageOptions | raw }}
-{#                <option value="de" selected>{{ de }}</option>#}
-{#                <option value="en">{{ en }}</option>#}
-            <select>
+            <div id="language-select">
+                <select  class="w3-button w3-right w3-margin-right" name="language"
+                hx-get="/language" hx-target="body"  >
+                    {{ languageOptions | raw }}
+                <select>
+            </div>
         </div>
 <!-- websocket connection -->
         <div hx-ext="ws" ws-connect="/dash">
@@ -57,3 +57,4 @@
             <canvas id="myChart"></canvas>
         </div>
        {% include "./graph.peb" %}
+    	</div>

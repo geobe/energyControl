@@ -22,7 +22,6 @@ package de.geobe.energy.web
 
 class UiStringsI18n {
 
-    String language = 'de'
     List<String > translations
     String[] translationIndex
     Map translationStrings = [:]
@@ -34,7 +33,7 @@ class UiStringsI18n {
 
     def readFile(String filename) {
         def r = this.getClass().getResource(filename)
-        translations = r.readLines()//.split(':')
+        translations = r.readLines()
         translationIndex = translations[0].split(':')
         def group = [:]
         String key = ''
@@ -60,22 +59,31 @@ class UiStringsI18n {
         }
     }
 
-    def i18nCtx(Map<String, Map<String, String>> ti18n) {
+    def i18nCtx(Map<String, Map<String, String>> ti18n, String language) {
         StringBuffer options = new StringBuffer()
-        translationIndex.eachWithIndex {key,i ->
+        translationIndex.each {key ->
             def val = ti18n.languages[key]
             if (val ) {
-                options.append "<option value='$key'${i == 1?' selected':''}>$val</option>\n".toString()
+                options.append "<option value='$key'${key == language?' selected':''}>$val</option>\n".toString()
             }
         }
         [languageOptions:options.toString()]
+    }
+
+    def i18nSelect(Map<String, Map<String, String>> ti18n, String language) {
+"""
+                <select  class="w3-button w3-right w3-margin-right" name="language"
+                hx-post="/language"
+                hx-target="#language-select" hx-swap="innerHtml">
+                    ${i18nCtx(ti18n, language).languageOptions}
+                <select>
+"""
     }
 
     Map<String, Map<String, String>> translationsFor(String language) {
         if (! translationsMap[language]) {
             def index = translationIndex.findIndexOf { it.equalsIgnoreCase(language) }
             index = index < 0 ? 0 : index
-            println "index: $index"
             Map<String, Map<String, String>> tx = [:]
             translationStrings.each { txEntry ->
                 Map txGroup = txEntry.value
