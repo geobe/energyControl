@@ -181,8 +181,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(joinDashboardContext(ti18n))
         ctx.putAll(es.settingsFormContext(ti18n))
         ctx.putAll(gc.createSnapshotCtx(graphDataSize, ti18n))
-        ctx.putAll(gc.createSizeValues(graphDataSize))
+//        ctx.putAll(gc.createSizeValues(graphDataSize))
         ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
+        ctx.putAll(graphControlValues())
         ctx
     }
 
@@ -275,7 +276,6 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def params = evalGraphPost(req, resp)
         resp.status 200
         def ti18n = tGlobal
-        graphDataSize = params.size
         def ctx = gc.createSnapshotCtx(params.size, ti18n, 100 - params.graphOffset)
         ctx.put('newChart', true)
         ctx.putAll(params)
@@ -331,15 +331,21 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         } else {
             graphUpdate = 1
         }
+        // store input in global variables
         graphPreviousOffset = offset
         updatePause = graphPaused
         updateFrequency = graphUpdate
+        graphDataSize = size
+        graphControlValues()
+    }
+
+    def graphControlValues() {
         def params = [:]
-        params.put('graphPaused', graphPaused)
-        params.put('graphUpdate', graphUpdate)
-        params.put('size', size)
-        params.put('graphOffset', offset)
-        params.putAll(gc.createSizeValues(size))
+        params.put('graphPaused', updatePause)
+        params.put('graphUpdate', updateFrequency)
+        params.put('size', graphDataSize)
+        params.put('graphOffset', graphPreviousOffset)
+        params.putAll(gc.createSizeValues(graphDataSize))
         params
     }
 
