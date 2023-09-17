@@ -1,68 +1,69 @@
-	    <div id="body-i18n">
-        <div class="w3-row">
-            <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
-                <h2>{{ websiteTitle }}</h2>
+        <div id="body-i18n">
+            <div class="w3-row">
+                <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
+                    <h2>{{ websiteTitle }}</h2>
+                </div>
             </div>
-        </div>
-<!-- Nav tabs -->
-        <div class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6" style="width:100%">
+            <!-- Nav tabs -->
+            <div class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6" style="width:100%">
 {#
-            <button class="w3-bar-item w3-button"
-                    hx-get="/state"
-                    hx-target="#tab_content">
-                Smart Grid Status
-            </button>
-            <button class="w3-bar-item w3-button" id="history-graph-button"
-                    hx-get="/pvYieldGraph"
-                    hx-target="#tab_content">
-                PV Info
-            </button>
-            <button class="w3-bar-item w3-button"
-                    hx-post="/nosettings"
-                    hx-target="#tab_content">
-                Einstellungen
-            </button>
-            <button class="w3-bar-item w3-button"
-                    hx-post="/forecast"
-                    hx-target="#tab_content">
-                Wettervorhersage
-            </button>
+                    <button class="w3-bar-item w3-button"
+                            hx-get="/state"
+                            hx-target="#tab_content">
+                        Smart Grid Status
+                    </button>
+                    <button class="w3-bar-item w3-button" id="history-graph-button"
+                            hx-get="/pvYieldGraph"
+                            hx-target="#tab_content">
+                        PV Info
+                    </button>
+                    <button class="w3-bar-item w3-button"
+                            hx-post="/nosettings"
+                            hx-target="#tab_content">
+                        Einstellungen
+                    </button>
+                    <button class="w3-bar-item w3-button"
+                            hx-post="/forecast"
+                            hx-target="#tab_content">
+                        Wettervorhersage
+                    </button>
 #}
-            <button class="w3-bar-item w3-button"
-                    hx-post="/stop"
-                    >
-                Stop Server
-            </button>
-            <div id="language-select">
-                <select  class="w3-button w3-right w3-margin-right" name="language"
-                hx-get="/language" hx-target="body"  >
-                    {{ languageOptions | raw }}
-                <select>
+                <button class="w3-bar-item w3-button"
+                        hx-post="/stop"
+                        >
+                    Stop Server
+                </button>
+                <div id="language-select">
+                    <select  class="w3-button w3-right w3-margin-right" name="language"
+                    hx-post="/language" hx-target="body"  >
+                        {{ languageOptions | raw }}
+                    <select>
+                </div>
             </div>
-        </div>
-<!-- websocket connection -->
-        <div hx-ext="ws" ws-connect="/dash">
-        </div>
-<!-- dashboard panes -->
-        <!-- div id="dashboard" hx-trigger="load" -->
-           {% include "./dashboard.peb" %}
-        <!-- /div -->
-<!-- Charge strategy control pane -->
-          <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
+            <!-- websocket connection -->
+            <div hx-ext="ws" ws-connect="/dash">
+            </div>
+            <!-- dashboard panes -->
+            <!-- div id="dashboard" hx-trigger="load" -->
+               {% include "./dashboard.peb" %}
+            <!-- /div -->
+            <!-- Charge strategy control pane -->
+            <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
                 onClick="accordeon('strategy-buttons')">
               <h5 class="w3-margin-left">{{ wallboxStrategyHeader }} &raquo;</h5>
-          </div>
-       {% include "./statebuttons.peb" %}
-<!-- Charge settings pane -->
-       {% include "./settings.peb" %}
-<!-- Power graphs pane -->
-        <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
-            onClick="accordeon('graph-hide')">
-          <h5 class="w3-margin-left">{{ graphTitle }} &raquo;</h5>
-        </div>
-        <div id="graph-hide" class="w3-hide w3-show">
-            <div>
-                <canvas id="myChart"></canvas>
             </div>
-           {% include "./graph.peb" %}
-    	</div>
+            {% include "./statebuttons.peb" %}
+            <!-- Charge settings pane -->
+           {% include "./settings.peb" %}
+            <!-- Power graphs pane -->
+            <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
+                onClick="accordeon('graph-hide')">
+              <h5 class="w3-margin-left">{{ graphTitle }} &raquo;</h5>
+            </div>
+            <div id="graph-hide" class="w3-hide w3-show">
+                <div>
+                    <canvas id="myChart"></canvas>
+                </div>
+               {% include "./graph.peb" %}
+            </div>
+        </div>

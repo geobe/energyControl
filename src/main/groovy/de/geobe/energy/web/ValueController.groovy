@@ -170,7 +170,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //        resp.redirect("/".toString())
         def ctx = bodyCtx(req, resp)
         ctx.put('newCanvas', true)
-        streamOut(body, ctx)
+        def out = streamOut(body, ctx)
+        updateWsValues(out)
+        out
     }
 
     def bodyCtx(Request req, Response resp) {

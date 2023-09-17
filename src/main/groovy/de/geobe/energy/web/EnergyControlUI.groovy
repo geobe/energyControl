@@ -74,7 +74,7 @@ class EnergyControlUI {
 
         post('/graphUpdate', valueController.graphUpdatePost)
 
-        get('/language', valueController.languagePost)
+        post('/language', valueController.languagePost)
 
         post('/stop') { req, res ->
             stop()
