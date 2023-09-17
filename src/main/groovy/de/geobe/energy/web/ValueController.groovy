@@ -61,6 +61,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
     volatile int graphDataSize = 180
+    volatile int graphPreviousOffset = 100
     volatile int updateFrequency = 1
     volatile int updateCounter = 0
     volatile boolean updatePause = false
@@ -123,7 +124,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
-        updateWsValues(statesInfoString(tGlobal))
+//        updateWsValues(statesInfoString(tGlobal))
         updateCounter++
         if (! updatePause && updateCounter >= updateFrequency) {
             updateCounter = 0
@@ -235,9 +236,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 throw new RuntimeException("unexpected action $action")
         }
         resp.status 200
-        chargeStrategy = carChargingManager.chargeStrategy
-        chargeManagerState = carChargingManager.chargeManagerState
-        def upd = statesInfoString(ti18n) + chargeInfoString(ti18n)
+        def o = owner
+        def t = this
+        owner.chargeStrategy = carChargingManager.chargeStrategy
+        owner.chargeManagerState = carChargingManager.chargeManagerState
+        def upd = statesInfoString(ti18n)
+        updateWsValues(upd)
+        upd = chargeInfoString(ti18n)
         updateWsValues(upd)
         ''
     }
@@ -275,7 +280,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.put('newChart', true)
         ctx.putAll(params)
         def out = streamOut(graph, ctx)
-        out
+        updateWsValues(out)
+//        out
+        ''
     }
 
     Route graphUpdatePost = { Request req, Response resp ->
@@ -286,7 +293,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ctx = gc.createGraphControlCtx(ti18n)
         ctx.putAll(params)
         def out = streamOut(graphCommands, ctx)
-        out
+        updateWsValues(out)
+//        out
+        ''
     }
 
     /** to be called at shutdown to save accumulated energy values */
@@ -309,17 +318,20 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
         if (submission.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
             offset = req.queryParams('graphoffset').toInteger()
+            if (offset < 100) {
+                graphPaused = true
+            } else if(graphPreviousOffset < 100) {
+                graphPaused = false
+            }
         } else {
             offset = 100
-        }
-        if (offset < 100) {
-            graphPaused = true
         }
         if (submission.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
             graphUpdate = req.queryParams('graphupdate').toInteger()
         } else {
             graphUpdate = 1
         }
+        graphPreviousOffset = offset
         updatePause = graphPaused
         updateFrequency = graphUpdate
         def params = [:]
@@ -385,7 +397,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ctx = [:]
         ctx.putAll(ti18n.powerStrings)
         ctx.putAll(powerValues())
-        streamOut(powerValuesTemplate, ctx)
+        def out = streamOut(powerValuesTemplate, ctx)
+        out
     }
 
     def chargeInfoString(Map<String, Map<String, String>> ti18n) {

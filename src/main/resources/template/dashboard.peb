@@ -5,13 +5,17 @@
     States and rules:
         car charging state, car charging strategy, tibber strategy, price
  #}
-        {#<!-- power values -->#}
-    <div class="w3-col s12 w3-left w3-padding-small w3-dark-grey">
-      <h5>{{ powerTitle }}</h5>
+    <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
+        onClick="accordeon('hide-power')">
+      <h5 class="w3-margin-left">{{ powerTitle }} &raquo;</h5>
     </div>
-    {% include "./powervalues.peb" %}
-        {#   <!-- state values etc: car charging state, car charging strategy, tibber strategy, price -->#}
-    <div class="w3-col s12 w3-padding-small w3-dark-grey">
-      <h5>{{ statesTitle }}</h5>
+    <div id="hide-power" class=" w3-hide w3-show">
+        {% include "./powervalues.peb" %}
     </div>
-    {% include "./chargeinfo.peb" %}
+    <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
+        onClick="accordeon('hide-charge')">
+      <h5 class="w3-margin-left">{{ statesTitle }} &raquo;</h5>
+    </div>
+    <div id="hide-charge" class=" w3-hide w3-show">
+        {% include "./chargeinfo.peb" %}
+    </div>

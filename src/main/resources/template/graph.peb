@@ -1,6 +1,6 @@
-    <div id="graph-all">
-    {% autoescape "js" %}
-    {% include "./graphdata.peb" %}
-    {% endautoescape %}
-    {% include "./graphcommands.peb" %}
-    </div>
+        <div id="graph-all">
+            {% autoescape "js" %}
+            {% include "./graphdata.peb" %}
+            {% endautoescape %}
+            {% include "./graphcommands.peb" %}
+        </div>

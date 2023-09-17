@@ -1,8 +1,9 @@
 <div id="div-settings" class="w3-col w3-left">
-    <div class="w3-col s12 w3-padding-small w3-dark-grey">
-      <h5>{{ settingsTitle }}</h5>
+    <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
+    onClick="accordeon('settings-form')">
+      <h5 class="w3-margin-left">{{ settingsTitle }} &raquo;</h5>
     </div>
-    <div id="settings-form" class="w3-col w3-light-grey w3-padding-small ">
+    <div id="settings-form" class="w3-col w3-light-grey w3-padding-small w3-hide w3-show">
         {% include "./settingsform.peb" %}
     </div>
 </div>
