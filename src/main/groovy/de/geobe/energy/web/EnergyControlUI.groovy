@@ -38,6 +38,13 @@ class EnergyControlUI {
 
     static void main(String[] args) {
 
+
+        PebbleEngine engine = new PebbleEngine.Builder().build()
+
+        ValueController
+        valueController = new ValueController(engine)
+        valueController.init()
+
         Runtime.getRuntime().addShutdownHook(new Thread() {
             void run() {
                 println "shutting down gently ..."
@@ -46,12 +53,6 @@ class EnergyControlUI {
                 println 'done'
             }
         })
-
-        PebbleEngine engine = new PebbleEngine.Builder().build()
-
-        ValueController
-        valueController = new ValueController(engine)
-        valueController.init()
 
         staticFiles.location("public")
         staticFiles.expireTime(10)
@@ -82,10 +83,10 @@ class EnergyControlUI {
         }
     }
 
-    private static shutdown() {
+    static shutdown() {
         CarChargingManager.carChargingManager.shutDown()
         WallboxMonitor.monitor.shutdown()
-        PowerMonitor.monitor.shutdown()
+        PowerMonitor.monitor?.shutdown()
         valueController?.shutdown()
         PeriodicExecutor.shutdown()
     }

@@ -43,6 +43,8 @@
             <!-- websocket connection -->
             <div hx-ext="ws" ws-connect="/dash">
             </div>
+            <!-- error message pane -->
+                {% include "./networkerror.peb" %}
             <!-- dashboard panes -->
             <!-- div id="dashboard" hx-trigger="load" -->
                {% include "./dashboard.peb" %}

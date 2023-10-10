@@ -68,7 +68,7 @@ class Wallbox implements IWallboxValueSource {
     private static Wallbox wallbox
 
     static synchronized getWallbox() {
-        if(! wallbox) {
+        if (!wallbox) {
             wallbox = new Wallbox()
         }
         wallbox
@@ -106,7 +106,12 @@ class Wallbox implements IWallboxValueSource {
      * @return updated wallboxValues object
      */
     WallboxValues getValues() {
-        def response = jsonSlurper.parseText(new URL(readRequest + "$FILTER").text)
+        def url = new URL(readRequest + "$FILTER")
+        def getParams = [
+                connectTimeout: 5000,
+                readTimeout   : 6000]
+        def text = url.getText(getParams)
+        def response = jsonSlurper.parseText(text)
         allowedToCharge = response.alw
         requestedCurrent = response.amp
         carState = CarState.values()[response.car]
@@ -174,13 +179,13 @@ class Wallbox implements IWallboxValueSource {
         println wb.getValues()
         println wb.setChargingCurrent((short) 8)
         wb.startCharging()
-        for (i in 0..<10 ) {
+        for (i in 0..<4) {
             i++
             Thread.sleep(1500)
             println wb.getValues()
         }
         wb.stopCharging()
-        for (i in 0..<3 ) {
+        for (i in 0..<3) {
             i++
             Thread.sleep(1500)
             println wb.getValues()

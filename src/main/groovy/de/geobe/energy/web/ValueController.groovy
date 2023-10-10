@@ -32,9 +32,11 @@ import io.pebbletemplates.pebble.template.PebbleTemplate
 import org.eclipse.jetty.websocket.api.Session
 import org.eclipse.jetty.websocket.api.WriteCallback
 import org.eclipse.jetty.websocket.api.annotations.*
+import org.joda.time.DateTime
 import spark.Request
 import spark.Response
 import spark.Route
+import spark.Spark
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -47,8 +49,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
     /** access to energy values */
-    private PowerMonitor powerMonitor = PowerMonitor.monitor
-    private WallboxMonitor wbMonitor = WallboxMonitor.monitor
+    private PowerMonitor powerMonitor
+    private WallboxMonitor wbMonitor
     /** shortcut to car charging manager singleton */
     private carChargingManager = CarChargingManager.carChargingManager
     /** current Values */
@@ -57,6 +59,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile WallboxMonitor.CarChargingState carChargingState
     volatile CarChargingManager.ChargeManagerState chargeManagerState
     volatile CarChargingManager.ChargeStrategy chargeStrategy
+    volatile Boolean networkError = false
+    volatile Exception networkException
     // global display values
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
@@ -90,53 +94,67 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def graph = engine.getTemplate('template/graph.peb')
     def graphData = engine.getTemplate('template/graphdata.peb')
     def graphCommands = engine.getTemplate('template/graphcommands.peb')
+    def networkErrorTemplate = engine.getTemplate('template/networkerror.peb')
 
     void init() {
-        pwrValues = powerMonitor.current
-        wbValues = wbMonitor.current.values
-        short cHome = pwrValues.consumptionHome - wbValues.energy
-        Snapshot snapshot = new Snapshot(
-                pwrValues.timestamp.toEpochMilli(),
-                (short) pwrValues.powerSolar,
-                (short) pwrValues.powerBattery,
-                (short) pwrValues.powerGrid,
-                cHome,
-                wbValues.energy,
-                (short) pwrValues.socBattery
-        )
-        gc.init(snapshot)
-        carChargingState = wbMonitor.current.state
-        chargeStrategy = carChargingManager.chargeStrategy
-        chargeManagerState = carChargingManager.chargeManagerState
-//        println "wallbox: $wbValues \ncar state: $carChargingState"
-        powerMonitor.initCycle(5, 0)
-        powerMonitor.subscribe(this)
-        wbMonitor.subscribeState(this)
+        try {
+            powerMonitor = PowerMonitor.monitor
+            wbMonitor = WallboxMonitor.monitor
+            pwrValues = powerMonitor.current
+            wbValues = wbMonitor.current.values
+            short cHome = pwrValues.consumptionHome - wbValues.energy
+            Snapshot snapshot = new Snapshot(
+                    pwrValues.timestamp.toEpochMilli(),
+                    (short) pwrValues.powerSolar,
+                    (short) pwrValues.powerBattery,
+                    (short) pwrValues.powerGrid,
+                    cHome,
+                    wbValues.energy,
+                    (short) pwrValues.socBattery
+            )
+            gc.init(snapshot)
+            carChargingState = wbMonitor.current.state
+            chargeStrategy = carChargingManager.chargeStrategy
+            chargeManagerState = carChargingManager.chargeManagerState
+            powerMonitor.initCycle(5, 0)
+            powerMonitor.subscribe(this)
+            wbMonitor.subscribeState(this)
+        } catch (Exception exception) {
+            takePMException(exception)
+//            Spark.stop()
+//            System.err.println "System stopped: $exception"
+//            System.exit(-1)
+        }
     }
 
     @Override
-//    @ActiveMethod(blocking = false)
     void takePMValues(PMValues pmValues) {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
-//        println "pwrValues: $pwrValues"
         gc.saveSnapshot(pwrValues, wbValues)
         chargeStrategy = carChargingManager.chargeStrategy
         chargeManagerState = carChargingManager.chargeManagerState
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
 //        updateWsValues(statesInfoString(tGlobal))
         updateCounter++
-        if (! updatePause && updateCounter >= updateFrequency) {
+        if (!updatePause && updateCounter >= updateFrequency) {
             updateCounter = 0
             updateWsValues(graphInfoString(tGlobal, graphDataSize))
         }
     }
 
     @Override
-//    @ActiveMethod(blocking = false)
+    void takePMException(Exception exception) {
+        networkError = true
+        networkException = exception
+        updateWsValues(errorMessageString(tGlobal))
+//        shutdown()
+        EnergyControlUI.shutdown()
+    }
+
+    @Override
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         carChargingState = carState
-//        updateWsValues(chargeInfoString())
         println "carChargingState changed: $carChargingState"
     }
 
@@ -146,7 +164,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def submission = req.queryParams()
         if (submission.contains('language')) {
             def language = req.queryParams('language')
-            if(language) {
+            if (language) {
                 tGlobal = stringsI18n.translationsFor(language)
                 uiLanguage = language
                 gc.updateDateFormat(uiLanguage)
@@ -161,7 +179,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def submission = req.queryParams()
         if (submission.contains('language')) {
             def language = req.queryParams('language')
-            if(language) {
+            if (language) {
                 tGlobal = stringsI18n.translationsFor(language)
                 uiLanguage = language
                 gc.updateDateFormat(uiLanguage)
@@ -186,6 +204,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //        ctx.putAll(gc.createSizeValues(graphDataSize))
         ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
         ctx.putAll(graphControlValues())
+        ctx.putAll(errorContext(ti18n))
         ctx
     }
 
@@ -322,7 +341,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             offset = req.queryParams('graphoffset').toInteger()
             if (offset < 100) {
                 graphPaused = true
-            } else if(graphPreviousOffset < 100) {
+            } else if (graphPreviousOffset < 100) {
                 graphPaused = false
             }
         } else {
@@ -431,6 +450,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         streamOut(graphData, ctx)
     }
 
+    def errorMessageString(Map<String, Map<String, String>> ti18n) {
+        streamOut(networkErrorTemplate, errorContext(ti18n))
+    }
+
     /********** helper methods ******/
 
     /**
@@ -472,14 +495,15 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /** realtime analog values for dashboard */
     def powerValues() {
         def ctx = [
-                pvValue     : pwrValues.powerSolar,
-                gridValue   : pwrValues.powerGrid,
-                batteryValue: pwrValues.powerBattery,
-                homeValue   : pwrValues.consumptionHome - wbValues.energy,
-                carValue    : wbValues.energy,
-                socValue    : pwrValues.socBattery,
+                pvValue     : pwrValues?.powerSolar,
+                gridValue   : pwrValues?.powerGrid,
+                batteryValue: pwrValues?.powerBattery,
+                homeValue   : pwrValues? pwrValues.consumptionHome - wbValues?.energy: null,
+                carValue    : wbValues?.energy,
+                socValue    : pwrValues?.socBattery,
         ]
     }
+
 
     def setChargeManagementContext(CarChargingManager.ChargeManagerState state, Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
@@ -510,10 +534,31 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 ctx['checkedAnyway'] = 'checked'
                 break
             case CarChargingManager.ChargeStrategy.CHARGE_STOP:
+//            case null:
                 ctx['checkedStop'] = 'checked'
-                break
-            default:
-                throw new IllegalArgumentException()
+//                break
+//            default:
+//                throw new IllegalArgumentException()
+        }
+        ctx
+    }
+
+    def errorContext(Map<String, Map<String, String>> ti18n) {
+        def ctx = [:]
+        ctx.put('networkError', networkError)
+        if(networkError) {
+            def key = networkException.toString().split(/:/)[1].trim()
+            def arg = ''
+            if (key.contains(' ')) {
+                def msg = key.split(/ /)
+                key = msg[0]
+                arg = msg.size() > 1 ? msg[1] : arg
+            }
+            def timestamp = gc.full.print DateTime.now()
+            def cause = ti18n.errorStrings.get(key)
+            cause = cause? cause : networkException.toString()
+            def pre = ti18n.errorStrings.StopException
+            ctx.put('errorMessage', "$timestamp: $pre<br>$cause $arg")
         }
         ctx
     }

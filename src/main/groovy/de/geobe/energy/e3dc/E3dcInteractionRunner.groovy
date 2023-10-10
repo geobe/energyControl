@@ -52,61 +52,13 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     private static E3dcInteractionRunner runner
 
     static synchronized getInteractionRunner() {
-        if(! runner) {
+        if (!runner) {
             runner = new E3dcInteractionRunner()
-            def auth =  runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
+            def auth = runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
             if (auth == -1)
-                throw new RuntimeException("Authentication failed")
+                throw new RuntimeException("E3dcAuthError")
         }
         runner
-    }
-
-    static void main(String[] args) {
-//        def interactionRunner = new E3dcInteractionRunner()
-//        def auth =  interactionRunner.interactions.sendAuthentication(interactionRunner.e3dcPortalUser, interactionRunner.e3dcPortalPassword)
-//        println auth
-        def interactionRunner = getInteractionRunner()
-        def live = interactionRunner.currentValues
-        println "initial $live"
-
-        def start = new DateTime(2023, 03, 25, 12, 0)
-//        def start = new DateTime().hourOfDay().roundFloorCopy().minusHours(35)
-        def history = interactionRunner.getHistoryValues(start, 15 * MINUTE, 16)
-        history.keySet().each {dateTime ->
-            println "$dateTime: ${history[dateTime]}"
-        }
-
-//        def load
-//        for (i in 0..2) {
-//            load = interactionRunner.storageLoadMode(GRIDLOAD, 3000)
-//            println "Gridload: <- $load"
-//            Thread.sleep(10000)
-//            live = interactionRunner.currentValues
-//            println "loop $i, live: $live"
-//            Thread.sleep(10000)
-//        }
-//        live = interactionRunner.currentValues
-//        println "after loop: $live"
-//        load = interactionRunner.storageLoadMode(IDLE, 0)
-//        println "Idle: <- $load"
-//        Thread.sleep(10000)
-//        live = interactionRunner.currentValues
-//        println "set to idle: $live"
-//        load = interactionRunner.storageLoadMode(AUTO, 3000)
-//        println "Auto: <- $load"
-//        Thread.sleep(10000)
-//        live = interactionRunner.currentValues
-//        println "reset to auto: $live"
-//        Thread.sleep(10000)
-//        live = interactionRunner.currentValues
-//        println "reset to auto: $live"
-//        Thread.sleep(10000)
-//        live = interactionRunner.currentValues
-//        println "reset to auto: $live"
-//        Thread.sleep(10000)
-//        live = interactionRunner.currentValues
-//        println "reset to auto: $live"
-        interactionRunner.interactions.closeConnection()
     }
 
     /**
@@ -123,7 +75,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         interactions = new E3dcInteractions(storageIp, storagePort, storagePassword)
         if (!checkSameSubnet(storageIp))
             throw new RuntimeException(
-                    "Network configuration error: Not in same subnet as E3DC system $storageIp"
+                    "E3dcIpError $storageIp"
             )
     }
 
@@ -180,7 +132,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         for (i in 0..<count) {
             def vals =
                     interactions.sendRequest(E3dcRequests.historyDataRequest(normalisedStart, interval, 1))
-            if(vals.DB_HISTORY_DATA_DAY[0] == -1)
+            if (vals.DB_HISTORY_DATA_DAY[0] == -1)
                 break
             def valMap =
                     interactions.extractMapFromList(vals.DB_HISTORY_DATA_DAY[0].DB_SUM_CONTAINER)
@@ -207,7 +159,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      */
     @Override
     def storageLoadMode(byte mode, int watts) {
-        if(mode in [AUTO, IDLE]) {
+        if (mode in [AUTO, IDLE]) {
             watts = 0
         }
         def response = interactions.sendRequest(E3dcRequests.loadFromGridRequest(mode, watts))
@@ -228,5 +180,49 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
             props.load(it)
         }
         props
+    }
+
+    static void main(String[] args) {
+        def interactionRunner = getInteractionRunner()
+        def live = interactionRunner.currentValues
+        println "initial $live"
+
+        def start = new DateTime(2023, 03, 25, 12, 0)
+        def history = interactionRunner.getHistoryValues(start, 15 * MINUTE, 16)
+        history.keySet().each { dateTime ->
+            println "$dateTime: ${history[dateTime]}"
+        }
+
+//        def load
+//        for (i in 0..2) {
+//            load = interactionRunner.storageLoadMode(GRIDLOAD, 3000)
+//            println "Gridload: <- $load"
+//            Thread.sleep(10000)
+//            live = interactionRunner.currentValues
+//            println "loop $i, live: $live"
+//            Thread.sleep(10000)
+//        }
+//        live = interactionRunner.currentValues
+//        println "after loop: $live"
+//        load = interactionRunner.storageLoadMode(IDLE, 0)
+//        println "Idle: <- $load"
+//        Thread.sleep(10000)
+//        live = interactionRunner.currentValues
+//        println "set to idle: $live"
+//        load = interactionRunner.storageLoadMode(AUTO, 3000)
+//        println "Auto: <- $load"
+//        Thread.sleep(10000)
+//        live = interactionRunner.currentValues
+//        println "reset to auto: $live"
+//        Thread.sleep(10000)
+//        live = interactionRunner.currentValues
+//        println "reset to auto: $live"
+//        Thread.sleep(10000)
+//        live = interactionRunner.currentValues
+//        println "reset to auto: $live"
+//        Thread.sleep(10000)
+//        live = interactionRunner.currentValues
+//        println "reset to auto: $live"
+        interactionRunner.interactions.closeConnection()
     }
 }

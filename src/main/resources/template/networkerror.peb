@@ -1,0 +1,5 @@
+<div id="error" class="{{ networkError ? "w3-show" : "w3-hide" }} w3-red">
+    {% autoescape false %}
+    <h3>{{ errorMessage }}</h3>
+    {% endautoescape %}
+</div>

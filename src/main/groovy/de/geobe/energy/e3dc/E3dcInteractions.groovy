@@ -65,10 +65,20 @@ class E3dcInteractions {
      */
     def sendRequest(List<RequestElement> requestElements) {
         def requestFrame = E3dcRequests.requestsToFrame(requestElements)
-        def response = E3DCConnector
-                .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
-                .flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
-                .getOrElse(new byte[0])
+//            def response = E3DCConnector
+//                    .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
+//                    .flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
+//                    .getOrElse(new byte[0])
+        def sent = E3DCConnector.
+                sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
+        if (sent.left) {
+            throw new RuntimeException('E3dcSendError', sent.getLeft())
+        }
+        def read  = sent.flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
+        if (read.left) {
+            throw new RuntimeException('E3dcReadError', read.getLeft())
+        }
+        def response = read.get()
         if (response) {
             def frame = RSCPFrame.builder().buildFromRawBytes(response)
             def values = decodeFrame(frame)
@@ -141,7 +151,7 @@ class E3dcInteractions {
             data.containerData.each {
                 content << decodeData(it)
             }
-            [(tag) : content]
+            [(tag): content]
         } else {
             RscpUtils.value(data)
         }
@@ -156,7 +166,7 @@ class E3dcInteractions {
     def extractMapFromList(List raw) {
         def result = [:]
         raw.each {
-            if(it instanceof Map) {
+            if (it instanceof Map) {
                 result << it
             }
         }

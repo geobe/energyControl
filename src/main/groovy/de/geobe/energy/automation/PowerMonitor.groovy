@@ -57,6 +57,7 @@ class PowerMonitor {
     private PeriodicExecutor executor
 
     private static PowerMonitor monitor
+    private static boolean constructionFailed = false
 
     /**
      * only for functional tests to inject monitor mock object
@@ -70,8 +71,13 @@ class PowerMonitor {
     }
 
     static synchronized PowerMonitor getMonitor() {
-        if(! monitor) {
-            monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, Wallbox.wallbox)
+        if (!monitor && !constructionFailed) {
+            try {
+                monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, Wallbox.wallbox)
+            } catch (Exception e) {
+                constructionFailed = true
+                throw e
+            }
         }
         monitor
     }
@@ -88,13 +94,16 @@ class PowerMonitor {
     private Runnable readPower = new Runnable() {
         @Override
         void run() {
-            def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
             try {
+                def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
                 subscribers.each {
                     it.takePMValues(pmValues)
                 }
             } catch (Exception ex) {
-                ex.printStackTrace()
+//                ex.printStackTrace()
+                subscribers.each {
+                    it.takePMException(ex)
+                }
             }
         }
     }
@@ -150,6 +159,11 @@ class PowerMonitor {
             void takePMValues(PMValues pmValues) {
                 println pmValues
             }
+
+            @Override
+            void takePMException(Exception exception) {
+                println exception
+            }
         }
         m.subscribe p
         Thread.sleep(20000)
@@ -160,15 +174,19 @@ class PowerMonitor {
 
 interface PowerValueSubscriber {
     void takePMValues(PMValues pmValues)
+
+    void takePMException(Exception exception)
 }
 
 class PMValues {
     PowerValues powerValues
     WallboxValues wallboxValues
+
     PMValues(PowerValues powerValues, WallboxValues wallboxValues) {
         this.powerValues = powerValues
         this.wallboxValues = wallboxValues
     }
+
     @Override
     String toString() {
         "$powerValues\n$wallboxValues"
