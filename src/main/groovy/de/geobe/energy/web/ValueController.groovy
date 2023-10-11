@@ -61,6 +61,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile CarChargingManager.ChargeStrategy chargeStrategy
     volatile Boolean networkError = false
     volatile Exception networkException
+    volatile String errorTimestamp
     // global display values
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
@@ -147,6 +148,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     void takePMException(Exception exception) {
         networkError = true
         networkException = exception
+        errorTimestamp = gc.full.print DateTime.now()
         updateWsValues(errorMessageString(tGlobal))
 //        shutdown()
         EnergyControlUI.shutdown()
@@ -554,11 +556,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 key = msg[0]
                 arg = msg.size() > 1 ? msg[1] : arg
             }
-            def timestamp = gc.full.print DateTime.now()
             def cause = ti18n.errorStrings.get(key)
             cause = cause? cause : networkException.toString()
             def pre = ti18n.errorStrings.StopException
-            ctx.put('errorMessage', "$timestamp: $pre<br>$cause $arg")
+            ctx.put('errorMessage', "$errorTimestamp: $pre<br>$cause $arg")
         }
         ctx
     }
