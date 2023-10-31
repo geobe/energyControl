@@ -62,10 +62,20 @@
                 onClick="accordeon('graph-hide')">
               <h5 class="w3-margin-left">{{ graphTitle }} &raquo;</h5>
             </div>
-            <div id="graph-hide" class="w3-hide w3-show">
+            <div id="graph-hide" class="w3-hide w3show">
                 <div>
                     <canvas id="myChart"></canvas>
                 </div>
                {% include "./graph.peb" %}
+            </div>
+            <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
+                onClick="accordeon('tibber-hide')">
+              <h5 class="w3-margin-left">{{ tibberTitle }} &raquo;</h5>
+            </div>
+            <div id="tibber-hide" class="w3-hide w3-show">
+                <div>
+                    <canvas id="tibberChart"></canvas>
+                </div>
+               {% include "./tibbergraph.peb" %}
             </div>
         </div>

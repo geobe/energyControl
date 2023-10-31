@@ -81,6 +81,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /** more helper objects */
     EnergySettings es = new EnergySettings(this, tGlobal)
     GraphController gc = new GraphController(tGlobal)
+    TibberController tibc = new TibberController(this)
 
     /** translate pebble templates to java code */
     PebbleEngine engine
@@ -95,6 +96,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def graph = engine.getTemplate('template/graph.peb')
     def graphData = engine.getTemplate('template/graphdata.peb')
     def graphCommands = engine.getTemplate('template/graphcommands.peb')
+    def tibberGraph = engine.getTemplate('template/tibbergraph.peb')
     def networkErrorTemplate = engine.getTemplate('template/networkerror.peb')
 
     void init() {
@@ -204,6 +206,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(es.settingsFormContext(ti18n))
         ctx.putAll(gc.createSnapshotCtx(graphDataSize, ti18n))
 //        ctx.putAll(gc.createSizeValues(graphDataSize))
+        ctx.putAll(tibc.createTibberDataCtx(ti18n))
         ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
         ctx.putAll(graphControlValues())
         ctx.putAll(errorContext(ti18n))

@@ -29,8 +29,6 @@
     ctx = cnvs
 {% endif %}
 
-{#    var height = ctx.height;#}
-
     var config = {
       type: 'line',
       data: data,
@@ -92,8 +90,5 @@
 {%else %}
     var lineChart = new Chart(ctx, config);
 {% endif %}
-{#    if(ctx.height != height) {#}
-{#        ctx.height = height;#}
-{#    }#}
 </script>
 {% endautoescape %}

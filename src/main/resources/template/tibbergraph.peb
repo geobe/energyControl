@@ -1,0 +1,85 @@
+<div id="tibber-graph">
+   {% autoescape "js" %}
+<script id="tibber-data">
+    var tibberLabels = {{ tibberLabels | raw }};
+    var tibberDataset = {{ tibberLine.dataset }};
+
+    var tibberData = {
+      labels: tibberLabels,
+      datasets: [
+        {
+          label: '{{ tibberLine.label }}',
+          data: tibberDataset,
+          backgroundColor: {{ tibberLine.color | raw }},
+          fill: false,
+          yAxisID: 'y'
+        }
+      ]
+    };
+
+    var tibberCtx = document.getElementById('tibberChart');
+
+{% if newCanvas %}
+    var tcnvs = document.createElement('canvas');
+    tcnvs.id = 'tibberChart'
+    tibberCtx.replaceWith(tcnvs)
+    tibberCtx = tcnvs
+{% endif %}
+
+    var tibberConfig = {
+      type: 'bar',
+      data: tibberData,
+      options: {
+        responsive: true,
+        animation: false,
+        elements: {
+            point: {
+                pointStyle: false
+            },
+            line: {
+                borderWidth: 2
+            }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: '{{ tibberTitle }}'
+          },
+        },
+        interaction: {
+          intersect: false,
+        },
+        scales: {
+          x: {
+            display: true,
+            title: {
+              display: true,
+              text: '{{ tibberTimeAxis }}'
+            },
+          },
+          'y': {
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: '{{ tibberPriceAxis }}'
+            },
+            suggestedMin: 10.0,
+            suggestedMax: 40.0
+          }
+        }
+      }
+    };
+
+{% if newChart %}
+    tibberChart.destroy();
+    tibberChart = new Chart(tibberCtx, tibberConfig);
+{%else %}
+    var tibberChart = new Chart(tibberCtx, tibberConfig);
+{% endif %}
+{#    if(ctx.height != height) {#}
+{#        ctx.height = height;#}
+{#    }#}
+</script>
+    {% endautoescape %}
+</div>

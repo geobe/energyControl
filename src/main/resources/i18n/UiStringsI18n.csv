@@ -105,3 +105,11 @@ E3dcSendError:E3DC Sendefehler:E3DC send error
 E3dcReadError:E3DC Lesefehler:E3DC read error
 E3dcAuthError:E3DC Authentifizierungsfehler:E3DC authentication error
 E3dcIpError:Netzwerk Konfigurationsfehler, nicht im E3DC Subnetz:Network configuration error, not in E3DC subnet
+* tibberStrings::
+tibToday:heute:today
+tibTomorrow:morgen:tomorrow
+tibTitle:Tibber Strompreis:Tibber Electricity Rate
+tibTime:Stunde:hour
+tibPrice:Preis [ct/kWh]:Price [ct/kWh]
+tibAnd:und:and
+tibUpd:aktualisiert:updated

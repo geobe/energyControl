@@ -44,13 +44,14 @@ class GraphController {
     /** marker variable for last snapshots save to file */
     private int lastSaveDayOfYear = -42
 
-    DateTimeFormatter date = DateTimeFormat.forPattern(' [EEE, dd.MM.yy]')
-    DateTimeFormatter localDate = date
-    DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
-    DateTimeFormatter hour = DateTimeFormat.forPattern('H:mm:ss')
-    DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
-    DateTimeFormatter second = DateTimeFormat.forPattern('ss')
-    DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
+    static DateTimeFormatter date = DateTimeFormat.forPattern(' [EEE, dd.MM.yy]')
+    static DateTimeFormatter localDate = date
+    static DateTimeFormatter full = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+    static DateTimeFormatter hmmss = DateTimeFormat.forPattern('H:mm:ss')
+    static DateTimeFormatter hour = DateTimeFormat.forPattern('HH')
+    static DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
+    static DateTimeFormatter second = DateTimeFormat.forPattern('ss')
+    static DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
 
     GraphController(Map<String, Map<String, String>> uiStrings) {
         ts = uiStrings
@@ -170,7 +171,7 @@ class GraphController {
             def label
             def minOfHour = time.minuteOfHour().get()
             if (ix == 0 || minOfHour == 0 || displaySize > 180) {
-                label = "'${hour.print(time)}'"
+                label = "'${hmmss.print(time)}'"
 //            } else if (isHour) {
 //                label = "'${hour.print(time)}'"
 //            } else if (ix % 12 == 0) {

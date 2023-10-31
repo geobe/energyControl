@@ -27,6 +27,7 @@ package de.geobe.energy.web
 import de.geobe.energy.automation.CarChargingManager
 import de.geobe.energy.automation.PeriodicExecutor
 import de.geobe.energy.automation.PowerMonitor
+import de.geobe.energy.automation.PowerPriceMonitor
 import de.geobe.energy.automation.WallboxMonitor
 import io.pebbletemplates.pebble.PebbleEngine
 
@@ -87,6 +88,7 @@ class EnergyControlUI {
         CarChargingManager.carChargingManager.shutDown()
         WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor?.shutdown()
+        PowerPriceMonitor.monitor?.shutdown()
         valueController?.shutdown()
         PeriodicExecutor.shutdown()
     }
