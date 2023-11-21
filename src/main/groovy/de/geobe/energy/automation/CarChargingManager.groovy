@@ -484,8 +484,8 @@ class CarChargingManager implements WallboxStateSubscriber {
                 println ' done'
             }
         })
-        PvChargeStrategyParams params =
-                new PvChargeStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 2000)
+        PowerStrategyParams params =
+                new PowerStrategyParams(toleranceStackSize: 5, batStartHysteresis: 0, maxBatUnloadPower: 2000)
         PvChargeStrategy.chargeStrategy.params = params
         // activate manager first
         carChargingManager.active = true

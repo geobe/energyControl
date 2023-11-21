@@ -25,11 +25,10 @@
 package de.geobe.energy.web
 
 import de.geobe.energy.automation.PvChargeStrategy
-import de.geobe.energy.automation.PvChargeStrategyParams
+import de.geobe.energy.automation.PowerStrategyParams
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.EqualsAndHashCode
-import io.pebbletemplates.pebble.PebbleEngine
 
 @EqualsAndHashCode
 class EnergySettings {
@@ -46,14 +45,14 @@ class EnergySettings {
     /** simple access to PvChargeStrategy singleton */
     def pvcs = PvChargeStrategy.chargeStrategy
 
-    private Map pvcsParameterMap = new PvChargeStrategyParams().toMap()
+    private Map pvcsParameterMap = new PowerStrategyParams().toMap()
 
     /** all static template strings for spark */
 //    Map<String, Map<String, String>> ts
     /** other controller classes */
     ValueController vc
 
-    def getPvChargeStrategySettings() {
+    def getPowerStrategySettings() {
         pvcsParameterMap
     }
 
@@ -63,15 +62,15 @@ class EnergySettings {
 
     def settingsFormContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
-        ctx.putAll ti18n.pvSettingStrings
+        ctx.putAll ti18n.powerSettingStrings
         def inputListCtx = []
-        pvStrategySettings.each {key ->
+        powerStrategySettingKeys.each { key ->
             def inputCtx = [
-                    label: ti18n.pvStrategySettingLabels[key],
-                    id: key,
-                    name: key,
-                    limits: pvStrategySettingLimits[key],
-                    value: pvcsParameterMap[key]
+                    label : ti18n.powerStrategySettingLabels[key],
+                    id    : key,
+                    name  : key,
+                    limits: powerStrategySettingLimits[key],
+                    value : pvcsParameterMap[key]
             ]
             inputListCtx.add inputCtx
         }
@@ -92,7 +91,7 @@ class EnergySettings {
             }
         }
         if (changed) {
-            def pvParams = new PvChargeStrategyParams(filteredParameterMap)
+            def pvParams = new PowerStrategyParams(filteredParameterMap)
             pvcs.params = pvParams
             pvcsParameterMap = pvParams.toMap()
             saveSettings(pvcsParameterMap)
@@ -131,7 +130,7 @@ class EnergySettings {
             def json = file.text
             params = new JsonSlurper().parseText(json)
         } else {
-            params = new PvChargeStrategyParams().toMap()
+            params = new PowerStrategyParams().toMap()
         }
         params
     }
@@ -141,10 +140,10 @@ class EnergySettings {
         settings.saveSettings()
         def params = settings.restoreOrInitSettings()
         println params
-        println "as record: ${new PvChargeStrategyParams(params)}"
+        println "as record: ${new PowerStrategyParams(params)}"
     }
 
-    final pvStrategySettings = [
+    final powerStrategySettingKeys = [
             'batPower',
             'batCapacity',
             'stopThreshold',
@@ -154,10 +153,15 @@ class EnergySettings {
             'minBatLoadPower',
             'minBatUnloadPower',
             'maxBatUnloadPower',
-            'toleranceStackSize'
+            'toleranceStackSize',
+            'tibMaxBatLoad',
+            'tibLowHighDiff',
+            'tibLowPrice',
+            'tibHighPrice',
+            'tibChargeBelow',
     ]
 
-    final pvStrategySettingLimits = [
+    final powerStrategySettingLimits = [
             batPower          : 'min=1000  max=3000',
             batCapacity       : 'min=4375  max=17500',
             stopThreshold     : 'min=-4000  max=-2000',
@@ -168,6 +172,11 @@ class EnergySettings {
             minBatUnloadPower : 'min=0  max=1000',
             maxBatUnloadPower : 'min=0  max=3000',
             toleranceStackSize: 'min=4  max=60',
+            tibMaxBatLoad     : 'min=50  max=90',
+            tibLowHighDiff    : 'min=3  max=50',
+            tibLowPrice       : 'min=10  max=30',
+            tibHighPrice      : 'min=30  max=100',
+            tibChargeBelow    : 'min=10  max=50',
     ]
 
 }

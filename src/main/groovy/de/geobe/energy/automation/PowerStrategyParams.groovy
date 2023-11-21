@@ -24,7 +24,7 @@
 
 package de.geobe.energy.automation
 
-record PvChargeStrategyParams(
+record PowerStrategyParams(
         int batPower = 3000,            // Watt
         int batCapacity = 17500,        // Wh
         int stopThreshold = -3000,      // Watt
@@ -33,10 +33,15 @@ record PvChargeStrategyParams(
         int fullChargeUseBat = 80,      // Percent
         int minBatLoadPower = 200,      // Watt
         int minBatUnloadPower = 200,    // Watt
-        int maxBatUnloadPower = 1500,     // Watt
-        int toleranceStackSize = 10     // # of values on valueStack for averages
+        int maxBatUnloadPower = 1500,   // Watt
+        int toleranceStackSize = 10,    // # of values on valueStack for averages
+        int tibMaxBatLoad = 80,         // Percent
+        int tibLowHighDiff = 5,         // Euro-Cent
+        int tibLowPrice = 18,           // Euro-Cent
+        int tibHighPrice = 33,          // Euro-Cent
+        int tibChargeBelow = 18           // Euro-Cent
 ) {
-    PvChargeStrategyParams(PvChargeStrategyParams o) {
+    PowerStrategyParams(PowerStrategyParams o) {
         batPower = o.batPower
         batCapacity = o.batCapacity
         stopThreshold = o.stopThreshold
@@ -47,5 +52,10 @@ record PvChargeStrategyParams(
         minBatUnloadPower = o.minBatUnloadPower
         maxBatUnloadPower = o.maxBatUnloadPower
         toleranceStackSize = o.toleranceStackSize
+        tibMaxBatLoad = o.tibMaxBatLoad
+        tibLowHighDiff = o.tibLowHighDiff
+        tibLowPrice = o.tibLowPrice
+        tibHighPrice = o.tibHighPrice
+        tibChargeBelow = o.tibChargeBelow
     }
 }

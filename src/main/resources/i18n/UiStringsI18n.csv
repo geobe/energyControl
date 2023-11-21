@@ -62,7 +62,7 @@ CHARGING_ANYWAY:sofort laden:immediate charging
 FULLY_CHARGED:aufgeladen:fully charged
 CHARGING_STOPPED_BY_APP:Stopp (App):stop by app
 CHARGING_STOPPED_BY_CAR:Stopp (Auto):stop by car
-* pvStrategySettingLabels::
+* powerStrategySettingLabels::
 batPower:Wechselrichter [W]:Inverter [W]
 batCapacity:Kapazität [Wh]:Capacity [Wh]
 stopThreshold:Ladestopp < [W]:Charge Stop < [W]
@@ -73,7 +73,12 @@ minBatLoadPower:min. Batterie <- [W]:min. Battery ←  [W]
 minBatUnloadPower:min. Batterie -> [W]:min Battery → [W]
 maxBatUnloadPower:max. Batterie -> [W]:max. Battery → [W]
 toleranceStackSize:Mitteln über [n]:Average count [n]
-* pvSettingStrings::
+tibMaxBatLoad:Tib Lade-Max. [%]:Tib max load [%]
+tibLowHighDiff:Tib Preisdiff. [₵]:Tib price diff. [₵]
+tibLowPrice:Tib günstig [₵]:Tib low price [₵]
+tibHighPrice:Tib teuer [₵]:Tib high price [₵]
+tibChargeBelow:Tib Auto laden < [₵]:Tib charge car < [₵]
+* powerSettingStrings::
 settingsTitle:Einstellungen:Settings
 settingsButton:Übernehmen:OK
 * graphLabels::

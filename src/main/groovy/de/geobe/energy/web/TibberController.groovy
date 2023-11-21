@@ -50,8 +50,6 @@ class TibberController {
         }
     }
 
-    def lowPrice = 0.18, highPrice = 0.33
-
     TibberController(ValueController vc) {
         valueController = vc
         PowerPriceMonitor.monitor.subscribe tibberPriceSubscriber
@@ -79,7 +77,7 @@ class TibberController {
             pricesTomorrow.each { PriceAt priceAt ->
                 labels << "'${GraphController.hour.print(priceAt.start)}'".toString()
                 line.dataset << priceAt.price * 100
-                color << rgbaOf(priceAt.price, 0.5)
+                color << rgbaOf(priceAt.price, 0.7)
             }
         }
         line.color = color
@@ -100,6 +98,8 @@ class TibberController {
     }
 
     String rgbaOf(Float price, Float saturation) {
+        float lowPrice = valueController.es.powerStrategySettings.tibLowPrice / 100
+        float highPrice = valueController.es.powerStrategySettings.tibHighPrice / 100
         float factor = max(0.0d, min(1.0d, (price - lowPrice) / (highPrice - lowPrice)))
         int red = min(255, (int) (factor * 510))
         int green = min(255, (int) ((1.0 - factor) * 510))

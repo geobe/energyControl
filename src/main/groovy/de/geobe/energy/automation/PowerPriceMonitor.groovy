@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
 class PowerPriceMonitor {
 
     /** subscription cycle time 15 minutes */
-    private long cycle = 1 * 60
+    private long cycle = 15 * 60
     /** small offset 10 seconds to let external data settle */
     private long settlingOffset = 11
     /** subscription time unit */
