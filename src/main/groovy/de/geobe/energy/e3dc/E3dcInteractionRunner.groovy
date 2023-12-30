@@ -26,6 +26,7 @@ package de.geobe.energy.e3dc
 
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
+import org.joda.time.format.DateTimeFormat
 
 /**
  *
@@ -125,8 +126,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      */
     @Override
     def getHistoryValues(DateTime start, long interval, int count) {
-        // goto UTC and step back one ms else we would get into the next interval
-        def normalisedStart = start.withZone(DateTimeZone.UTC).minusMillis(1)
+        // we have to add difference between local time zone and UTC to DateTime value
+        int offsetHours = DateTimeZone.default.getOffset(start).intdiv(3600000L)
+        // found NO! maybe step back one ms else we would get into the next interval
+        def normalisedStart = start.plusHours(offsetHours)//.minusMillis(0).withZone(DateTimeZone.UTC)
         Map<DateTime, HistoryValues> historyMap = new LinkedHashMap<DateTime, HistoryValues>()
         // we have to loop and call with count = 1 else we would get the summed up value over all intervals
         for (i in 0..<count) {
@@ -136,7 +139,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
                 break
             def valMap =
                     interactions.extractMapFromList(vals.DB_HISTORY_DATA_DAY[0].DB_SUM_CONTAINER)
-            println valMap
+//            println valMap
             def hisrec = new HistoryValues(
                     valMap.DB_BAT_POWER_IN, valMap.DB_BAT_POWER_OUT, valMap.DB_DC_POWER,
                     valMap.DB_GRID_POWER_IN, valMap.DB_GRID_POWER_OUT, valMap.DB_CONSUMPTION,
@@ -150,7 +153,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
-     * Implementation of {@link IStorageInteractionRunner#setLoadFromGrid(int)} ()}
+     * Implementation of {@link IStorageInteractionRunner#storageLoadMode(byte, int)} ()}
      * Set storage system operation mode, e.g. load from grid
      * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
      * All modes except auto will reset to auto after ca. 30 seconds.
@@ -184,13 +187,20 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
 
     static void main(String[] args) {
         def interactionRunner = getInteractionRunner()
-        def live = interactionRunner.currentValues
-        println "initial $live"
+//        def live = interactionRunner.currentValues
+//        println "initial $live"
 
-        def start = new DateTime(2023, 03, 25, 12, 0)
-        def history = interactionRunner.getHistoryValues(start, 15 * MINUTE, 16)
+        def dayOfMonth = DateTime.now().dayOfMonth
+        def start = new DateTime(2023, 11, dayOfMonth - 1, 0, 0)
+        def history = interactionRunner.getHistoryValues(start, HOUR, 2*24)
+        def ddmmyy =  DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+        def hmm =  DateTimeFormat.forPattern('H')
         history.keySet().each { dateTime ->
-            println "$dateTime: ${history[dateTime]}"
+            if (dateTime.hourOfDay == 0) {
+                def day = ddmmyy.print(dateTime)
+                println("\n$day")
+            }
+            print "${hmm.print dateTime}: ${history[dateTime].homeConsumption().round()}, "
         }
 
 //        def load

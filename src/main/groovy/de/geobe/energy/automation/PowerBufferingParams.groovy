@@ -24,13 +24,26 @@
 
 package de.geobe.energy.automation
 
+import groovy.transform.ImmutableOptions
+
+//@ImmutableOptions(knownImmutableClasses=[IntRange])
 record PowerBufferingParams(
-        int startMorningUnload = 6,         // h
-        int calcNightLoad = 23,             // h
-        int calcDayLoad = 10,               // h
-        int minimalSavingThreshold = 4,     // ct
-        int loadCycleLoss = 5,              // %
-        int x
+        int startMorningUnload = 6,         // h of day
+        int startNightCharging = 22,        // h of previous day
+        int endNightCharging = 7,           // h of day
+        int calcNightLoad = 22,             // h of day
+        int calcDayLoad = 10,               // h of day
+        float hoursToFullyCharge = 6.0f,    // hours
+        int initialSupplyHours= 8,          // hours
+        IntRange morning = 6..9,            // hour range
+        IntRange midday = 10..16,           // hour range
+        IntRange evening = 17..23,          // hour range
+        int minimalSavingThreshold = 20,    // ct
+        float minimalPriceDifference = 0.02,// EUR
+        float loadCycleLoss = 1.05,         // factor 1 + n%
+        int baseConsumption = 400,          // W
+        int heatpumpConsumption = 3800,     // W
+        int maxBatUnload = 3000             // W redundant to PowerStrategyParams
 ) {
 
 }

@@ -72,6 +72,7 @@ class TibberQueryRunner implements IPowerQueryRunner {
     def runPriceQuery() {
         def query = tibberQueries.priceQuery(home)
         def jsonResult = tibberAccess.jsonFromTibber(query)
+//        println "${jsonResult.}"
         tibberQueries.scanPrice(jsonResult)
     }
 

@@ -1,0 +1,39 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 1100 width
+
+state Running {
+    Running: Entry: executor.start()
+    Running: Entry: powerMonitor.subscribe(this)
+    state Auto : Entry: setAutoMode()
+    state Mode <<choice>>
+    [*] -down> Mode
+    state Controlled {
+        state Idle : Entry: repeatMode(IDLE)
+        state GridLoad : Entry: repeatMode(GRIDLOAD)
+        state Solar : Entry: setAutoMode()
+        Controlled -left-> Solar : GridPower <= gridfeed
+        Solar -up-> [H] : GridPower >= 0
+    }
+    Mode --> Auto : [AUTO]
+    Mode --> Idle : [IDLE]
+    Mode --> GridLoad : [GRIDLOAD]
+    Auto -down-> Idle : soc <= minimalSoc
+    GridLoad -left-> Idle : soc >= chargeMax
+}
+state Stopped
+Stopped: Entry: executor.stop()
+Stopped: Entry: powerMonitor.unsubscribe(this)
+Stopped: Entry: setAutoMode()
+
+Stopped --> Running : setChargingMode()
+Running --> Stopped : stopChargeControl()
+Running --> Stopped : PMException
+Running --> Stopped : timeOut
+
+[*] -right-> Stopped
+Running -> Running : setChargingMode()
+
+
+@enduml

@@ -24,21 +24,37 @@
 
 package de.geobe.energy.automation
 
+import org.joda.time.DateTime
+import org.joda.time.Duration
+
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
-class PeriodicExecutor {
+class ExecutorBase {
 
-    private static ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(5)
+    protected static ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(5)
+    protected static int instanceCount = 0
+
+    protected ScheduledFuture taskHandle
+
+    static shutdown() {
+        executor.shutdown()
+    }
+
+    def stop() {
+        taskHandle?.cancel(false)
+    }
+
+}
+
+class PeriodicExecutor extends ExecutorBase {
 
     private long cycleTime
     private long initialDelay
     private TimeUnit timeUnit
-    final Runnable task
-    private ScheduledFuture taskHandle
-    private static int instanceCount = 0
     private int instanceId
+    final Runnable task
 
     PeriodicExecutor(Runnable task, long cycleTime, TimeUnit timeUnit, long initialDelay = 0) {
         this.task = task
@@ -52,12 +68,12 @@ class PeriodicExecutor {
         instanceId = instanceCount
     }
 
-    def stop() {
-        taskHandle?.cancel(false)
-    }
+}
 
-    static shutdown() {
-        executor.shutdown()
-    }
+class TimedExecutor extends ExecutorBase {
 
+    TimedExecutor(TimerTask task, DateTime runAt) {
+        long delay = new Duration(DateTime.now(), runAt).standardSeconds
+        taskHandle = executor.schedule(task, delay, TimeUnit.SECONDS)
+    }
 }
