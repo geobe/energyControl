@@ -68,7 +68,7 @@ class PowerPriceMonitor {
     private PowerPriceMonitor(IPowerQueryRunner powerQueryRunner) {
         powerPriceSource = powerQueryRunner
         def priceRecord = powerPriceSource.runPriceQuery()
-        latestPrices = new CurrentPowerPrices(today: priceRecord.today, tomorrow: priceRecord.tomorrow)
+        latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
         start()
     }
 
@@ -80,7 +80,7 @@ class PowerPriceMonitor {
         @Override
         void run() {
             def priceRecord = powerPriceSource.runPriceQuery()
-            latestPrices = new CurrentPowerPrices(today: priceRecord.today, tomorrow: priceRecord.tomorrow)
+            latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
             subscribers.each {
                 it.takePriceUpdate(latestPrices)
             }
@@ -138,4 +138,5 @@ interface PowerPriceSubscriber {
 class CurrentPowerPrices {
     List<PriceAt> today
     List<PriceAt> tomorrow
+    List<PriceAt> yesterday
 }

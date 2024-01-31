@@ -52,6 +52,7 @@ class GraphController {
     static DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
     static DateTimeFormatter second = DateTimeFormat.forPattern('ss')
     static DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
+    static DateTimeFormatter day = DateTimeFormat.forPattern('dd.MM.')
 
     GraphController(Map<String, Map<String, String>> uiStrings) {
         ts = uiStrings

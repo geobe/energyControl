@@ -1,0 +1,48 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 850 width
+[*] -right-> na
+
+state "NotActive" as na
+
+state "Active" as ac {
+
+    state when <<choice>>
+
+    state "ImmediatePlan" as dp {
+        dp: entry: planCharging
+    }
+
+    state isav <<choice>>
+    state "waitNightData" as wd
+    state "dataAvailable" as da
+        da: entry: planCharging
+    isav --> wd : [noData]
+    isav --> da : [hasData]
+    wd --> da : dataAvailable
+
+    state "ExecuteChargingPlan" as xc {
+        xc: on: fullHour: switchCharging()
+        state isch <<choice>>
+        state "charge" as ch
+        state "idle" as id
+        xc -left-> isch : nextHour
+    }
+
+    state "chargingDone" as done
+
+    isch --> ch : [onHour() == charge]
+    isch --> id : [onHour() == idle]
+    isch --> done : [onHour() == done]
+
+}
+na --> when : carConnected
+when --> dp : immediateCharge
+when --> isav : nightCharge
+dp --> isch
+da -right-> isch
+ac --> na : carDisconnected
+ch --> done : fullyCharged
+
+@enduml

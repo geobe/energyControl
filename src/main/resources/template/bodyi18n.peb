@@ -73,7 +73,7 @@
               <h5 class="w3-margin-left">{{ tibberTitle }} &raquo;</h5>
             </div>
             <div id="tibber-hide" class="w3-hide w3-show">
-                <div>
+                <div style="max-height: 500px">
                     <canvas id="tibberChart"></canvas>
                 </div>
                {% include "./tibbergraph.peb" %}

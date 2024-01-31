@@ -57,6 +57,7 @@ class TibberController {
 
     def createTibberDataCtx(Map<String, Map<String, String>> ti18n) {
         def labels = []
+        def pricesYesterday = tibberPrices.yesterday
         def pricesToday = tibberPrices.today
         def pricesTomorrow = tibberPrices.tomorrow
         def color = []
@@ -64,18 +65,28 @@ class TibberController {
         def line = [
                 dataset: []
         ]
-        pricesToday.each { PriceAt priceAt ->
-            labels << "'${GraphController.hour.print(priceAt.start)}'".toString()
-            line.dataset << priceAt.price * 100
+        pricesYesterday.each { PriceAt priceAt ->
             int slot = priceAt.start.hourOfDay
-            color << (slot < now ? rgbaOf(priceAt.price, 0.3) :
+            def prefix = slot == 0 ? GraphController.day.print(priceAt.start) + ' ' : ''
+            labels << "'$prefix${GraphController.hour.print(priceAt.start)}'".toString()
+            line.dataset << priceAt.price * 100
+            color << rgbaOf(priceAt.price, 0.3)
+        }
+        pricesToday.each { PriceAt priceAt ->
+            int slot = priceAt.start.hourOfDay
+            def prefix = slot == 0 ? GraphController.day.print(priceAt.start) + ' ' : ''
+            labels << "'$prefix${GraphController.hour.print(priceAt.start)}'".toString()
+            line.dataset << priceAt.price * 100
+            color << (slot < now ? rgbaOf(priceAt.price, 0.5) :
                     (slot == now ? rgbaOf(priceAt.price, 1.0) : rgbaOf(priceAt.price, 0.9)))
         }
         def titleAdd = "${ti18n.tibberStrings.tibToday}".toString()
         if (pricesTomorrow?.size() > 0) {
             titleAdd += " ${ti18n.tibberStrings.tibAnd} ${ti18n.tibberStrings.tibTomorrow}".toString()
             pricesTomorrow.each { PriceAt priceAt ->
-                labels << "'${GraphController.hour.print(priceAt.start)}'".toString()
+                int slot = priceAt.start.hourOfDay
+                def prefix = slot == 0 ? GraphController.day.print(priceAt.start) + ' ' : ''
+                labels << "'$prefix${GraphController.hour.print(priceAt.start)}'".toString()
                 line.dataset << priceAt.price * 100
                 color << rgbaOf(priceAt.price, 0.7)
             }

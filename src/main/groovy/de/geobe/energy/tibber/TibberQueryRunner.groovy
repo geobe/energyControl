@@ -43,13 +43,18 @@ class TibberQueryRunner implements IPowerQueryRunner {
     static void main(String[] args) {
         TibberQueryRunner homeRunner = new TibberQueryRunner()
         TibberQueryRunner testRunner = new TibberQueryRunner('/tibberSample.properties')
-        def result = testRunner.runIntervalQuery(new DateTime(2023, 3, 10, 0, 0), 10)
-        println result
-        result = homeRunner.runPriceQuery()
+//        def yesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
+//        def result = testRunner.runIntervalQuery(yesterday, 24)
+//        println result
+//        println()
+        def result = homeRunner.runPriceQuery()
+        println result.yesterday
+        println()
         println result.today
+        println()
         println result.tomorrow
-        println homeRunner.runCurrencyQuery()
-        println testRunner.runCurrencyQuery()
+//        println homeRunner.runCurrencyQuery()
+//        println testRunner.runCurrencyQuery()
     }
 
     /**
@@ -73,7 +78,11 @@ class TibberQueryRunner implements IPowerQueryRunner {
         def query = tibberQueries.priceQuery(home)
         def jsonResult = tibberAccess.jsonFromTibber(query)
 //        println "${jsonResult.}"
-        tibberQueries.scanPrice(jsonResult)
+        def result = tibberQueries.scanPrice(jsonResult)
+        def dateYesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
+        def yesterday = runIntervalQuery(dateYesterday, 24)
+        result.yesterday = yesterday
+        result
     }
 
     /**
