@@ -55,9 +55,12 @@ class PowerMonitor {
     private volatile List<PowerValueSubscriber> subscribers = []
     /** task to read power values periodically */
     private PeriodicExecutor executor
+    /** remember exception state */
+    private volatile boolean stoppedByException = false
 
     private static PowerMonitor monitor
     private static boolean constructionFailed = false
+    static Exception startupFailure
 
     /**
      * only for functional tests to inject monitor mock object
@@ -70,12 +73,17 @@ class PowerMonitor {
         monitor = testMonitor
     }
 
+    /**
+     * on first call, create power monitor singleton
+     * @return
+     */
     static synchronized PowerMonitor getMonitor() {
         if (!monitor && !constructionFailed) {
             try {
                 monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, Wallbox.wallbox)
             } catch (Exception e) {
                 constructionFailed = true
+                startupFailure = e
                 throw e
             }
         }
@@ -96,13 +104,24 @@ class PowerMonitor {
         void run() {
             try {
                 def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
+                if (stoppedByException) {
+                    // exception cause was repaired, so we can notify subscibers
+                    subscribers.each {
+                        it.resumeAfterPMException()
+                    }
+                    stoppedByException = false
+                }
                 subscribers.each {
                     it.takePMValues(pmValues)
                 }
             } catch (Exception ex) {
 //                ex.printStackTrace()
-                subscribers.each {
-                    it.takePMException(ex)
+                // notify about exception only once
+                if (!stoppedByException) {
+                    subscribers.each {
+                        it.takePMException(ex)
+                    }
+                    stoppedByException = true
                 }
             }
         }
@@ -114,8 +133,13 @@ class PowerMonitor {
         this.initialDelay = initialDelay
     }
 
+    /**
+     *
+     * @return current values from storage system
+     * @throws Exception, if connection to storage system fails
+     */
     @ActiveMethod(blocking = true)
-    PowerValues getCurrent() {
+    PowerValues getCurrent() throws Exception {
         powerInfo.currentValues
     }
 
@@ -162,11 +186,16 @@ class PowerMonitor {
 
             @Override
             void takePMException(Exception exception) {
-                println exception
+                println "$exception -> $exception.cause"
+            }
+
+            @Override
+            void resumeAfterPMException() {
+                println "resumeAfterPMException"
             }
         }
         m.subscribe p
-        Thread.sleep(20000)
+        Thread.sleep(60000)
         m.stop()
         m.shutdown()
     }
@@ -176,6 +205,8 @@ interface PowerValueSubscriber {
     void takePMValues(PMValues pmValues)
 
     void takePMException(Exception exception)
+
+    void resumeAfterPMException()
 }
 
 class PMValues {

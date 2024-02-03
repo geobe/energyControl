@@ -110,6 +110,7 @@ E3dcSendError:E3DC Sendefehler:E3DC send error
 E3dcReadError:E3DC Lesefehler:E3DC read error
 E3dcAuthError:E3DC Authentifizierungsfehler:E3DC authentication error
 E3dcIpError:Netzwerk Konfigurationsfehler, nicht im E3DC Subnetz:Network configuration error, not in E3DC subnet
+E3dcErrorResume:E3DC Fehlfunktion beendet:Resumed from E3DC error
 * tibberStrings::
 tibToday:gestern, heute:yesterday, today
 tibTomorrow:morgen:tomorrow

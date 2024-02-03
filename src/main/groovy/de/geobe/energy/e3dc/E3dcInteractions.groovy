@@ -62,8 +62,9 @@ class E3dcInteractions {
      * and decode it to a map
      * @param requestElements list of rscp tags
      * @return decoded response frame as map
+     * @throws Exception, if connection to storage system fails
      */
-    def sendRequest(List<RequestElement> requestElements) {
+    def sendRequest(List<RequestElement> requestElements) throws Exception {
         def requestFrame = E3dcRequests.requestsToFrame(requestElements)
 //            def response = E3DCConnector
 //                    .sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
@@ -72,11 +73,11 @@ class E3dcInteractions {
         def sent = E3DCConnector.
                 sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
         if (sent.left) {
-            throw new RuntimeException('E3dcSendError', sent.getLeft())
+            throw new RuntimeException(E3dcError.SEND, sent.getLeft())
         }
         def read  = sent.flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
         if (read.left) {
-            throw new RuntimeException('E3dcReadError', read.getLeft())
+            throw new RuntimeException(E3dcError.READ, read.getLeft())
         }
         def response = read.get()
         if (response) {

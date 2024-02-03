@@ -110,7 +110,11 @@ class E3dcChargingModeController implements PowerValueSubscriber {
         stopChargeControl()
     }
 
-    /**
+    @Override
+    void resumeAfterPMException() {
+        // don't resume at this level of control
+    }
+/**
      * implement stopped state
      * stop realtime control activities and set E3DC storage to default (auto mode)
      */

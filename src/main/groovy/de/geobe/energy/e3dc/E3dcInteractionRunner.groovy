@@ -57,7 +57,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
             runner = new E3dcInteractionRunner()
             def auth = runner.interactions.sendAuthentication(runner.e3dcPortalUser, runner.e3dcPortalPassword)
             if (auth == -1)
-                throw new RuntimeException("E3dcAuthError")
+                throw new RuntimeException(E3dcError.AUTH)
         }
         runner
     }
@@ -76,14 +76,14 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         interactions = new E3dcInteractions(storageIp, storagePort, storagePassword)
         if (!checkSameSubnet(storageIp))
             throw new RuntimeException(
-                    "E3dcIpError $storageIp"
+                    "$E3dcError.IP $storageIp"
             )
     }
 
     /**
      * E3DC S10 storage system will allow RSCP access only to clients allocated on
      * the same ip.v4 subnet
-     * @param storageIp ipv4 address of target E§DC system
+     * @param storageIp ipv4 address of target E3DC system
      * @return true if on same subnet
      */
     static boolean checkSameSubnet(String storageIp) {
@@ -100,9 +100,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      * Get current values for PV production, grid in, grid out,
      * house consumption, battery SoC and maybe more
      * @return PowerValues record
+     * @throws Exception, if connection to storage system fails
      */
     @Override
-    PowerValues getCurrentValues() {
+    PowerValues getCurrentValues() throws Exception {
         def current = interactions.sendRequest(E3dcRequests.liveDataRequests)
         new PowerValues(
                 current.Timestamp,
@@ -123,9 +124,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      * @param interval time resolution in seconds, must be smaller than 68 years
      * @param count number of intervals
      * @return map of historyValue records with locale DateTime objects as keys
+     * @throws Exception, if connection to storage system fails
      */
     @Override
-    def getHistoryValues(DateTime start, long interval, int count) {
+    def getHistoryValues(DateTime start, long interval, int count) throws Exception {
         // we have to add difference between local time zone and UTC to DateTime value
         int offsetHours = DateTimeZone.default.getOffset(start).intdiv(3600000L)
         // found NO! maybe step back one ms else we would get into the next interval
@@ -159,9 +161,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      * All modes except auto will reset to auto after ca. 30 seconds.
      * @param watts set load power to watts
      * @return power that was actually set
+     * @throws Exception, if connection to storage system fails
      */
     @Override
-    def storageLoadMode(byte mode, int watts) {
+    def storageLoadMode(byte mode, int watts) throws Exception {
         if (mode in [AUTO, IDLE]) {
             watts = 0
         }

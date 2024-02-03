@@ -120,6 +120,11 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
         // ignore so far
     }
 
+    @Override
+    void resumeAfterPMException() {
+        // ignore so far
+    }
+
     @ActiveMethod(blocking = true)
     void setParams(PowerStrategyParams p) {
         params = new PowerStrategyParams(p)

@@ -25,6 +25,7 @@
 package de.geobe.energy.web
 
 import de.geobe.energy.automation.*
+import de.geobe.energy.e3dc.E3dcError
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.go_e.WallboxValues
 import io.pebbletemplates.pebble.PebbleEngine
@@ -36,7 +37,6 @@ import org.joda.time.DateTime
 import spark.Request
 import spark.Response
 import spark.Route
-import spark.Spark
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -60,6 +60,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile CarChargingManager.ChargeManagerState chargeManagerState
     volatile CarChargingManager.ChargeStrategy chargeStrategy
     volatile Boolean networkError = false
+    volatile Boolean networkErrorFatal = false
+    volatile Boolean networkErrorResume = false
     volatile Exception networkException
     volatile String errorTimestamp
     // global display values
@@ -150,10 +152,23 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     void takePMException(Exception exception) {
         networkError = true
         networkException = exception
+        def reason = exception.message
+        errorTimestamp = gc.full.print DateTime.now()
+        networkErrorFatal = reason.contains(E3dcError.AUTH) || reason.contains(E3dcError.IP)
+        updateWsValues(errorMessageString(tGlobal))
+        if(networkErrorFatal)  {
+            EnergyControlUI.shutdown()
+        }
+    }
+
+    @Override
+    void resumeAfterPMException() {
+        networkError = false
+        networkErrorFatal = false
+        networkException = null
+        networkErrorResume = true
         errorTimestamp = gc.full.print DateTime.now()
         updateWsValues(errorMessageString(tGlobal))
-//        shutdown()
-        EnergyControlUI.shutdown()
     }
 
     @Override
@@ -551,6 +566,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def errorContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
         ctx.put('networkError', networkError)
+        ctx.put('errorResume', networkErrorResume)
         if(networkError) {
             def key = networkException.toString().split(/:/)[1].trim()
             def arg = ''
@@ -561,8 +577,17 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             }
             def cause = ti18n.errorStrings.get(key)
             cause = cause? cause : networkException.toString()
-            def pre = ti18n.errorStrings.StopException
-            ctx.put('errorMessage', "$errorTimestamp: $pre<br>$cause $arg")
+            String pre
+            if (networkErrorFatal) {
+                pre = ti18n.errorStrings.StopException + '<br>'
+            } else {
+                pre = ''
+            }
+            ctx.put('errorMessage', "$errorTimestamp: $pre$cause $arg")
+        }
+        if(networkErrorResume) {
+            def about = ti18n.errorStrings.E3dcErrorResume
+            ctx.put('resumeMessage', "$errorTimestamp: $about")
         }
         ctx
     }

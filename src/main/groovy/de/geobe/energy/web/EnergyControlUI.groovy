@@ -26,6 +26,7 @@ package de.geobe.energy.web
 
 import de.geobe.energy.automation.CarChargingManager
 import de.geobe.energy.automation.PeriodicExecutor
+import de.geobe.energy.automation.PowerCommunicationRecorder
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerPriceMonitor
 import de.geobe.energy.automation.WallboxMonitor
@@ -42,9 +43,11 @@ class EnergyControlUI {
 
         PebbleEngine engine = new PebbleEngine.Builder().build()
 
-        ValueController
+//        ValueController
         valueController = new ValueController(engine)
         valueController.init()
+
+        PowerCommunicationRecorder.recorder
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             void run() {
@@ -86,10 +89,11 @@ class EnergyControlUI {
 
     static shutdown() {
         CarChargingManager.carChargingManager.shutDown()
+        PowerCommunicationRecorder.stopRecorder()
         WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor?.shutdown()
         PowerPriceMonitor.monitor?.shutdown()
         valueController?.shutdown()
-        PeriodicExecutor.shutdown()
+        PeriodicExecutor?.shutdown()
     }
 }
