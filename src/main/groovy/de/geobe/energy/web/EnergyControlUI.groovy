@@ -26,7 +26,7 @@ package de.geobe.energy.web
 
 import de.geobe.energy.automation.CarChargingManager
 import de.geobe.energy.automation.PeriodicExecutor
-import de.geobe.energy.automation.PowerCommunicationRecorder
+import de.geobe.energy.recording.PowerCommunicationRecorder
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerPriceMonitor
 import de.geobe.energy.automation.WallboxMonitor
@@ -73,7 +73,7 @@ class EnergyControlUI {
 
         post('/settings', valueController.energySettingsPost)
 
-//        get('/graph', valueController.graphRoute)
+        get('/graph', valueController.graphRoute)
 
         post('/graph', valueController.graphPost)
 

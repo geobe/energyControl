@@ -312,6 +312,16 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
+    Route graphRoute = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        resp.status 200
+        def ti18n = tGlobal
+        def ctx = stringsI18n.i18nCtx(ti18n, uiLanguage)
+        ctx.putAll(graphControlValues())
+        ctx.put('newChart', true)
+        streamOut(graph, ctx)
+    }
+
     Route graphPost = { Request req, Response resp ->
         def accept = req.headers('Accept')
         def params = evalGraphPost(req, resp)

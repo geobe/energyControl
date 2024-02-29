@@ -28,9 +28,11 @@ tibberStrategyLabel:Tibber Ladestrategie:tibber charge strategy
 tibberPriceLabel:Tibber Preis:tibber price
 * headingStrings::
 websiteTitle:PowerManagement:PowerManagement
-powerTitle:Energiewerte:energy values
-statesTitle:Statuswerte:state values
+powerTitle:Energiewerte:Energy Values
+statesTitle:Statuswerte:State Values
+chartsHeader:Grafiken:Charts
 graphTitle:Energie Status:Energy State
+tibTitle:Tibber Preis:Tibber Price
 * powerStrings::
 pvLabel:PV:PV
 gridLabel:Netz:Grid

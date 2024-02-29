@@ -22,8 +22,13 @@
  * SOFTWARE.
  */
 
-package de.geobe.energy.automation
+package de.geobe.energy.recording
 
+import de.geobe.energy.automation.PMValues
+import de.geobe.energy.automation.PeriodicExecutor
+import de.geobe.energy.automation.PowerMonitor
+import de.geobe.energy.automation.PowerValueSubscriber
+import de.geobe.energy.web.EnergySettings
 import org.joda.time.DateTime
 import org.joda.time.Duration
 import org.joda.time.format.DateTimeFormat
@@ -35,13 +40,15 @@ import java.util.concurrent.TimeUnit
  * observe and record communication behaviour between program and e3dc storage system
  */
 class PowerCommunicationRecorder implements PowerValueSubscriber {
-    static final long CYCLE_TIME
+    private static long CYCLE_TIME = 3600
+    private static boolean AT_HOUR = true
+    private static RecordingFile recordingFile
     /** recording cycle time */
     private long cycle
     /** recording time unit */
     private TimeUnit timeUnit = TimeUnit.SECONDS
     /** first recording initial delay */
-    private long initialDelay = 20
+    private static long initialDelay = 20
     /** interval count */
     private volatile long intervalCount
     private volatile long intervalTotal
@@ -56,12 +63,20 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
     static synchronized PowerCommunicationRecorder getRecorder() {
         if (!recorder) {
             recorder = new PowerCommunicationRecorder()
+            try {
             if (PowerMonitor.monitor) {
-                recorder.start()
+                    recorder.start()
             } else {
                 def protocol = "${stamp.print(DateTime.now())}\tStartup Failure\t$PowerMonitor.startupFailure"
-                println protocol
+//                println protocol
+                recordingFile.appendReport(protocol)
             }
+        } catch (Exception ex) {
+            def protocol = "${stamp.print(DateTime.now())}\tStartup Failure\t$PowerMonitor.startupFailure"
+//            println protocol
+            recordingFile.appendReport(protocol)
+            System.exit(1)
+        }
         }
         recorder
     }
@@ -71,19 +86,21 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
     }
 
     private PowerCommunicationRecorder(int cyc = CYCLE_TIME) {
+        recordingFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'CommRecord', RecordingFile.Span.MONTH)
         cycle = cyc
     }
 
     def start() {
-        if (cycle == CYCLE_TIME) {
+        if (AT_HOUR) {
             def now = DateTime.now()
             def nextHour = now.hourOfDay().roundCeilingCopy()
-            initialDelay = new Duration(now, nextHour).standardSeconds
+            initialDelay = new Duration(now, nextHour).standardSeconds + 1
         }
         executor = new PeriodicExecutor(periodicProtocol, cycle, timeUnit, initialDelay)
         PowerMonitor.monitor.subscribe(this)
         def protocol = "${stamp.print(DateTime.now())}\tRecording\t$cycle $timeUnit\tafter $initialDelay $timeUnit"
-        println protocol
+//        println protocol
+        recordingFile.appendReport(protocol)
         executor.start()
     }
 
@@ -102,7 +119,8 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
                 intervalCount = 0
                 minReadInterval = 0
                 maxReadInterval = 0
-                println protocol
+//                println protocol
+                recordingFile.appendReport(protocol)
             }
         }
     }
@@ -123,20 +141,25 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
     @Override
     void takePMException(Exception exception) {
         def protocol = "${stamp.print(DateTime.now())}\tException\t$exception\t$exception.cause"
-        println protocol
+//        println protocol
+        recordingFile.appendReport(protocol)
     }
 
     @Override
     void resumeAfterPMException() {
         def protocol = "${stamp.print(DateTime.now())}\tResume"
-        println protocol
+//        println protocol
+        recordingFile.appendReport(protocol)
     }
 
 
 
     static void main(String[] args) {
-        PowerCommunicationRecorder recorder = new PowerCommunicationRecorder(15)
-        Thread.sleep(300000)
+        CYCLE_TIME = 30
+        AT_HOUR = false
+        initialDelay = 0
+        PowerCommunicationRecorder recorder = getRecorder()
+        Thread.sleep(120000)
         recorder.stop()
         PowerMonitor.monitor.shutdown()
     }

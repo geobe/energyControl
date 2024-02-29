@@ -55,6 +55,20 @@ function accordeon(id) {
     x.className = x.className.replace(" w3-show", "");
   }
 }
+function oneGraphOnly(allIds, idShow) {
+    for(const id of allIds) {
+        var x = document.getElementById(id);
+        if(id == idShow) {
+            if (x.className.indexOf("w3-show") == -1) {
+                x.className += " w3-show";
+            } else {
+                x.className = x.className.replace(" w3-show", "");
+            }
+        } else {
+            x.className = x.className.replace(" w3-show", "");
+        }
+    }
+}
 </script>
 
 </html>

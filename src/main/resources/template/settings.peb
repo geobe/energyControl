@@ -3,7 +3,7 @@
     onClick="accordeon('settings-form')">
       <h5 class="w3-margin-left">{{ settingsTitle }} &raquo;</h5>
     </div>
-    <div id="settings-form" class="w3-col w3-light-grey w3-padding-small w3-hide w3-show">
+    <div id="settings-form" class="w3-col w3-light-grey w3-padding-small w3-hide w3show">
         {% include "./settingsform.peb" %}
     </div>
 </div>
