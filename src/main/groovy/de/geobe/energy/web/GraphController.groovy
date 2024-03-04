@@ -71,7 +71,7 @@ class GraphController {
         if(todaysSnapshotExists()) {
             println 'snapshots initialized from file'
         } else {
-            'new snapshots started'
+            println 'new snapshots started'
         }
         snapshots.push snapshot
     }

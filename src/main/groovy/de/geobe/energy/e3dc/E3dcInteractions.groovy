@@ -44,6 +44,7 @@ class E3dcInteractions {
     E3dcInteractions(String ip, int port, String localPw) {
         aesHelper = new BouncyAES256Helper(localPw)
         socket = E3DCConnector.openConnection(ip, port)
+        socket.setSoTimeout(25000)
     }
 
     /**

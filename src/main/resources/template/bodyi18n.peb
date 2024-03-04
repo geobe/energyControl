@@ -57,7 +57,8 @@
             {% include "./statebuttons.peb" %}
             <!-- Charge settings pane -->
            {% include "./settings.peb" %}
-            <!-- Select energy graphs -->
+
+            <!-- Select energy charts -->
             <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
                 onClick="accordeon('charts')">
               <h5 class="w3-margin-left">{{ chartsHeader }} &raquo;</h5>
@@ -66,23 +67,32 @@
                 <div
                   class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6"
                   style="width:100%">
-                    <button class="w3-bar-item w3-button"
-                    onClick="oneGraphOnly(['power-graph', 'tibber-graph'], 'power-graph')">
-                        {{ powerTitle }}
-                    </button>
-                    <button class="w3-bar-item w3-button"
-                    onClick="oneGraphOnly(['power-graph', 'tibber-graph'], 'tibber-graph')">
-                        {{ tibTitle }}
-                    </button>
+                    {% include "./chartbutton.peb" with {"chartId": "power-chart", "updatePause": "'false'", "buttonTitle": powerTitle } %}
+                    {% include "./chartbutton.peb" with {"chartId": "tibber-chart", "updatePause": "'true'", "buttonTitle": tibTitle } %}
+{#                    <button class="w3-bar-item w3-button"#}
+{#                    onClick="oneGraphOnly(allCharts, 'power-chart')"#}
+{#                    hx-post="/graphUpdate"#}
+{#                    hx-on:htmx:config-request="event.detail.parameters.graphpause = 'false'"#}
+{#                    >#}
+{#                        {{ powerTitle }}#}
+{#                    </button>#}
+{#                    <button class="w3-bar-item w3-button"#}
+{#                    onClick="oneGraphOnly(allCharts, 'tibber-chart')"#}
+{#                    hx-on:htmx:config-request="event.detail.parameters.graphpause = 'true'"#}
+{#                    hx-post="/graphUpdate"#}
+{#                    >#}
+{#                        {{ tibTitle }}#}
+{#                    </button>#}
                 </div>
+
             <!-- Power charts defined here -->
-                <div id="power-graph" class="w3-hide">
+                <div id="power-chart" class="w3-hide w3-show">
                     <div>
                         <canvas id="myChart"></canvas>
                     </div>
                    {% include "./graph.peb" %}
                 </div>
-                <div id="tibber-graph" class="w3-hide">
+                <div id="tibber-chart" class="w3-hide">
                     <div style="max-height: 500px">
                         <canvas id="tibberChart"></canvas>
                     </div>
@@ -90,3 +100,30 @@
                 </div>
             </div>
         </div>
+
+<!-- javascript functions -->
+<script>
+var allCharts = ['power-chart', 'tibber-chart']
+function accordeon(id) {
+  var x = document.getElementById(id);
+  if (x.className.indexOf("w3-show") == -1) {
+    x.className += " w3-show";
+  } else {
+    x.className = x.className.replace(" w3-show", "");
+  }
+}
+function oneGraphOnly(allIds, idShow) {
+    for(const id of allIds) {
+        var x = document.getElementById(id);
+        if(id == idShow) {
+            if (x.className.indexOf("w3-show") == -1) {
+                x.className += " w3-show";
+//            } else {
+//                x.className = x.className.replace(" w3-show", "");
+            }
+        } else {
+            x.className = x.className.replace(" w3-show", "");
+        }
+    }
+}
+</script>

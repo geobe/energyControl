@@ -67,9 +67,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     // global display values
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
-    volatile int graphDataSize = 180
-    volatile int graphPreviousOffset = 100
-    volatile int updateFrequency = 1
+    volatile int graphDataSize = 360
+    volatile int graphOffset = 100
+    volatile int updateFrequency = 6
     volatile int updateCounter = 0
     volatile boolean updatePause = false
     volatile String uiLanguage = 'de'
@@ -98,6 +98,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def graph = engine.getTemplate('template/graph.peb')
     def graphData = engine.getTemplate('template/graphdata.peb')
     def graphCommands = engine.getTemplate('template/graphcommands.peb')
+    def graphButton = engine.getTemplate('template/chartbutton.peb')
     def tibberGraph = engine.getTemplate('template/tibbergraph.peb')
     def networkErrorTemplate = engine.getTemplate('template/networkerror.peb')
 
@@ -312,15 +313,15 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
-    Route graphRoute = { Request req, Response resp ->
-        def accept = req.headers('Accept')
-        resp.status 200
-        def ti18n = tGlobal
-        def ctx = stringsI18n.i18nCtx(ti18n, uiLanguage)
-        ctx.putAll(graphControlValues())
-        ctx.put('newChart', true)
-        streamOut(graph, ctx)
-    }
+//    Route graphRoute = { Request req, Response resp ->
+//        def accept = req.headers('Accept')
+//        resp.status 200
+//        def ti18n = tGlobal
+//        def ctx = stringsI18n.i18nCtx(ti18n, uiLanguage)
+//        ctx.putAll(graphControlValues())
+//        ctx.put('newChart', true)
+//        streamOut(graph, ctx)
+//    }
 
     Route graphPost = { Request req, Response resp ->
         def accept = req.headers('Accept')
@@ -339,13 +340,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     Route graphUpdatePost = { Request req, Response resp ->
         def accept = req.headers('Accept')
         def params = evalGraphPost(req, resp)
-        resp.status 200
+//        println "graphUpdatePost, params: $params, updatePause: $updatePause"
+        resp.status 204
         def ti18n = tGlobal
         def ctx = gc.createGraphControlCtx(ti18n)
         ctx.putAll(params)
         def out = streamOut(graphCommands, ctx)
         updateWsValues(out)
-//        out
         ''
     }
 
@@ -357,36 +358,32 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     Map evalGraphPost(Request req, Response resp) {
         def accept = req.headers('Accept')
-        def submission = req.queryParams()
+        def qparams = req.queryParams()
         def graphUpdate
-        def graphPaused = req.queryParams('graphpause') != null
+        def p = req.queryParams('graphpause')
+        def graphPaused = !(p == null || p.toString().empty || p.toString().contains('false'))
         int size
         int offset
-        if (submission.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
+        if (qparams.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
             size = req.queryParams('graphsize').toInteger()
-        } else {
-            size = 360
+            // store input in global variables
+            graphDataSize = size
         }
-        if (submission.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
+        if (qparams.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
             offset = req.queryParams('graphoffset').toInteger()
             if (offset < 100) {
                 graphPaused = true
-            } else if (graphPreviousOffset < 100) {
-                graphPaused = false
             }
-        } else {
-            offset = 100
+            // store input in global variables
+            graphOffset = offset
         }
-        if (submission.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
+        if (qparams.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
             graphUpdate = req.queryParams('graphupdate').toInteger()
-        } else {
-            graphUpdate = 1
+            // store input in global variables
+            updateFrequency = graphUpdate
         }
         // store input in global variables
-        graphPreviousOffset = offset
-        updatePause = graphPaused
-        updateFrequency = graphUpdate
-        graphDataSize = size
+        updatePause = graphPaused || graphOffset < 100
         graphControlValues()
     }
 
@@ -395,7 +392,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         params.put('graphPaused', updatePause)
         params.put('graphUpdate', updateFrequency)
         params.put('size', graphDataSize)
-        params.put('graphOffset', graphPreviousOffset)
+        params.put('graphOffset', graphOffset)
         params.putAll(gc.createSizeValues(graphDataSize))
         params
     }

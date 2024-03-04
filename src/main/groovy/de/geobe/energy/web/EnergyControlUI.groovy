@@ -73,7 +73,7 @@ class EnergyControlUI {
 
         post('/settings', valueController.energySettingsPost)
 
-        get('/graph', valueController.graphRoute)
+//        get('/graph', valueController.graphRoute)
 
         post('/graph', valueController.graphPost)
 

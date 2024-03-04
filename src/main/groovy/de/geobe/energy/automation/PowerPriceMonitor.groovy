@@ -103,7 +103,9 @@ class PowerPriceMonitor {
         def nextFull = now.hourOfDay().roundCeilingCopy()
         def secondsAway = new Duration(now, nextFull).standardSeconds
         def secondsToPeriod = secondsAway % cycle
-        executor = new PeriodicExecutor(powerPrices, cycle, timeUnit, secondsToPeriod + settlingOffset)
+        println "PowerPriceMonitor started with $cycle $timeUnit period, " +
+                "starting in ${secondsToPeriod + settlingOffset} $timeUnit"
+        executor = new PeriodicExecutor(powerPrices, cycle, timeUnit, secondsToPeriod)
         executor.start()
     }
 

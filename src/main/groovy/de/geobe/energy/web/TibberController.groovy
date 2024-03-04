@@ -92,7 +92,7 @@ class TibberController {
             }
         }
         line.color = color
-        def timestamp = GraphController.hmmss.print DateTime.now()
+        def timestamp = GraphController.full.print DateTime.now()
         line.label = "${ti18n.tibberStrings.tibUpd}@$timestamp"
         def ctx = [
                 tibberTitle : "${ti18n.tibberStrings.tibTitle} [${titleAdd}]",
