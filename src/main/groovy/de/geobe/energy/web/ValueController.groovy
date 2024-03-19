@@ -64,14 +64,15 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile Boolean networkErrorResume = false
     volatile Exception networkException
     volatile String errorTimestamp
-    // global display values
     volatile defaultUiLanguage = 'de'
     // display values that could be migrated to session variables
-    volatile int graphDataSize = 360
-    volatile int graphOffset = 100
-    volatile int updateFrequency = 6
-    volatile int updateCounter = 0
-    volatile boolean updatePause = false
+    // global display values
+//    volatile int graphDataSize = 360
+//    volatile int graphOffset = 100
+//    volatile DateTime graphHistory = DateTime.now()
+//    volatile int updateFrequency = 6
+//    volatile boolean updatePause = false
+//    volatile int updateCounter = 0
     volatile String uiLanguage = 'de'
 
     /** store for websocket sessions */
@@ -142,10 +143,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         chargeManagerState = carChargingManager.chargeManagerState
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
 //        updateWsValues(statesInfoString(tGlobal))
-        updateCounter++
-        if (!updatePause && updateCounter >= updateFrequency) {
-            updateCounter = 0
-            updateWsValues(graphInfoString(tGlobal, graphDataSize))
+        gc.updateCounter++
+        if (!gc.updatePause && gc.updateCounter >= gc.updateFrequency) {
+            gc.updateCounter = 0
+            updateWsValues(graphInfoString(tGlobal, gc.graphDataSize))
         }
     }
 
@@ -157,7 +158,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         errorTimestamp = gc.full.print DateTime.now()
         networkErrorFatal = reason.contains(E3dcError.AUTH) || reason.contains(E3dcError.IP)
         updateWsValues(errorMessageString(tGlobal))
-        if(networkErrorFatal)  {
+        if (networkErrorFatal) {
             EnergyControlUI.shutdown()
         }
     }
@@ -220,11 +221,11 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         ctx.putAll(joinDashboardContext(ti18n))
         ctx.putAll(es.settingsFormContext(ti18n))
-        ctx.putAll(gc.createSnapshotCtx(graphDataSize, ti18n))
-//        ctx.putAll(gc.createSizeValues(graphDataSize))
+        ctx.putAll(gc.createSnapshotCtx(gc.graphDataSize, ti18n, 0))
+//        ctx.putAll(gc.createSizeValues(gc.graphDataSize))
         ctx.putAll(tibc.createTibberDataCtx(ti18n))
         ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
-        ctx.putAll(graphControlValues())
+        ctx.putAll(gc.graphControlValues())
         ctx.putAll(errorContext(ti18n))
         ctx
     }
@@ -313,19 +314,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
-//    Route graphRoute = { Request req, Response resp ->
-//        def accept = req.headers('Accept')
-//        resp.status 200
-//        def ti18n = tGlobal
-//        def ctx = stringsI18n.i18nCtx(ti18n, uiLanguage)
-//        ctx.putAll(graphControlValues())
-//        ctx.put('newChart', true)
-//        streamOut(graph, ctx)
-//    }
-
     Route graphPost = { Request req, Response resp ->
         def accept = req.headers('Accept')
-        def params = evalGraphPost(req, resp)
+        def params = gc.evalGraphPost(req, resp)
         resp.status 200
         def ti18n = tGlobal
         def ctx = gc.createSnapshotCtx(params.size, ti18n, 100 - params.graphOffset)
@@ -333,14 +324,12 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(params)
         def out = streamOut(graph, ctx)
         updateWsValues(out)
-//        out
         ''
     }
 
     Route graphUpdatePost = { Request req, Response resp ->
         def accept = req.headers('Accept')
-        def params = evalGraphPost(req, resp)
-//        println "graphUpdatePost, params: $params, updatePause: $updatePause"
+        def params = gc.evalGraphPost(req, resp)
         resp.status 204
         def ti18n = tGlobal
         def ctx = gc.createGraphControlCtx(ti18n)
@@ -356,46 +345,57 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         gc.writeSnapshots()
     }
 
-    Map evalGraphPost(Request req, Response resp) {
-        def accept = req.headers('Accept')
-        def qparams = req.queryParams()
-        def graphUpdate
-        def p = req.queryParams('graphpause')
-        def graphPaused = !(p == null || p.toString().empty || p.toString().contains('false'))
-        int size
-        int offset
-        if (qparams.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
-            size = req.queryParams('graphsize').toInteger()
-            // store input in global variables
-            graphDataSize = size
-        }
-        if (qparams.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
-            offset = req.queryParams('graphoffset').toInteger()
-            if (offset < 100) {
-                graphPaused = true
-            }
-            // store input in global variables
-            graphOffset = offset
-        }
-        if (qparams.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
-            graphUpdate = req.queryParams('graphupdate').toInteger()
-            // store input in global variables
-            updateFrequency = graphUpdate
-        }
-        // store input in global variables
-        updatePause = graphPaused || graphOffset < 100
-        graphControlValues()
-    }
+//    Map evalGraphPost(Request req, Response resp) {
+//        def accept = req.headers('Accept')
+//        def qparams = req.queryParams()
+//        def graphUpdate
+//        def p = req.queryParams('graphpause')
+//        def graphPaused = !(p == null || p.toString().empty || p.toString().contains('false'))
+//        int size
+//        int offset
+//        def history
+//        if (qparams.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
+//            size = req.queryParams('graphsize').toInteger()
+//            // store input in global variables
+//            gc.graphDataSize = size
+//        }
+//        if (qparams.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
+//            offset = req.queryParams('graphoffset').toInteger()
+//            if (offset < 100) {
+//                graphPaused = true
+//            }
+//            // store input in global variables
+//            gc.graphOffset = offset
+//        }
+//        if (qparams.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
+//            graphUpdate = req.queryParams('graphupdate').toInteger()
+//            // store input in global variables
+//            gc.updateFrequency = graphUpdate
+//        }
+//        if (qparams.contains('graphhistory') && req.queryParams('graphhistory').matches(/\d{4}-\d{2}-\d{2}/)) {
+//            def hist = req.queryParams('graphhistory')
+//            history = DateTime.parse(hist, gc.pickerstamp)
+//            if (hist != gc.pickerstamp.print(DateTime.now())) {
+//                graphPaused = true
+//            }
+//            // store input in global variables
+//            gc.graphHistory = history
+//        }
+//        // store input in global variables
+//        gc.updatePause = graphPaused || gc.graphOffset < 100
+//        graphControlValues()
+//    }
 
-    def graphControlValues() {
-        def params = [:]
-        params.put('graphPaused', updatePause)
-        params.put('graphUpdate', updateFrequency)
-        params.put('size', graphDataSize)
-        params.put('graphOffset', graphOffset)
-        params.putAll(gc.createSizeValues(graphDataSize))
-        params
-    }
+//    def graphControlValues() {
+//        def params = [:]
+//        params.put('graphPaused', gc.updatePause)
+//        params.put('graphUpdate', gc.updateFrequency)
+//        params.put('size', gc.graphDataSize)
+//        params.put('graphOffset', gc.graphOffset)
+//        params.put('graphHistory', gc.pickerstamp.print(gc.graphHistory))
+//        params.putAll(gc.createSizeValues(gc.graphDataSize))
+//        params
+//    }
 
     /***************** webservice methods **************/
 
@@ -472,7 +472,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     def graphInfoString(Map<String, Map<String, String>> ti18n, int size = 120) {
         def ctx = [:]
-        ctx.putAll(gc.createSnapshotCtx(size, ti18n))
+        ctx.putAll(gc.createSnapshotCtx(size, ti18n, 0))
         ctx.put('newChart', true)
         streamOut(graphData, ctx)
     }
@@ -525,7 +525,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 pvValue     : pwrValues?.powerSolar,
                 gridValue   : pwrValues?.powerGrid,
                 batteryValue: pwrValues?.powerBattery,
-                homeValue   : pwrValues? pwrValues.consumptionHome - wbValues?.energy: null,
+                homeValue   : pwrValues ? pwrValues.consumptionHome - wbValues?.energy : null,
                 carValue    : wbValues?.energy,
                 socValue    : pwrValues?.socBattery,
         ]
@@ -574,7 +574,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ctx = [:]
         ctx.put('networkError', networkError)
         ctx.put('errorResume', networkErrorResume)
-        if(networkError) {
+        if (networkError) {
             def key = networkException.toString().split(/:/)[1].trim()
             def arg = ''
             if (key.contains(' ')) {
@@ -583,7 +583,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 arg = msg.size() > 1 ? msg[1] : arg
             }
             def cause = ti18n.errorStrings.get(key)
-            cause = cause? cause : networkException.toString()
+            cause = cause ? cause : networkException.toString()
             String pre
             if (networkErrorFatal) {
                 pre = ti18n.errorStrings.StopException + '<br>'
@@ -592,7 +592,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             }
             ctx.put('errorMessage', "$errorTimestamp: $pre$cause $arg")
         }
-        if(networkErrorResume) {
+        if (networkErrorResume) {
             def about = ti18n.errorStrings.E3dcErrorResume
             ctx.put('resumeMessage', "$errorTimestamp: $about")
         }

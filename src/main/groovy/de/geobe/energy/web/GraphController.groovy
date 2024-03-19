@@ -29,6 +29,8 @@ import de.geobe.energy.go_e.WallboxValues
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
+import spark.Request
+import spark.Response
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -37,6 +39,14 @@ class GraphController {
     static final String snapshotPostfix = '-snapshots.bin'
     /** storage for energy values */
     private ConcurrentLinkedDeque<Snapshot> snapshots = new ConcurrentLinkedDeque<>()
+    /** states for graph display and update logic */
+    enum GraphUiState {
+        LIVE,
+        PAUSED,
+        HISTORY,
+    }
+
+    volatile GraphUiState graphUiState = GraphUiState.LIVE
 
     /** all static template strings for spark */
     Map<String, Map<String, String>> ts
@@ -52,7 +62,16 @@ class GraphController {
     static DateTimeFormatter minute = DateTimeFormat.forPattern('mm:ss')
     static DateTimeFormatter second = DateTimeFormat.forPattern('ss')
     static DateTimeFormatter stamp = DateTimeFormat.forPattern('yy-MM-dd')
+    static DateTimeFormatter pickerstamp = DateTimeFormat.forPattern('yyyy-MM-dd')
     static DateTimeFormatter day = DateTimeFormat.forPattern('dd.MM.')
+
+    // global display values
+    volatile int graphDataSize = 360
+    volatile int graphOffset = 100
+    volatile DateTime graphHistory = DateTime.now()
+    volatile int updateFrequency = 6
+    volatile boolean updatePause = false
+    volatile int updateCounter = 0
 
     GraphController(Map<String, Map<String, String>> uiStrings) {
         ts = uiStrings
@@ -62,13 +81,124 @@ class GraphController {
         localDate = date.withLocale(new Locale(iso))
     }
 
+    Map evalGraphPost(Request req, Response resp) {
+        def accept = req.headers('Accept')
+        def qparams = req.queryParams()
+        def graphUpdate
+        def p = req.queryParams('graphpause')
+        boolean graphPaused = !(p == null || p.toString().empty || p.toString().contains('false'))
+        int size
+        int offset
+        DateTime history
+        if (qparams.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
+            size = req.queryParams('graphsize').toInteger()
+        }
+        if (qparams.contains('graphoffset') && req.queryParams('graphoffset').isInteger()) {
+            offset = req.queryParams('graphoffset').toInteger()
+        }
+        if (qparams.contains('graphupdate') && req.queryParams('graphupdate').isInteger()) {
+            graphUpdate = req.queryParams('graphupdate').toInteger()
+        }
+        if (qparams.contains('graphhistory') && req.queryParams('graphhistory').matches(/\d{4}-\d{2}-\d{2}/)) {
+            def hist = req.queryParams('graphhistory')
+            history = DateTime.parse(hist, pickerstamp)
+        }
+        if (graphUiState == GraphUiState.LIVE) {
+            // check for transitions
+            if (history.dayOfYear != DateTime.now().dayOfYear) {
+                // transition to history
+                initHistoryState(history)
+            } else if (offset < 100 || graphPaused) {
+                // transition to paused
+                initPauseState(offset, size)
+            } else {
+                graphDataSize = size
+                updateFrequency = graphUpdate
+            }
+        } else if (graphUiState == GraphUiState.PAUSED) {
+            if (offset == 100 || !graphPaused) {
+                // transition to live
+                initLiveState()
+            } else if (history.dayOfYear != DateTime.now().dayOfYear) {
+                // transition to history
+                initHistoryState(history)
+            } else {
+                graphDataSize = size
+                graphOffset = offset
+            }
+        } else if (graphUiState == GraphUiState.HISTORY) {
+            if (history.dayOfYear == DateTime.now().dayOfYear || !graphPaused) {
+                // transition to live
+                initLiveState()
+            } else {
+                graphHistory = history
+                graphOffset = offset
+                graphDataSize = size
+            }
+        }
+        graphControlValues()
+    }
+
+    def initLiveState() {
+        graphUiState = GraphUiState.LIVE
+        graphOffset = 100
+        updatePause = false
+        graphHistory = DateTime.now()
+        graphDataSize = 360
+    }
+
+    def initPauseState(int offset, int size) {
+        graphUiState = GraphUiState.PAUSED
+        graphOffset = offset
+        graphDataSize = size
+        updatePause = true
+
+    }
+
+    def initHistoryState(DateTime history) {
+        graphUiState = GraphUiState.HISTORY
+        graphDataSize = 17280
+        graphHistory = history
+        updatePause = true
+    }
+
+    def graphControlValues() {
+        def params = [:]
+        params.put('graphPaused', updatePause)
+        params.put('graphUpdate', updateFrequency)
+        params.put('size', graphDataSize)
+        params.put('graphOffset', graphOffset)
+        params.put('graphHistory', pickerstamp.print(graphHistory))
+        params.putAll(createSizeValues(graphDataSize))
+        params
+    }
+
+    def createGraphControlCtx(Map<String, Map<String, String>> ti18n) {
+        def ctx = [:]
+        ctx.putAll ti18n.graphControlStrings
+        ctx
+    }
+
+    def createSizeValues(int size = 360) {
+        def sizes = [17280, 8640, 5760, 2880, 1440, 720, 360, 180, 60]
+        def ix = sizes.indexOf(size)
+        if (ix == -1) {
+            ix = 4
+        }
+        def values = [:]
+        sizes.eachWithIndex { int sz, int i ->
+            values['val' + sz] = "value=$sz ${i == ix ? ' selected' : ''}"
+        }
+        values
+    }
+
     /**
      * Initialize snapshots from file or add first value to snapshots
      * @param uiStrings
      */
     def init(Snapshot snapshot) {
         snapshots = readSnapshots()
-        if(todaysSnapshotExists()) {
+        if (todaysSnapshotExists()) {
             println 'snapshots initialized from file'
         } else {
             println 'new snapshots started'
@@ -91,7 +221,7 @@ class GraphController {
         def lastTimestamp = snapshots.peek().instant
         def dayOfYear = new DateTime(timestamp).dayOfYear
         def lastDayOfYear = new DateTime(lastTimestamp).dayOfYear
-        if(dayOfYear != lastDayOfYear) {
+        if (dayOfYear != lastDayOfYear) {
             writeSnapshots()
             lastSaveDayOfYear = dayOfYear
             clearSnapshots()
@@ -103,36 +233,21 @@ class GraphController {
         snapshots.clear()
     }
 
-    def createGraphControlCtx(Map<String, Map<String, String>> ti18n) {
-        def ctx = [:]
-        ctx.putAll ti18n.graphControlStrings
-        ctx
-    }
-
-    def createSizeValues(int size = 360) {
-        def sizes = [5760, 2880, 1440, 720, 360, 180, 60]
-        def ix = sizes.indexOf(size)
-        if (ix == -1) {
-            ix = 4
-        }
-        def values = [:]
-        sizes.eachWithIndex { int sz, int i ->
-            values['val' + sz] = "value=$sz ${i == ix ? ' selected' : ''}"
-        }
-        values
-    }
-
     /**
      *
      * @param size # of data points "window" to be displayed
      * @param ti18n map of translation strings
-     * @param offset relative position of "window" in percent
+     * @param off relative position of "window" in percent
+     * @param datestamp date label for graph, default now
+     * @param snaps list ofsnapshot values, default todays snapshots
      * @return map of values for pebble template
      */
-    def createSnapshotCtx(int size, Map<String, Map<String, String>> ti18n, int off = 0) {
+    def createSnapshotCtx(int size, Map<String, Map<String, String>> ti18n, int off,
+                          DateTime datestamp = DateTime.now(),
+                          Deque<Snapshot> snaps = snapshots) {
         def labels = []
         def lines = []
-        def datasize = snapshots.size()
+        def datasize = snaps.size()
         int offset
         int displaySize
         if (datasize <= size) {
@@ -146,7 +261,7 @@ class GraphController {
 //        displaySize = Math.min(displaySize - offset, datasize)
         int index = 0
         List<Snapshot> worklist = []
-        snapshots.each { Snapshot snap ->
+        snaps.each { Snapshot snap ->
             if (index >= offset && index < offset + displaySize) {
                 worklist.push snap
             }
@@ -187,7 +302,7 @@ class GraphController {
                 line.dataset << snapMap[key]
             }
         }
-        def today = localDate.print DateTime.now()
+        def today = localDate.print datestamp
         def ctx = [
                 graphTitle: ti18n.headingStrings.graphTitle + today,
                 labels    : labels.toString(),
@@ -200,7 +315,7 @@ class GraphController {
 
     def writeSnapshots() {
         def dateStamp = DateTime.now()
-        if (dateStamp.getMinuteOfDay() <=1) {
+        if (dateStamp.getMinuteOfDay() <= 1) {
             dateStamp = dateStamp.minusDays(1)
         }
         def filename = "${stamp.print(dateStamp)}$snapshotPostfix"
@@ -212,7 +327,7 @@ class GraphController {
         }
         if (dir.isDirectory()) {
             def file = new File(settingsDir, filename)
-            file.withObjectOutputStream {outputStream ->
+            file.withObjectOutputStream { outputStream ->
                 outputStream.writeObject snapshots
             }
         }
@@ -225,7 +340,7 @@ class GraphController {
         def snapFile =
                 new File("$home/.$EnergySettings.SETTINGS_DIR/$filename".toString())
         if (snapFile.exists()) {
-            snapFile.withObjectInputStream {inputStream ->
+            snapFile.withObjectInputStream { inputStream ->
                 oldSnapshots = inputStream.readObject()
             }
         } else {
@@ -235,7 +350,7 @@ class GraphController {
     }
 
     def todaysSnapshotExists() {
-        def filename = stamp.print(DateTime.now())+snapshotPostfix
+        def filename = stamp.print(DateTime.now()) + snapshotPostfix
         def home = System.getProperty('user.home')
         def settingsDir = "$home/.$EnergySettings.SETTINGS_DIR"
         def snapFile = new File("$settingsDir/$filename")

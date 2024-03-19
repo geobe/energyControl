@@ -94,6 +94,8 @@ timeAxis:Zeit:Time
 powerAxis:Leistung [W]:Power [W]
 socAxis:Ladezustand [%]:SoC [%]
 * graphControlStrings::
+hours24:24 Stunden:24 hours
+hours12:12 Stunden:12 hours
 hours8:8 Stunden:8 hours
 hours4:4 Stunden:4 hours
 hours2:2 Stunden:2 hours
@@ -106,6 +108,7 @@ graphPosition:Anzeigeposition:display position
 graphPauseLabel:Aktualisieren:update
 graphPauseLabel2:Pause:pause
 graphUpdateLabel:Aktualisierungsrate:update rate
+graphHistoryLabel:Verlauf:history
 * errorStrings::
 StopException:Exception, Server stoppen und Ursache beheben!:Exception, stop server and fix error cause!
 E3dcSendError:E3DC Sendefehler:E3DC send error

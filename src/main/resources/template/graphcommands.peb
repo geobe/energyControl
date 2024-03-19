@@ -1,9 +1,11 @@
     <div id="graph-commands" class="w3-col w3-padding-small w3-light-grey">
-        <div id="size-select" class="w3-col w3-padding-small w3-light-grey s6 m3 l2 w3-left">
+        <div id="size-select" class="w3-col  w3-light-grey s6 m3 l2 w3-left">
             <label class="w3-label">{{ graphSize }}</label>
             <select class="w3-select" name="graphsize"
             hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML"
             hx-include="#graph-commands">
+              <option {{ val17280 }}>{{ hours24 }}</option>
+              <option {{ val8640 }}>{{ hours12 }}</option>
               <option {{ val5760 }}>{{ hours8 }}</option>
               <option {{ val2880 }}>{{ hours4 }}</option>
               <option {{ val1440 }}>{{ hours2 }}</option>
@@ -33,5 +35,11 @@
             <input id="graph-update" class="w3-input" type="range" name="graphupdate"
              min="1" max="10" value="{{ graphUpdate ? graphUpdate : 1 }}"
             hx-post="/graphUpdate" hx-target="#graph-commands" hx-swap="outerHTML" hx-include="#graph-commands">
+        </div>
+        <div class="w3-padding-small s6 m3 l2 w3-left">
+            <label class="w3-label" for="graphhistory">{{ graphHistoryLabel }}</label>
+            <input id="graph-history" class="w3-input" type="date" name="graphhistory"
+             value="{{ graphHistory ? graphHistory : 0 }}"
+             hx-post="/graphUpdate" hx-target="#graph-commands" hx-swap="outerHTML" hx-include="#graph-commands">
         </div>
     </div>
