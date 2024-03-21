@@ -34,22 +34,15 @@ import spark.Response
 
 import java.util.concurrent.ConcurrentLinkedDeque
 
+/**
+ * An object of this class owns the data for graphic display of energy values.
+ * It also stores and manages the state of display control widgets for the energy graph.
+ */
 class GraphController {
 
     static final String snapshotPostfix = '-snapshots.bin'
-    /** storage for energy values */
-    private ConcurrentLinkedDeque<Snapshot> snapshots = new ConcurrentLinkedDeque<>()
-    /** states for graph display and update logic */
-    enum GraphUiState {
-        LIVE,
-        PAUSED,
-        HISTORY,
-    }
-
-    volatile GraphUiState graphUiState = GraphUiState.LIVE
-
     /** all static template strings for spark */
-    Map<String, Map<String, String>> ts
+    Map<String, Map<String, String>> txstrings
 
     /** marker variable for last snapshots save to file */
     private int lastSaveDayOfYear = -42
@@ -73,8 +66,27 @@ class GraphController {
     volatile boolean updatePause = false
     volatile int updateCounter = 0
 
+    // remember size when going to history and back again
+    volatile int sizeBackup
+
+    /** storage for energy values */
+    private ConcurrentLinkedDeque<Snapshot> snapshots = new ConcurrentLinkedDeque<>()
+
+    /** cache for previous energy values */
+    private static final int HISTORY_STACK_SIZE = 10
+    private LinkedHashMap<DateTime, Deque<Snapshot>> previousValues = new LinkedHashMap<>(HISTORY_STACK_SIZE)
+    /** states for graph display and update logic */
+    enum GraphUiState {
+        LIVE,
+        PAUSED,
+        HISTORY,
+    }
+
+    volatile GraphUiState graphUiState = GraphUiState.LIVE
+
+
     GraphController(Map<String, Map<String, String>> uiStrings) {
-        ts = uiStrings
+        txstrings = uiStrings
     }
 
     def updateDateFormat(String iso) {
@@ -105,7 +117,8 @@ class GraphController {
         }
         if (graphUiState == GraphUiState.LIVE) {
             // check for transitions
-            if (history.dayOfYear != DateTime.now().dayOfYear) {
+            if (history && (history.dayOfYear != DateTime.now().dayOfYear ||
+                    history.year != DateTime.now().year)) {
                 // transition to history
                 initHistoryState(history)
             } else if (offset < 100 || graphPaused) {
@@ -129,6 +142,7 @@ class GraphController {
         } else if (graphUiState == GraphUiState.HISTORY) {
             if (history.dayOfYear == DateTime.now().dayOfYear || !graphPaused) {
                 // transition to live
+                graphDataSize = sizeBackup
                 initLiveState()
             } else {
                 graphHistory = history
@@ -144,7 +158,6 @@ class GraphController {
         graphOffset = 100
         updatePause = false
         graphHistory = DateTime.now()
-        graphDataSize = 360
     }
 
     def initPauseState(int offset, int size) {
@@ -152,11 +165,12 @@ class GraphController {
         graphOffset = offset
         graphDataSize = size
         updatePause = true
-
+        graphHistory = DateTime.now()
     }
 
     def initHistoryState(DateTime history) {
         graphUiState = GraphUiState.HISTORY
+        sizeBackup = graphDataSize
         graphDataSize = 17280
         graphHistory = history
         updatePause = true
@@ -169,6 +183,7 @@ class GraphController {
         params.put('size', graphDataSize)
         params.put('graphOffset', graphOffset)
         params.put('graphHistory', pickerstamp.print(graphHistory))
+        params.put('graphHistoryMax', pickerstamp.print(DateTime.now()))
         params.putAll(createSizeValues(graphDataSize))
         params
     }
@@ -192,49 +207,53 @@ class GraphController {
         values
     }
 
-    /**
-     * Initialize snapshots from file or add first value to snapshots
-     * @param uiStrings
-     */
-    def init(Snapshot snapshot) {
-        snapshots = readSnapshots()
-        if (todaysSnapshotExists()) {
-            println 'snapshots initialized from file'
+    private Deque<Snapshot> getHistorySnapshot() {
+        def dateStamp = stamp.print(graphHistory)
+        if (previousValues.keySet().contains(dateStamp)) {
+            previousValues[dateStamp]
         } else {
-            println 'new snapshots started'
+            def snapFile = snapFile(graphHistory)
+            if (snapFile.exists()) {
+                def prevshots
+                snapFile.withObjectInputStream { inputStream ->
+                    prevshots = inputStream.readObject()
+                }
+                if (previousValues.size() >= HISTORY_STACK_SIZE) {
+                    // remove eldest
+                    def removekey = previousValues.keySet().toArray()[0]
+                    previousValues.remove(removekey)
+                }
+                previousValues[dateStamp] = prevshots
+                prevshots
+            } else {
+                graphHistory = DateTime.now()
+                return snapshots
+            }
         }
-        snapshots.push snapshot
-    }
-
-    def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
-        short cHome = powerValues.consumptionHome - wallboxValues.energy
-        def snap = new Snapshot(
-                powerValues.timestamp.toEpochMilli(),
-                (short) powerValues.powerSolar,
-                (short) powerValues.powerBattery,
-                (short) powerValues.powerGrid,
-                cHome,
-                wallboxValues.energy,
-                (short) powerValues.socBattery
-        )
-        def timestamp = powerValues.timestamp.toEpochMilli()
-        def lastTimestamp = snapshots.peek().instant
-        def dayOfYear = new DateTime(timestamp).dayOfYear
-        def lastDayOfYear = new DateTime(lastTimestamp).dayOfYear
-        if (dayOfYear != lastDayOfYear) {
-            writeSnapshots()
-            lastSaveDayOfYear = dayOfYear
-            clearSnapshots()
-        }
-        snapshots.push snap
-    }
-
-    def clearSnapshots() {
-        snapshots.clear()
+        previousValues[dateStamp]
     }
 
     /**
-     *
+     * Prepare arguments for generating display context of energy graph for pebble
+     * @param ti18n map of translation strings
+     * @return map of values for pebble template
+     */
+    Map getSnapshotCtx(Map<String, Map<String, String>> ti18n) {
+        Map result
+        switch (graphUiState) {
+            case GraphUiState.LIVE:
+            case GraphUiState.PAUSED:
+                result = createSnapshotCtx(graphDataSize, ti18n, 100 - graphOffset)
+                break
+            case GraphUiState.HISTORY:
+                Deque<Snapshot> snaps = getHistorySnapshot()
+                result = createSnapshotCtx(graphDataSize, ti18n, 100 - graphOffset, graphHistory, snaps)
+        }
+        result
+    }
+
+    /**
+     * Generate display context of energy graph for pebble
      * @param size # of data points "window" to be displayed
      * @param ti18n map of translation strings
      * @param off relative position of "window" in percent
@@ -310,9 +329,62 @@ class GraphController {
         ]
         ctx.putAll ti18n.graphLabels
         ctx.putAll ti18n.graphControlStrings
+        // make sure calendar input is syncrnous with graph
+        ctx.put('graphHistory', pickerstamp.print(datestamp))
         ctx
     }
 
+    /**
+     * Initialize snapshots from file or add first value to snapshots
+     * @param uiStrings
+     */
+    def init(Snapshot snapshot) {
+        snapshots = readSnapshots()
+        if (todaysSnapshotExists()) {
+            println 'snapshots initialized from file'
+        } else {
+            println 'new snapshots started'
+        }
+        snapshots.push snapshot
+    }
+
+    /**
+     * Store latest values in a list for the whole day. Save into file at midnight.
+     * @param powerValues latest power values
+     * @param wallboxValues latest wallbox values
+     * @return the snapshots dequeue
+     */
+    def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
+        short cHome = powerValues.consumptionHome - wallboxValues.energy
+        def snap = new Snapshot(
+                powerValues.timestamp.toEpochMilli(),
+                (short) powerValues.powerSolar,
+                (short) powerValues.powerBattery,
+                (short) powerValues.powerGrid,
+                cHome,
+                wallboxValues.energy,
+                (short) powerValues.socBattery
+        )
+        def timestamp = powerValues.timestamp.toEpochMilli()
+        def lastTimestamp = snapshots.peek().instant
+        def dayOfYear = new DateTime(timestamp).dayOfYear
+        def lastDayOfYear = new DateTime(lastTimestamp).dayOfYear
+        if (dayOfYear != lastDayOfYear) {
+            writeSnapshots()
+            lastSaveDayOfYear = dayOfYear
+            clearSnapshots()
+        }
+        snapshots.push snap
+    }
+
+    /** clear snapshot list */
+    def clearSnapshots() {
+        snapshots.clear()
+    }
+
+    /**
+     * write all snapshots of the day into a file with a defined file name based on todays date
+     */
     def writeSnapshots() {
         def dateStamp = DateTime.now()
         if (dateStamp.getMinuteOfDay() <= 1) {
@@ -333,6 +405,11 @@ class GraphController {
         }
     }
 
+    /**
+     * read a snapshot file of a given date into a list
+     * @param dateStamp file date
+     * @return list of that days values as a ConcurrentLinkedDeque
+     */
     ConcurrentLinkedDeque<Snapshot> readSnapshots(DateTime dateStamp = DateTime.now()) {
         ConcurrentLinkedDeque<Snapshot> oldSnapshots
         def home = System.getProperty('user.home')
@@ -349,6 +426,16 @@ class GraphController {
         oldSnapshots
     }
 
+    File snapFile(DateTime dateStamp) {
+        def home = System.getProperty('user.home')
+        def filename = "${stamp.print(dateStamp)}$snapshotPostfix"
+        new File("$home/.$EnergySettings.SETTINGS_DIR/$filename".toString())
+    }
+
+    /**
+     * Check of a snapshot file of current day exists. These files are written if the server was shut down
+     * @return true if exists
+     */
     def todaysSnapshotExists() {
         def filename = stamp.print(DateTime.now()) + snapshotPostfix
         def home = System.getProperty('user.home')
