@@ -1,6 +1,6 @@
                     <button class="w3-bar-item w3-button"
                     onClick="oneGraphOnly(allCharts, '{{ chartId }}')"
-                    hx-post="/graphUpdate"
+                    hx-post="/graphData" hx-target="#graph-data"
                     hx-on:htmx:config-request="event.detail.parameters.graphpause = {{ updatePause }}"
                     >
                         {{ buttonTitle }}

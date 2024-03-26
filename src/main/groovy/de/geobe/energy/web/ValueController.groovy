@@ -315,10 +315,21 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ctx = gc.evalGraphPost(req, resp)
         ctx.putAll(gc.getSnapshotCtx(ti18n))
         ctx.put('newChart', true)
-//        ctx.putAll(params)
         def out = streamOut(graph, ctx)
         updateWsValues(out)
         ''
+    }
+
+    Route graphDataPost = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        resp.status 200
+//        def ti18n = tGlobal
+//        def ctx = gc.evalGraphPost(req, resp)
+//        ctx.putAll(gc.getSnapshotCtx(ti18n))
+//        ctx.put('newChart', true)
+//        def out = streamOut(graph, ctx)
+//        updateWsValues(out)
+       graphInfoString(tGlobal, gc.graphDataSize)
     }
 
     Route graphUpdatePost = { Request req, Response resp ->

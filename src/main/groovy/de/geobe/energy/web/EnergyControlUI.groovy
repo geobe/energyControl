@@ -77,6 +77,8 @@ class EnergyControlUI {
 
         post('/graph', valueController.graphPost)
 
+        post('/graphData', valueController.graphDataPost)
+
         post('/graphUpdate', valueController.graphUpdatePost)
 
         post('/language', valueController.languagePost)

@@ -57,6 +57,7 @@ class PowerMonitor {
     private PeriodicExecutor executor
     /** remember exception state */
     private volatile boolean stoppedByException = false
+    private volatile int exceptionCount = 0
 
     private static PowerMonitor monitor
     private static boolean constructionFailed = false
@@ -116,7 +117,11 @@ class PowerMonitor {
                 }
             } catch (Exception ex) {
 //                ex.printStackTrace()
-                // notify about exception only once
+                // notify about exception only once every 10 minutes
+                if(++exceptionCount >= 120) {
+                    exceptionCount = 0
+                    stoppedByException = false
+                }
                 if (!stoppedByException) {
                     subscribers.each {
                         it.takePMException(ex)
