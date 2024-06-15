@@ -1,0 +1,34 @@
+@startuml
+'https://plantuml.com/class-diagram
+scale 1000 width
+note "Object communication diagram \nfor PV car charging" as ntop
+
+object "Wallbox" as wb
+object "WallboxMonitor" as wbm
+object "CarChargingManager" as ccm
+object "PvChargeStrategy" as pcs
+object "PowerMonitor" as pom
+() "Charge Control UI" as ctlui
+() "\tUI\nStateValues" as stui
+() "go_e_charger" as goe
+() "E3dcInteractionRunner" as e3dc
+() car
+
+
+ctlui --> ccm : "activate()\ndeactivate()\nsetStrategy()"
+'goe -up-> wb
+goe <.r.> car : "            "
+wb .d-> goe : "url.getText()"
+wbm -d-> wb : getCurrent()
+wbm -d-> wb : startCharging()\nstartChargingRemote()\nstopCharging()\nsetChargingCurrent()"
+pom --> wbm : "subscribeValues()"
+wbm .l.> pom : takeWallboxValues()
+pom --> e3dc : currentValues()
+ccm -d-> pcs : chargePvSurplus()
+pcs -d-> wbm : "subscribe\nState()"
+pcs -d-> pom : "subscribe()"
+pom .u.> pcs : "take\nPMValues()"
+wbm .u-> pcs : "take\nWallboxState()"
+stui -l-> wbm : "subscribe\nState()"
+wbm .-> stui : "car\nChargingState"
+@enduml
