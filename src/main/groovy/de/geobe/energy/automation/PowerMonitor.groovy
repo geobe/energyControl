@@ -27,8 +27,6 @@ package de.geobe.energy.automation
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.e3dc.IStorageInteractionRunner
-import de.geobe.energy.go_e.IWallboxValueSource
-import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
@@ -40,7 +38,7 @@ import java.util.concurrent.TimeUnit
  * have changed more than hysteresis, send new values to PvChargeStrategy
  */
 @ActiveObject
-class PowerMonitor {
+class PowerMonitor implements WallboxValueSubscriber {
     /** subscription cycle time */
     private long cycle = 5
     /** subscription time unit */
@@ -49,8 +47,10 @@ class PowerMonitor {
     private long initialDelay = 0
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
-    /** Reference to Wallbox values */
-    private final IWallboxValueSource wbValues
+    /** Reference to WallboxMonitor which provides wallbox values */
+    private final WallboxValueProvider wbValuesProvider
+    /** wallbox values that are periodically updated by wbValuesProvider */
+    private volatile WallboxValues wallboxValues
     /** all valueSubscribers to power values */
     private volatile List<PowerValueSubscriber> subscribers = []
     /** task to read power values periodically */
@@ -81,7 +81,7 @@ class PowerMonitor {
     static synchronized PowerMonitor getMonitor() {
         if (!monitor && !constructionFailed) {
             try {
-                monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, Wallbox.wallbox)
+                monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, WallboxMonitor.monitor)
             } catch (Exception e) {
                 constructionFailed = true
                 startupFailure = e
@@ -91,9 +91,9 @@ class PowerMonitor {
         monitor
     }
 
-    private PowerMonitor(IStorageInteractionRunner interactionRunner, IWallboxValueSource wallboxValueSource) {
+    private PowerMonitor(IStorageInteractionRunner interactionRunner, WallboxValueProvider wallboxValueProvider) {
         powerInfo = interactionRunner
-        wbValues = wallboxValueSource
+        wbValuesProvider = wallboxValueProvider
     }
 
     /**
@@ -104,7 +104,7 @@ class PowerMonitor {
         @Override
         void run() {
             try {
-                def pmValues = new PMValues(powerInfo.currentValues, wbValues.values)
+                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
                 if (stoppedByException) {
                     // exception cause was repaired, so we can notify subscibers
                     subscribers.each {
@@ -148,6 +148,11 @@ class PowerMonitor {
         powerInfo.currentValues
     }
 
+    @Override
+    void takeWallboxValues(WallboxValues values) {
+        wallboxValues = values
+    }
+
     @ActiveMethod(blocking = false)
     void subscribe(PowerValueSubscriber subscriber) {
         def willStart = subscribers.size() == 0
@@ -166,6 +171,7 @@ class PowerMonitor {
 
     private start() {
         println "PowerMonitor started with $cycle $timeUnit period"
+        wbValuesProvider.subscribeValue(this)
         executor = new PeriodicExecutor(readPower, cycle, timeUnit)
         executor.start()
     }
@@ -208,9 +214,7 @@ class PowerMonitor {
 
 interface PowerValueSubscriber {
     void takePMValues(PMValues pmValues)
-
     void takePMException(Exception exception)
-
     void resumeAfterPMException()
 }
 

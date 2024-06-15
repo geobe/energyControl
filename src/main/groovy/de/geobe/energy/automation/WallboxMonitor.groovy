@@ -24,7 +24,7 @@
 
 package de.geobe.energy.automation
 
-
+import de.geobe.energy.go_e.IWallboxValueSource
 import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
 import groovyx.gpars.activeobject.ActiveMethod
@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
  * </ul>
  */
 @ActiveObject
-class WallboxMonitor {
+class WallboxMonitor implements WallboxValueProvider {
     /** subscription cycle time */
     private long cycle = 5
     /** subscription Time unit */
@@ -51,10 +51,10 @@ class WallboxMonitor {
     /** Reference to wallbox */
     private Wallbox wallbox
     /** last Values read */
-//    private WallboxValues values
+    private volatile WallboxValues values
     /** all valueSubscribers to wallbox values */
     private List<WallboxValueSubscriber> valueSubscribers = []
-    /** all valueSubscribers to car states */
+    /** all valueSubscribers to car states taken from wallbox values */
     private List<WallboxStateSubscriber> stateSubscribers = []
     /** task to read power values periodically */
     private PeriodicExecutor executor
@@ -147,9 +147,33 @@ Takes some time before load current is back to requested
 
     @ActiveMethod(blocking = true)
     def getCurrent() {
-        def values = wallbox.values
+        values = wallbox.values
         def currentState = calcChargingState(values)
         [values: values, state: currentState]
+    }
+
+    @ActiveMethod(blocking = true)
+    def startCharging() {
+        wallbox.startCharging()
+    }
+
+    @ActiveMethod(blocking = true)
+    def startChargingRemote() {
+        wallbox.startChargingRemote()
+    }
+
+    @ActiveMethod(blocking = true)
+    def stopCharging() {
+//        print " -stop charging- "
+        wallbox.stopCharging()
+        setCurrent(0)
+    }
+
+    @ActiveMethod(blocking = true)
+    def setCurrent(int amp = 0) {
+//        print " -set current to $amp- "
+        wallbox.chargingCurrent = amp
+//        println " --> $wallbox.wallboxValues"
     }
 
 //    @ActiveMethod(blocking = true)
@@ -236,6 +260,11 @@ Takes some time before load current is back to requested
 
     }
 
+}
+
+interface WallboxValueProvider {
+    void subscribeValue(WallboxValueSubscriber subscriber)
+    void unsubscribeValue(WallboxValueSubscriber subscriber)
 }
 
 interface WallboxStateSubscriber {

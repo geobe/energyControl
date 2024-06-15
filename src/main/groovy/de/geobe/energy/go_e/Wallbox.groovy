@@ -176,20 +176,28 @@ class Wallbox implements IWallboxValueSource {
 
     static void main(String[] args) {
         Wallbox wb = Wallbox.wallbox
-        println wb.getValues()
-        println wb.setChargingCurrent((short) 8)
-        wb.startCharging()
-        for (i in 0..<4) {
+        println "before start ${wb.getValues()}"
+        println "set current: ${ wb.setChargingCurrent((short) 6) }"
+        println "start charging: ${wb.startChargingRemote()}"
+        def start = System.currentTimeMillis()
+        for (i in 0..<20) {
+            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
             i++
-            Thread.sleep(1500)
-            println wb.getValues()
+            Thread.sleep(1000)
         }
-        wb.stopCharging()
-        for (i in 0..<3) {
+        println "proceed @${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
+        for (i in 0..<2) {
             i++
-            Thread.sleep(1500)
-            println wb.getValues()
+            Thread.sleep(60000)
+            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
         }
+        println "stop: ${wb.stopCharging()}"
+        for (i in 0..<5) {
+            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
+            i++
+            Thread.sleep(1000)
+        }
+        println "end @${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
     }
 
     /**

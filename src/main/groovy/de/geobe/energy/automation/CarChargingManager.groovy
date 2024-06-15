@@ -35,8 +35,8 @@ import groovyx.gpars.activeobject.ActiveObject
  * <ol>
  *     <li>Photovoltaic charging, trying to optimally use power produced by sunlight</li>
  *     <li>Tibber charging, using low price hours for charging</li>
- *     <li>Anyway charging, </li>
- *     <li></li>
+ *     <li>Charging anyway, </li>
+ *     <li>No charging</li>
  * </ol>
  */
 @ActiveObject
@@ -305,7 +305,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.NoSurplus:
                         chargeState = ChargeManagerState.WaitForExtCharge
                         setCurrent(param)
-                        startCharging()
+                        startChargingRemote()
                         break
                     case ChargeManagerState.WaitForExtCharge:
                         // check for missed event
@@ -391,7 +391,7 @@ class CarChargingManager implements WallboxStateSubscriber {
             }
             switch (chargeCmd) {
                 case ChargeStrategy.CHARGE_ANYWAY:
-                    startCharging()
+                    startChargingRemote()
                     setCurrent(Wallbox.wallbox.maxCurrent)
                     ChargeManagerState.ChargeAnyway
                     break
@@ -446,23 +446,19 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private stopCharging() {
-//        print " -stop charging- "
-        Wallbox.wallbox.stopCharging()
-        setCurrent(0)
+        WallboxMonitor.monitor.stopCharging()
     }
 
     private startCharging() {
-        Wallbox.wallbox.startCharging()
+        WallboxMonitor.monitor.startCharging()
     }
 
-    private forceCharging() {
-        Wallbox.wallbox.startChargingRemote()
+    private startChargingRemote() {
+        WallboxMonitor.monitor.startChargingRemote()
     }
 
     private setCurrent(int amp = 0) {
-//        print " -set current to $amp- "
-        Wallbox.wallbox.chargingCurrent = amp
-//        println " --> $Wallbox.wallbox.wallboxValues"
+        WallboxMonitor.monitor.current = amp
     }
 
     private startTibberStrategy() {

@@ -351,7 +351,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
 
-    /***************** webservice methods **************/
+    /***************** websocket methods **************/
 
     @OnWebSocketConnect
     void onConnect(Session user) {
@@ -399,7 +399,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         }
     }
 
-    /************* end webservice methods **************/
+    /************* end websocket methods **************/
 
     def powerValuesString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
