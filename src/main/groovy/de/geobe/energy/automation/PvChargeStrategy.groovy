@@ -88,6 +88,10 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
 //        carChargingManager = manager
 //    }
 
+    def getState() {
+        chargingState.toString()
+    }
+
     @ActiveMethod(blocking = false)
     void startStrategy(CarChargingManager manager) {
         println "start strategy"
@@ -216,7 +220,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
         def values = "sun: $powerValues.powerSolar, soc: $powerValues.socBattery%, batEnergy $powerValues.powerBattery," +
                 " car: $wallboxValues.energy, req $requestedCurrent, gradient: $chargeGradient" +
                 ", surplus: $availableChargingPower, avgSun: $meanPSun, avgHome: $meanCHome, bat: $batBalance"
-        def evTrace = " ChargeStrategy: $chargingState --$chargingEvent"
+        def evTrace = " ChargeManagerStrategy: $chargingState --$chargingEvent"
         int caseTrace = 0
         // now we can execute the internal state chart
         switch (chargingEvent) {

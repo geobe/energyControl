@@ -47,6 +47,8 @@ class PowerMonitor implements WallboxValueSubscriber {
     private long initialDelay = 0
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
+    /** Reference to current dynamic prices */
+    private final PowerPriceMonitor powerPriceInfo
     /** Reference to WallboxMonitor which provides wallbox values */
     private final WallboxValueProvider wbValuesProvider
     /** wallbox values that are periodically updated by wbValuesProvider */
@@ -93,6 +95,7 @@ class PowerMonitor implements WallboxValueSubscriber {
 
     private PowerMonitor(IStorageInteractionRunner interactionRunner, WallboxValueProvider wallboxValueProvider) {
         powerInfo = interactionRunner
+//        powerPriceInfo = PowerPriceMonitor.monitor
         wbValuesProvider = wallboxValueProvider
     }
 
@@ -104,7 +107,7 @@ class PowerMonitor implements WallboxValueSubscriber {
         @Override
         void run() {
             try {
-                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
+                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)//, powerPriceInfo.currentPrice())
                 if (stoppedByException) {
                     // exception cause was repaired, so we can notify subscibers
                     subscribers.each {
@@ -221,10 +224,12 @@ interface PowerValueSubscriber {
 class PMValues {
     PowerValues powerValues
     WallboxValues wallboxValues
+//    Float currentPrice
 
     PMValues(PowerValues powerValues, WallboxValues wallboxValues) {
         this.powerValues = powerValues
         this.wallboxValues = wallboxValues
+//        this.currentPrice = currentPrice
     }
 
     @Override

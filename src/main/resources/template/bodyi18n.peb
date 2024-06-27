@@ -69,20 +69,6 @@
                   style="width:100%">
                     {% include "./chartbutton.peb" with {"chartId": "power-chart", "updatePause": "'false'", "buttonTitle": powerTitle } %}
                     {% include "./chartbutton.peb" with {"chartId": "tibber-chart", "updatePause": "'true'", "buttonTitle": tibTitle } %}
-{#                    <button class="w3-bar-item w3-button"#}
-{#                    onClick="oneGraphOnly(allCharts, 'power-chart')"#}
-{#                    hx-post="/graphUpdate"#}
-{#                    hx-on:htmx:config-request="event.detail.parameters.graphpause = 'false'"#}
-{#                    >#}
-{#                        {{ powerTitle }}#}
-{#                    </button>#}
-{#                    <button class="w3-bar-item w3-button"#}
-{#                    onClick="oneGraphOnly(allCharts, 'tibber-chart')"#}
-{#                    hx-on:htmx:config-request="event.detail.parameters.graphpause = 'true'"#}
-{#                    hx-post="/graphUpdate"#}
-{#                    >#}
-{#                        {{ tibTitle }}#}
-{#                    </button>#}
                 </div>
 
             <!-- Power charts defined here -->

@@ -94,7 +94,7 @@ class UiStringsDE {
             HasSurplus             : 'Solar Überschuss',
             NoSurplus              : 'Kein Solar Überschuss',
             WaitForExtCharge       : 'Auf Befehl warten',
-            // CarChargingManager.ChargeStrategy
+            // CarChargingManager.ChargeManagerStrategy
             CHARGE_PV_SURPLUS      : 'Solar laden',
             CHARGE_TIBBER          : 'Tibber laden',
             CHARGE_ANYWAY          : 'Sofort laden',

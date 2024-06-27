@@ -51,6 +51,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /** access to energy values */
     private PowerMonitor powerMonitor
     private WallboxMonitor wbMonitor
+//    private PowerPriceMonitor powerPriceMonitor
     /** shortcut to car charging manager singleton */
     private carChargingManager = CarChargingManager.carChargingManager
     /** current Values */
@@ -58,7 +59,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     volatile PowerValues pwrValues
     volatile WallboxMonitor.CarChargingState carChargingState
     volatile CarChargingManager.ChargeManagerState chargeManagerState
-    volatile CarChargingManager.ChargeStrategy chargeStrategy
+    volatile CarChargingManager.ChargeManagerStrategy chargeStrategy
+    volatile String chargingDetail
+//    volatile currentPrice
     volatile Boolean networkError = false
     volatile Boolean networkErrorFatal = false
     volatile Boolean networkErrorResume = false
@@ -101,6 +104,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         try {
             powerMonitor = PowerMonitor.monitor
             wbMonitor = WallboxMonitor.monitor
+//            powerPriceMonitor = PowerPriceMonitor.monitor
             pwrValues = powerMonitor.current
             wbValues = wbMonitor.current.values
             short cHome = pwrValues.consumptionHome - wbValues.energy
@@ -115,8 +119,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             )
             gc.init(snapshot)
             carChargingState = wbMonitor.current.state
-            chargeStrategy = carChargingManager.chargeStrategy
+            chargeStrategy = carChargingManager.chargeManagerStrategy
+            chargingDetail = carChargingManager.chargeManagerStrategyDetail
             chargeManagerState = carChargingManager.chargeManagerState
+//            currentPrice = currentPowerPrice()
             powerMonitor.initCycle(5, 0)
             powerMonitor.subscribe(this)
             wbMonitor.subscribeState(this)
@@ -133,8 +139,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
         gc.saveSnapshot(pwrValues, wbValues)
-        chargeStrategy = carChargingManager.chargeStrategy
+        chargeStrategy = carChargingManager.chargeManagerStrategy
+        chargingDetail = carChargingManager.chargeManagerStrategyDetail
         chargeManagerState = carChargingManager.chargeManagerState
+//        currentPrice = currentPowerPrice()
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
 //        updateWsValues(statesInfoString(tGlobal))
         gc.updateCounter++
@@ -256,19 +264,19 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 break
             case cc.cmdSurplus:
                 carChargingManager.takeChargeCmd(
-                        CarChargingManager.ChargeStrategy.CHARGE_PV_SURPLUS)
+                        CarChargingManager.ChargeManagerStrategy.CHARGE_PV_SURPLUS)
                 break
             case cc.cmdTibber:
                 carChargingManager.takeChargeCmd(
-                        CarChargingManager.ChargeStrategy.CHARGE_TIBBER)
+                        CarChargingManager.ChargeManagerStrategy.CHARGE_TIBBER)
                 break
             case cc.cmdAnyway:
                 carChargingManager.takeChargeCmd(
-                        CarChargingManager.ChargeStrategy.CHARGE_ANYWAY)
+                        CarChargingManager.ChargeManagerStrategy.CHARGE_ANYWAY)
                 break
             case cc.cmdStop:
                 carChargingManager.takeChargeCmd(
-                        CarChargingManager.ChargeStrategy.CHARGE_STOP)
+                        CarChargingManager.ChargeManagerStrategy.CHARGE_STOP)
                 break
             default:
                 throw new RuntimeException("unexpected action $action")
@@ -276,7 +284,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         resp.status 200
         def o = owner
         def t = this
-        owner.chargeStrategy = carChargingManager.chargeStrategy
+        owner.chargeStrategy = carChargingManager.chargeManagerStrategy
         owner.chargeManagerState = carChargingManager.chargeManagerState
         def upd = statesInfoString(ti18n)
         updateWsValues(upd)
@@ -329,7 +337,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //        ctx.put('newChart', true)
 //        def out = streamOut(graph, ctx)
 //        updateWsValues(out)
-       graphInfoString(tGlobal, gc.graphDataSize)
+        graphInfoString(tGlobal, gc.graphDataSize)
     }
 
     Route graphUpdatePost = { Request req, Response resp ->
@@ -401,6 +409,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     /************* end websocket methods **************/
 
+    def currentPowerPrice() {
+        def prices = tibc?.tibberPrices?.today
+        def index = DateTime.now().hourOfDay
+        def price = ((prices[index]?.price ?: -.99f) * 100).round(2)
+        "$price"
+    }
+
     def powerValuesString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
         ctx.putAll(ti18n.powerStrings)
@@ -470,12 +485,15 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     /** realtime state values for dashboard */
     def stateValues(Map<String, Map<String, String>> ti18n) {
+        def detail = carChargingManager.chargeManagerStrategyDetail
+        def strategyValue = ("${ti18n.stateTx.get(chargeStrategy.toString())}(" +
+                "${ti18n.stateTx.get(chargingDetail)})").toString()
         def ctx = [
                 chargingStateValue     : ti18n.stateTx.get(carChargingState.toString()),
-                chargeStrategyValue    : ti18n.stateTx.get(chargeStrategy.toString()),
+                chargeStrategyValue    : strategyValue,
                 chargeManagerStateValue: ti18n.stateTx.get(chargeManagerState.toString()),
                 tibberStrategyValue    : 'none',
-                tibberPriceValue       : (int) (Math.random() * 30 + 15)
+                tibberPriceValue       : currentPowerPrice()
         ]
     }
 
@@ -485,7 +503,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 pvValue     : pwrValues?.powerSolar,
                 gridValue   : pwrValues?.powerGrid,
                 batteryValue: pwrValues?.powerBattery,
-                homeValue   : pwrValues ? pwrValues.consumptionHome - wbValues?.energy : null,
+                homeValue   : pwrValues ? pwrValues?.consumptionHome - wbValues?.energy : null,
                 carValue    : wbValues?.energy,
                 socValue    : pwrValues?.socBattery,
         ]
@@ -507,20 +525,20 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx
     }
 
-    def setChargeCommandContext(CarChargingManager.ChargeStrategy strategy, Map<String, Map<String, String>> ti18n) {
+    def setChargeCommandContext(CarChargingManager.ChargeManagerStrategy strategy, Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
         ctx.putAll ti18n.chargeComandStrings
         switch (strategy) {
-            case CarChargingManager.ChargeStrategy.CHARGE_PV_SURPLUS:
+            case CarChargingManager.ChargeManagerStrategy.CHARGE_PV_SURPLUS:
                 ctx['checkedSurplus'] = 'checked'
                 break
-            case CarChargingManager.ChargeStrategy.CHARGE_TIBBER:
+            case CarChargingManager.ChargeManagerStrategy.CHARGE_TIBBER:
                 ctx['checkedTibber'] = 'checked'
                 break
-            case CarChargingManager.ChargeStrategy.CHARGE_ANYWAY:
+            case CarChargingManager.ChargeManagerStrategy.CHARGE_ANYWAY:
                 ctx['checkedAnyway'] = 'checked'
                 break
-            case CarChargingManager.ChargeStrategy.CHARGE_STOP:
+            case CarChargingManager.ChargeManagerStrategy.CHARGE_STOP:
 //            case null:
                 ctx['checkedStop'] = 'checked'
 //                break

@@ -1,4 +1,4 @@
-            <div id="div-state" class=" {{ mgmtColor }} w3-col w3-left">
+    <div id="div-state" class=" {{ mgmtColor }} w3-col w3-left">
           <div id="strategy-buttons" class="w3-col w3-padding-small w3-hide w3-show">
                   <div class="w3-col w3-yellow s12 m6 l6 w3-left">
                       <input class="w3-radio" type="radio" name="charge-management" {{ checkedActive }}
@@ -31,4 +31,4 @@
                       <label>{{ stopStrategy }}</label>
                   </div>
           </div>
-        </div>
+    </div>

@@ -119,6 +119,10 @@ class PowerPriceMonitor {
         executor = null
     }
 
+//    Float currentPrice(int hourIndex = DateTime.now().hourOfDay) {
+//        (latestPrices?.today[hourIndex].price?:-999.9944f).round(2)
+//    }
+
     static void main(String[] args) {
         def monitor = PowerPriceMonitor.monitor
         def subscriber = new PowerPriceSubscriber() {

@@ -56,6 +56,12 @@ CHARGE_PV_SURPLUS:Solar laden:PV charging
 CHARGE_TIBBER:Tibber laden:tibber charging
 CHARGE_ANYWAY:Sofort laden:immediate charging
 CHARGE_STOP:Nicht laden:no charging
+// CarChargingManager.ChargeDetails::
+NotCharging:Pause:break
+StartUpCharging:starten:startup
+ContinueCharging:fortsetzen:continue
+TestAmpCarReduction:amp reduziert?:amp reduced?
+HasAmpCarReduction:amp reduziert!:amp reduced!
 // WallboxMonitor.CarChargingState::
 NO_CAR:kein Auto:no car
 WAIT_CAR:Auf Auto warten:wait for car
@@ -124,3 +130,13 @@ tibTime:Stunde:hour
 tibPrice:Preis [ct/kWh]:Price [ct/kWh]
 tibAnd:und:and
 tibUpd:aktualisiert:updated
+* Heatpump strings::
+hpcEarly:früh:early
+hpcLate:spät:late
+hpcFrom:von:from
+hpcUntil:bis:until
+hpcHours:Stunden:hours
+hpcOpt:Optimierung:Optimisation
+hpcOptWeather:Wetter:weather
+hpcOptBattery:Akkuladung:battery soc
+hpcSubmit:Übernehmen:OK
