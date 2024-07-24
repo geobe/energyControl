@@ -28,6 +28,7 @@ import de.geobe.energy.automation.*
 import de.geobe.energy.e3dc.E3dcError
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.go_e.WallboxValues
+import de.geobe.energy.recording.LogMessageRecorder
 import io.pebbletemplates.pebble.PebbleEngine
 import io.pebbletemplates.pebble.template.PebbleTemplate
 import org.eclipse.jetty.websocket.api.Session
@@ -51,6 +52,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     /** access to energy values */
     private PowerMonitor powerMonitor
     private WallboxMonitor wbMonitor
+    private LogMessageRecorder logMessageRecorder
 //    private PowerPriceMonitor powerPriceMonitor
     /** shortcut to car charging manager singleton */
     private carChargingManager = CarChargingManager.carChargingManager
@@ -104,6 +106,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         try {
             powerMonitor = PowerMonitor.monitor
             wbMonitor = WallboxMonitor.monitor
+            logMessageRecorder = LogMessageRecorder.recorder
 //            powerPriceMonitor = PowerPriceMonitor.monitor
             pwrValues = powerMonitor.current
             wbValues = wbMonitor.current.values
@@ -126,11 +129,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             powerMonitor.initCycle(5, 0)
             powerMonitor.subscribe(this)
             wbMonitor.subscribeState(this)
+            logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
         } catch (Exception exception) {
-            takePMException(exception)
-//            Spark.stop()
-//            System.err.println "System stopped: $exception"
-//            System.exit(-1)
+            takeMonitorException(exception)
         }
     }
 
@@ -139,9 +140,11 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         wbValues = pmValues.getWallboxValues()
         pwrValues = pmValues.powerValues
         gc.saveSnapshot(pwrValues, wbValues)
+        carChargingState = wbMonitor.current.state
         chargeStrategy = carChargingManager.chargeManagerStrategy
         chargingDetail = carChargingManager.chargeManagerStrategyDetail
         chargeManagerState = carChargingManager.chargeManagerState
+        logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
 //        currentPrice = currentPowerPrice()
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
 //        updateWsValues(statesInfoString(tGlobal))
@@ -153,7 +156,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
     @Override
-    void takePMException(Exception exception) {
+    void takeMonitorException(Exception exception) {
         networkError = true
         networkException = exception
         def reason = exception.message
@@ -166,7 +169,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
     @Override
-    void resumeAfterPMException() {
+    void resumeAfterMonitorException() {
         networkError = false
         networkErrorFatal = false
         networkException = null
@@ -178,7 +181,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     @Override
     void takeWallboxState(WallboxMonitor.CarChargingState carState) {
         carChargingState = carState
-        println "carChargingState changed: $carChargingState"
+//        println "carChargingState changed: $carChargingState"
     }
 
     /***************** Routing methods **************/
@@ -364,12 +367,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     @OnWebSocketConnect
     void onConnect(Session user) {
         sessions.add user
+        println "Websocket connected"
     }
 
     @OnWebSocketClose
     void onClose(Session user, int statusCode, String reason) {
         if (sessions.remove user) {
-//            println "removed on close: $user, status: $statusCode, $reason"
+            println "Websocket removed on close, status: $statusCode, $reason"
         }
     }
 
@@ -380,7 +384,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     @OnWebSocketError
     void onError(Session session, Throwable error) {
-        println error
+        println "Websocket error $error"
     }
 
     def updateWsValues(String out) {
@@ -499,12 +503,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     /** realtime analog values for dashboard */
     def powerValues() {
+        def energy = (wbValues?.energy)?:0
         def ctx = [
                 pvValue     : pwrValues?.powerSolar,
                 gridValue   : pwrValues?.powerGrid,
                 batteryValue: pwrValues?.powerBattery,
-                homeValue   : pwrValues ? pwrValues?.consumptionHome - wbValues?.energy : null,
-                carValue    : wbValues?.energy,
+                homeValue   : pwrValues ? pwrValues?.consumptionHome - energy : null,
+                carValue    : energy,
                 socValue    : pwrValues?.socBattery,
         ]
     }
@@ -550,17 +555,21 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     def errorContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
+        String cause = ''
+        def arg = ''
         ctx.put('networkError', networkError)
         ctx.put('errorResume', networkErrorResume)
         if (networkError) {
-            def key = networkException.toString().split(/:/)[1].trim()
-            def arg = ''
-            if (key.contains(' ')) {
-                def msg = key.split(/ /)
-                key = msg[0]
-                arg = msg.size() > 1 ? msg[1] : arg
+            def exceptionParts = networkException.toString().split(/:/)
+            if (exceptionParts.size() > 1 && exceptionParts[1]) {
+                def key = exceptionParts[1].trim()
+                if (key?.contains(' ')) {
+                    def msg = key.split(/ /)
+                    key = msg[0]
+                    arg = msg.size() > 1 ? msg[1] : arg
+                }
+                cause = ti18n.errorStrings.get(key)
             }
-            def cause = ti18n.errorStrings.get(key)
             cause = cause ? cause : networkException.toString()
             String pre
             if (networkErrorFatal) {

@@ -18,6 +18,8 @@ state "Active" as act {
     state "NotCharging" as nc
     nc: entry: sendNoSurplus
 
+    state ncj <<join>>
+
  '   state "Filling Stack" as fill
 
     state "evalPowerValues <<transient>>" as eval
@@ -57,7 +59,11 @@ state "Active" as act {
     tr -up-> ch : startCharging ||\ncontinueCharging
     tr -down-> hr : ampReduced
     hr -up-> ch : startCharging ||\ncontinueCharging
-    hr --> nc : [energy == 0]
+    hr -up-> ncj : [energy == 0] ||\n fullyCharged
+    tr -up-> ncj : fullyCharged
+    ch --> ncj : fullyCharged
+    ncj -up-> nc
+
 }
 
 pv --> eval

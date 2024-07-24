@@ -37,12 +37,14 @@ import org.joda.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 /**
- * observe and record communication behaviour between program and e3dc storage system
+ * observe and record communication behaviour between program and e3dc storage system<br>
+ * record state sequence of car charging
  */
 class PowerCommunicationRecorder implements PowerValueSubscriber {
     private static long CYCLE_TIME = 3600
     private static boolean AT_HOUR = true
     private static RecordingFile recordingFile
+    private static RecordingFile stateMessageFile
     /** recording cycle time */
     private long cycle
     /** recording time unit */
@@ -139,20 +141,18 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
     }
 
     @Override
-    void takePMException(Exception exception) {
+    void takeMonitorException(Exception exception) {
         def protocol = "${stamp.print(DateTime.now())}\tException\t$exception\t$exception.cause"
 //        println protocol
         recordingFile.appendReport(protocol)
     }
 
     @Override
-    void resumeAfterPMException() {
+    void resumeAfterMonitorException() {
         def protocol = "${stamp.print(DateTime.now())}\tResume"
 //        println protocol
         recordingFile.appendReport(protocol)
     }
-
-
 
     static void main(String[] args) {
         CYCLE_TIME = 30

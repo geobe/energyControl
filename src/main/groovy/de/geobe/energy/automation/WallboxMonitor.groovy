@@ -84,18 +84,27 @@ class WallboxMonitor implements WallboxValueProvider {
     private Runnable readWallbox = new Runnable() {
         @Override
         void run() {
-            def cwv = wallbox.values
-            valueSubscribers.each {
-                it.takeWallboxValues(cwv)
-            }
-            if (stateSubscribers) {
-                newState = calcChargingState(cwv)
-                if (newState != state) {
-                    state = newState
+            try {
+                def cwv = wallbox.values
+                valueSubscribers.each {
+                    it.takeWallboxValues(cwv)
+                }
+                if (stateSubscribers) {
+                    newState = calcChargingState(cwv)
+                    if (newState != state) {
+                        state = newState
 //                    println "values: $cwv\n\t-> CarChargingState: $state"
-                    stateSubscribers.each {
-                        it.takeWallboxState(state)
+                        stateSubscribers.each {
+                            it.takeWallboxState(state)
+                        }
                     }
+                }
+            } catch (Exception ex) {
+                ArrayList<MonitorExceptionSubscriber> subscribers = []
+                subscribers.addAll(stateSubscribers)
+                subscribers.addAll(valueSubscribers)
+                subscribers.toSet().each {
+                    it.takeMonitorException(ex)
                 }
             }
         }
@@ -124,10 +133,10 @@ class WallboxMonitor implements WallboxValueProvider {
         ) {
             // to be checked, same as stopped by car???
             result = CarChargingState.CHARGING_STOPPED_BY_CAR
-        } else if (values?.carState == Wallbox.CarState.COMPLETE
-                && values?.allowedToCharge == true) {
-            // to be checked, same as stopped by car???
-            result = CarChargingState.FULLY_CHARGED
+//        } else if (values?.carState == Wallbox.CarState.COMPLETE
+//                && values?.allowedToCharge == true) {
+//            // to be checked, same as stopped by car???
+//            result = CarChargingState.FULLY_CHARGED
         } else if (values?.forceState == Wallbox.ForceState.OFF
                 && values.allowedToCharge == false ) {
             result = CarChargingState.CHARGING_STOPPED_BY_APP
@@ -243,11 +252,27 @@ Takes some time before load current is back to requested
             void takeWallboxState(CarChargingState carState) {
                 println carState
             }
+            @Override
+            void takeMonitorException(Exception exception) {
+                println exception
+            }
+            @Override
+            void resumeAfterMonitorException() {
+                println 'resume after exception'
+            }
         }
         def WallboxValueSubscriber valueSubscriber = new WallboxValueSubscriber() {
             @Override
             void takeWallboxValues(WallboxValues values) {
                 println values
+            }
+            @Override
+            void takeMonitorException(Exception exception) {
+                println exception
+            }
+            @Override
+            void resumeAfterMonitorException() {
+                println 'resume after exception'
             }
         }
         WallboxMonitor.monitor.subscribeValue valueSubscriber
@@ -267,10 +292,10 @@ interface WallboxValueProvider {
     void unsubscribeValue(WallboxValueSubscriber subscriber)
 }
 
-interface WallboxStateSubscriber {
+interface WallboxStateSubscriber extends MonitorExceptionSubscriber {
     void takeWallboxState(WallboxMonitor.CarChargingState carState)
 }
 
-interface WallboxValueSubscriber {
+interface WallboxValueSubscriber extends MonitorExceptionSubscriber {
     void takeWallboxValues(WallboxValues values)
 }

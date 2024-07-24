@@ -25,7 +25,9 @@
 package de.geobe.energy.go_e
 
 import groovy.json.JsonSlurper
+import groovy.transform.AutoClone
 import groovy.transform.ImmutableOptions
+import groovy.transform.Sortable
 import groovy.transform.ToString
 
 class Wallbox implements IWallboxValueSource {
@@ -221,6 +223,8 @@ class Wallbox implements IWallboxValueSource {
     }
 }
 
+@AutoClone
+@Sortable(excludes = ['phaseSwitchMode'])
 @ImmutableOptions(knownImmutables = "carState")
 record WallboxValues(
         boolean allowedToCharge,

@@ -28,6 +28,7 @@ import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.e3dc.IStorageInteractionRunner
 import de.geobe.energy.go_e.WallboxValues
+import de.geobe.energy.recording.LogMessageRecorder
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 
@@ -55,11 +56,16 @@ class PowerMonitor implements WallboxValueSubscriber {
     private volatile WallboxValues wallboxValues
     /** all valueSubscribers to power values */
     private volatile List<PowerValueSubscriber> subscribers = []
+    /** all valueSubscribers to power values */
+    private volatile List<LogMessageRecorder> messageRecorders = []
     /** task to read power values periodically */
     private PeriodicExecutor executor
     /** remember exception state */
     private volatile boolean stoppedByException = false
     private volatile int exceptionCount = 0
+    /** store wallbox exception to propagate it */
+    private volatile Exception wallboxException
+    private volatile boolean hasWallboxException = false
 
     private static PowerMonitor monitor
     private static boolean constructionFailed = false
@@ -104,14 +110,19 @@ class PowerMonitor implements WallboxValueSubscriber {
      * them to all interested objects
      */
     private Runnable readPower = new Runnable() {
+        PMValues lastValues
+        String last
         @Override
         void run() {
             try {
-                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)//, powerPriceInfo.currentPrice())
+                if(hasWallboxException) {
+                    throw wallboxException
+                }
+                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
                 if (stoppedByException) {
                     // exception cause was repaired, so we can notify subscibers
                     subscribers.each {
-                        it.resumeAfterPMException()
+                        it.resumeAfterMonitorException()
                     }
                     stoppedByException = false
                 }
@@ -127,11 +138,15 @@ class PowerMonitor implements WallboxValueSubscriber {
                 }
                 if (!stoppedByException) {
                     subscribers.each {
-                        it.takePMException(ex)
+                        it.takeMonitorException(ex)
                     }
                     stoppedByException = true
                 }
             }
+        }
+
+        boolean stateChange(PMValues pmValues) {
+
         }
     }
 
@@ -154,6 +169,20 @@ class PowerMonitor implements WallboxValueSubscriber {
     @Override
     void takeWallboxValues(WallboxValues values) {
         wallboxValues = values
+        wallboxException = null
+        hasWallboxException = false
+    }
+
+    @Override
+    void takeMonitorException(Exception exception) {
+        wallboxException = exception
+        hasWallboxException = true
+    }
+
+    @Override
+    void resumeAfterMonitorException() {
+        wallboxException = null
+        hasWallboxException = false
     }
 
     @ActiveMethod(blocking = false)
@@ -170,6 +199,14 @@ class PowerMonitor implements WallboxValueSubscriber {
         subscribers.remove subscriber
         if (subscribers.size() == 0)
             stop()
+    }
+
+    void subscribeMessages(LogMessageRecorder recorder) {
+        messageRecorders.add recorder
+    }
+
+    void unsubscribeMessages(LogMessageRecorder recorder) {
+        messageRecorders.remove recorder
     }
 
     private start() {
@@ -199,12 +236,12 @@ class PowerMonitor implements WallboxValueSubscriber {
             }
 
             @Override
-            void takePMException(Exception exception) {
+            void takeMonitorException(Exception exception) {
                 println "$exception -> $exception.cause"
             }
 
             @Override
-            void resumeAfterPMException() {
+            void resumeAfterMonitorException() {
                 println "resumeAfterPMException"
             }
         }
@@ -215,10 +252,8 @@ class PowerMonitor implements WallboxValueSubscriber {
     }
 }
 
-interface PowerValueSubscriber {
+interface PowerValueSubscriber extends MonitorExceptionSubscriber {
     void takePMValues(PMValues pmValues)
-    void takePMException(Exception exception)
-    void resumeAfterPMException()
 }
 
 class PMValues {

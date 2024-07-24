@@ -106,12 +106,12 @@ class E3dcChargingModeController implements PowerValueSubscriber {
     }
 
     @Override
-    void takePMException(Exception exception) {
+    void takeMonitorException(Exception exception) {
         stopChargeControl()
     }
 
     @Override
-    void resumeAfterPMException() {
+    void resumeAfterMonitorException() {
         // don't resume at this level of control
     }
 /**

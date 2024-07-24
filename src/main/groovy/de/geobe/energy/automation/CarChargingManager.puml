@@ -10,86 +10,119 @@ state "Active" as act {
     act: entry: WallboxMonitor.subscribeState(this)
     act: exit: WallboxMonitor.unsubscribeState(this)
 
-     [*] -left-> noCar : [noCarConnected]
+     [*] -r-> noCar : [noCarConnected]
 
     state "NoCarConnected" as noCar
-'      nocl: entry: cancelCharging()
 
-    state "CarConnected" as carCon {
+'    state "CarConnected" as carCon {
 
-        state "ChargingStopped" as cStop
-            cStop: entry: stopCharging()
-            cStop: exit: forceDefaultIfStopped()
+        state "Chargeable" as cabl {
 
-        state "ChargePvSurplus" as cSurplus {
-          cSurplus: entry: PvChargeStrategy.startStrategy(this)
-          cSurplus: entry: stopCharging()
-          cSurplus: exit: PvChargeStrategy.stopStrategy(this)
-'          cSurplus: exit: stopCharging()
+        state "connect" as con  <<entryPoint>>
+        state "disconnect" as dcon  <<entryPoint>>
+        state "takeFullyCharged()" as fch  <<entryPoint>>
 
-          state "Surplus" as sp {
-           sp: exit: stopCharging()
+            state "ChargePvSurplus" as cSurplus {
+              cSurplus: entry: PvChargeStrategy.startStrategy(this)
+              cSurplus: entry: stopCharging()
+              cSurplus: exit: PvChargeStrategy.stopStrategy(this)
+    '          cSurplus: exit: stopCharging()
 
-            state "HasSurplus" as hasPlus {
-'                hasPlus: entry: setCurrent(v)
-                hasPlus: on: surplus(v) : setCurrent(v)
+              state "Surplus" as sp {
+               sp: exit: stopCharging()
+
+                state "HasSurplus" as hasPlus {
+    '                hasPlus: entry: setCurrent(v)
+                    hasPlus: on: surplus(v) : setCurrent(v)
+                }
+
+                state "WaitForExtCharge" as waitCh
+                    waitCh: entry: setCurrent(v)
+                    waitCh: entry: startCharging()
+                    waitCh: on: surplus(v) : setCurrent(v)
+
             }
 
-            state "WaitForExtCharge" as waitCh
-                waitCh: entry: setCurrent(v)
-                waitCh: entry: startCharging()
-                waitCh: on: surplus(v) : setCurrent(v)
+                state "NoSurplus" as noPlus {
+                  noPlus: on: noSurplus : ignore
+                  noPlus: on: extStopByApp : ignore
+                }
 
+            state lpstart <<start>>
+
+          }
+
+           state "ChargingStopped" as cStop
+               cStop: entry: stopCharging()
+               cStop: exit: forceDefaultIfStopped()
+
+          state "ChargeTibber" as cTibber
+              cTibber: entry: startTibberMonitor
+              cTibber: exit: stopTibberMonitor
+              cTibber: on: tibberGo : startCharging()
+              cTibber: on: tibberHalt : stopCharging()
+
+
+          state "ChargeAnyway" as cAnyway
+              cAnyway: entry: startCharging()
+              cAnyway: entry: setCurrent(maxCurrent)
+              cAnyway: exit:stopCharging()
+
+          state "switch" as choiceCmd <<choice>>
+
+          note top of choiceCmd
+            choice has semantic of switch/case,
+            \tsee sequence of cases
+          end note
+
+          note left of cStop
+              anyStop = stopCharging
+              \tStoppedByApp
+              \tStoppedByCar
+          end note
+
+          [H] -l-> choiceCmd : chargeCmdChanged
+          [*] --> choiceCmd
         }
 
-            state "NoSurplus" as noPlus {
-              noPlus: on: noSurplus : ignore
-              noPlus: on: extStopByApp : ignore
-            }
+      state "FullyCharged" as full {
 
-        state lpstart <<start>>
+        note as fullNote
+            FullyCharged obviously
+            can only be left
+            by disconnecting the car
+        end note
 
       }
 
-      state "ChargeTibber" as cTibber
-      cTibber: entry: startTibberMonitor
-      cTibber: exit: stopTibberMonitor
-      cTibber: on: tibberGo : startCharging()
-      cTibber: on: tibberHalt : stopCharging()
-
-
-      state "ChargeAnyway" as cAnyway
-        cAnyway: entry: startCharging()
-        cAnyway: entry: setCurrent(maxCurrent)
-        cAnyway: exit:stopCharging()
-
-      state "switch" as choiceCmd <<choice>>
-
-      note top of choiceCmd
-        choice has semantic of switch/case,
-        \tsee sequence of cases
+      note top of full
+            Seems that FullyCharged state of car
+            can only be determined by trying to
+            charge it. So there is no direct way
+            into this state. Thus fullyCharged
+            event must be triggered by algorithms
+            running inside of one of the
+            ChargeXXX states, eg. PVChargeStrategy.
       end note
 
-      note "anyStop = FullyCharged || \n\tStoppedByCar||\n\tStoppedByApp||\n\tcmdChargeStop" as NcarCon
-
-      [H] -l-> choiceCmd : chargeCmdChanged
-      [*] --> choiceCmd
-    }
-     [*] --> carCon : [isCarConnected]
+'    }
+     [*] --> con : [isCarConnected]
 
 }
+dcon -u-> noCar : carDisconnected
+full -l-> noCar : carDisconnected
 cSurplus -down-> cStop : anyStop
+fch -u-> full : fullyCharged
 cTibber -down-> cStop : anyStop
 cAnyway --> cStop : anyStop
-carCon -up-> noCar : carDisconnected
 
 choiceCmd -l-> cSurplus : [4: cmdChargePvSurplus]
 choiceCmd --> cAnyway : [2: cmdChargeAnyway]
-choiceCmd --> cStop : [1: anyStop]
+choiceCmd --> cStop : [1: cmdChargeStop]
 choiceCmd --> cTibber : [3: cmdChargeTibber]
 cStop -up-> choiceCmd : extStartCmd
 
-noCar --> carCon : carConnected
+noCar --> con : carConnected
 inAct -down-> act : activate
 act -up-> inAct : deactivate
 

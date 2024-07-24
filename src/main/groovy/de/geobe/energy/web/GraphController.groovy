@@ -355,14 +355,15 @@ class GraphController {
      * @return the snapshots dequeue
      */
     def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
-        short cHome = powerValues.consumptionHome - wallboxValues.energy
+        short energy = (wallboxValues?.energy)?:0
+        short cHome = powerValues.consumptionHome - energy
         def snap = new Snapshot(
                 powerValues.timestamp.toEpochMilli(),
                 (short) powerValues.powerSolar,
                 (short) powerValues.powerBattery,
                 (short) powerValues.powerGrid,
                 cHome,
-                wallboxValues.energy,
+                energy,
                 (short) powerValues.socBattery
         )
         def timestamp = powerValues.timestamp.toEpochMilli()
