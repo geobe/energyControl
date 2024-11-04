@@ -167,6 +167,16 @@ class E3dcRequests {
         ]
     }
 
+    /**
+     * request a value of ems<br>
+     * unfortunately, most values are badly documented
+     * @param tag RSCPTag of value request, e.g.
+     */
+    static emsValueRequest = {RSCPTag tag ->
+        // TAG_EMS_REQ_STATUS
+        [new RequestElement(tag: tag)]
+    }
+
 }
 
 /**

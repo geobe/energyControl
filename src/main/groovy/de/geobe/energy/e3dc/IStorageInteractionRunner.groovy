@@ -72,10 +72,12 @@ interface IStorageInteractionRunner {
  * data structure to hold actual power data
  */
 @ImmutableOptions(knownImmutableClasses = [Instant])
-record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar, int consumptionHome, int socBattery) {
+record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int powerSolar,
+                   int consumptionHome, int socBattery, int forceLoad) {
     @Override
     String toString() {
-        "Power -> sun: $powerSolar, soc: $socBattery, home: $consumptionHome, bat: $powerBattery, grid: $powerGrid"
+        "Power -> sun: $powerSolar, soc: $socBattery, home: $consumptionHome, " +
+                "bat: $powerBattery, grid: $powerGrid, forcedChargeing: $forceLoad"
     }
 }
 

@@ -34,12 +34,13 @@ record PowerStrategyParams(
         int minBatLoadPower = 200,      // Watt
         int minBatUnloadPower = 200,    // Watt
         int maxBatUnloadPower = 1500,   // Watt
+        int stopChargingBelow = 3500,   // Watt, finish car charging threshold
         int toleranceStackSize = 10,    // # of values on valueStack for averages
         int tibMaxBatLoad = 80,         // Percent
         int tibLowHighDiff = 5,         // Euro-Cent
         int tibLowPrice = 18,           // Euro-Cent
         int tibHighPrice = 33,          // Euro-Cent
-        int tibChargeBelow = 18           // Euro-Cent
+        int tibChargeBelow = 18         // Euro-Cent
 ) {
     PowerStrategyParams(PowerStrategyParams o) {
         batPower = o.batPower
@@ -51,6 +52,7 @@ record PowerStrategyParams(
         minBatLoadPower = o.minBatLoadPower
         minBatUnloadPower = o.minBatUnloadPower
         maxBatUnloadPower = o.maxBatUnloadPower
+        stopChargingBelow = o.stopChargingBelow
         toleranceStackSize = o.toleranceStackSize
         tibMaxBatLoad = o.tibMaxBatLoad
         tibLowHighDiff = o.tibLowHighDiff

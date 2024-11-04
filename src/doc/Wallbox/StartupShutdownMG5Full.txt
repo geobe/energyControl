@@ -1,0 +1,13 @@
+before start Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: OFF, energy: 0
+set current: {"amp":true}
+start charging: {"frc":true}
+@00.0 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@0.457 s: Wallbox -> mayCharge: true, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@11.11505 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 980
+@11.11983 s: Wallbox -> mayCharge: true, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+proceed @40 s
+stop: {"frc":true}
+@120.120596 s: Wallbox -> mayCharge: true, req: 6, car: COMPLETE, force: OFF, energy: 0
+@121.121567 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: OFF, energy: 0
+end @130 s
+

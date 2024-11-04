@@ -56,8 +56,15 @@
             </div>
             {% include "./statebuttons.peb" %}
             <!-- Charge settings pane -->
-           {% include "./settings.peb" %}
-
+            {% include "./settings.peb" %}
+            <!-- power buffering control pane -->
+            <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
+             onClick="accordeon('timetable-show')">
+              <h5 class="w3-margin-left">{{ bufCtlTitle }} &raquo;</h5>
+            </div>
+            <div id="timetable-show" class=" w3-hide w3show">
+            {% include "./storagecontrol.peb" %}
+            </div>
             <!-- Select energy charts -->
             <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
                 onClick="accordeon('charts')">

@@ -1,0 +1,25 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 650 width
+
+state "WaitForData" as wait
+    wait: push(newData)
+state "Evaluate" as eval
+    eval: push(newData)
+state "FullyCharged" as full
+
+[H] --> wait
+wait --> full : [enough() && full()]
+wait --> eval : [enough() && !full()]
+eval -> full : [full()]
+
+state test {
+json jsonJ {
+   "fruit":"Apple",
+   "size":"Large",
+   "color": ["Red", "Green"],
+   "ch": {"a":"A", "b": "B", "l3":{"bert": "ram"}}
+}
+}
+@enduml

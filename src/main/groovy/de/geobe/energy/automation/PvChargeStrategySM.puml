@@ -62,7 +62,7 @@ state "Active" as act {
     hr -up-> ncj : [energy == 0] ||\n fullyCharged
     tr -up-> ncj : fullyCharged
     ch --> ncj : fullyCharged
-    ncj -up-> nc
+    ncj -up-> nc : :sendFullyCharged()
 
 }
 

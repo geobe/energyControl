@@ -148,7 +148,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                 case WallboxMonitor.CarChargingState.UNDEFINED:
                     executeEvent(ChargeEvent.CarDisconnected)
                     break
-                case WallboxMonitor.CarChargingState.CHARGING_ANYWAY:
+                case WallboxMonitor.CarChargingState.FORCE_CHARGING:
                     chargeManagerStrategy = ChargeManagerStrategy.CHARGE_ANYWAY
                 case WallboxMonitor.CarChargingState.WAIT_CAR:
                 case WallboxMonitor.CarChargingState.CHARGING:
@@ -221,7 +221,7 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private void executeEvent(ChargeEvent event, def param = null) {
-        def evTrigger = "CCMgr $chargeState --$event${param ? '(' + param + ')' : ''}-> "
+        def evTrigger = "$chargeState --$event${param ? '(' + param + ')' : ''}-> "
         switch (event) {
             case ChargeEvent.Activate:
                 switch (chargeState) {
@@ -366,7 +366,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                 execStop()
                 chargeState = ChargeManagerState.FullyCharged
         }
-        println "CarChargingManager -> $evTrigger $chargeState @ ${WallboxMonitor.monitor.current.state}"
+//        println "CarChargingManager -> $evTrigger $chargeState @ ${WallboxMonitor.monitor.current.state}"
     }
 
     /**
@@ -435,7 +435,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                     if (actualCarChargingState in [
                             WallboxMonitor.CarChargingState.WAIT_CAR,
                             WallboxMonitor.CarChargingState.CHARGING,
-                            WallboxMonitor.CarChargingState.CHARGING_ANYWAY]) {
+                            WallboxMonitor.CarChargingState.FORCE_CHARGING]) {
                         ChargeManagerState.WaitForExtCharge
                     } else {
                         ChargeManagerState.NoSurplus
@@ -484,7 +484,7 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     private startChargingRemote() {
-        WallboxMonitor.monitor.startChargingRemote()
+        WallboxMonitor.monitor.forceStartCharging()
     }
 
     private setCurrent(int amp = 0) {

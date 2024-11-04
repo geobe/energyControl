@@ -75,6 +75,10 @@ class EnergyControlUI {
 
 //        get('/graph', valueController.graphRoute)
 
+        post('bufCtlCmd/:action/v/:value', valueController.storagePost)
+
+        post('bufCtlHour/:action', valueController.storagePost)
+
         post('/graph', valueController.graphPost)
 
         post('/graphData', valueController.graphDataPost)

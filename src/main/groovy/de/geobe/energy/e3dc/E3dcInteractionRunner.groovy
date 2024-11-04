@@ -24,12 +24,13 @@
 
 package de.geobe.energy.e3dc
 
+import io.github.bvotteler.rscp.RSCPTag
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.joda.time.format.DateTimeFormat
 
 /**
- *
+ * run interactions with e3dc storage system by combining low level commands
  */
 class E3dcInteractionRunner implements IStorageInteractionRunner {
 
@@ -49,6 +50,9 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     String e3dcPortalUser = ''
     String e3dcPortalPassword = ''
     E3dcInteractions interactions
+
+    private byte storageMode = AUTO
+    private int watts = 0
 
     private static E3dcInteractionRunner runner
 
@@ -96,6 +100,24 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
+     * E3dc storage system is quite SENSITIVE in setting non-auto storage modes. Modes other than AUTO
+     * will return to AUTO automatically (no pun intended) after ~30 sec or when power values are requested,
+     * maybe also when other requests are executed.
+     * @param mode one of AUTO, IDLE, UNLOAD, LOAD, GRIDLOAD
+     * @param watts set load power to watts
+     * @return
+     */
+    def setStorageMode(byte mode, int watts) {
+        if(mode in [AUTO, IDLE, UNLOAD, LOAD, GRIDLOAD]) {
+            storageMode = mode
+            this.watts = watts
+        } else {
+            storageMode = AUTO
+            this.watts = 0
+        }
+    }
+
+    /**
      * Implementation of {@link IStorageInteractionRunner#getCurrentValues()}
      * Get current values for PV production, grid in, grid out,
      * house consumption, battery SoC and maybe more
@@ -104,6 +126,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
      */
     @Override
     PowerValues getCurrentValues() throws Exception {
+        int loadPower = 0
+        if(storageMode in [IDLE, UNLOAD, LOAD, GRIDLOAD]) {
+            loadPower = storageLoadMode(storageMode, watts)
+        }
         def current = interactions.sendRequest(E3dcRequests.liveDataRequests)
         new PowerValues(
                 current.Timestamp,
@@ -111,8 +137,27 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
                 current.EMS_POWER_GRID,
                 current.EMS_POWER_PV,
                 current.EMS_POWER_HOME,
-                current.EMS_BAT_SOC
+                current.EMS_BAT_SOC,
+                loadPower
         )
+    }
+
+    /**
+     * Implementation of {@link IStorageInteractionRunner#storageLoadMode(byte, int)} ()}
+     * Set storage system operation mode, e.g. load from grid
+     * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
+     * All modes except auto will reset to auto after ca. 30 seconds.
+     * @param watts set load power to watts
+     * @return power that was actually set
+     * @throws Exception, if connection to storage system fails
+     */
+    @Override
+    def storageLoadMode(byte mode, int watts) throws Exception {
+        if (mode in [AUTO, IDLE]) {
+            watts = 0
+        }
+        def response = interactions.sendRequest(E3dcRequests.loadFromGridRequest(mode, watts))
+        response.EMS_SET_POWER
     }
 
     /**
@@ -154,22 +199,10 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
         historyMap
     }
 
-    /**
-     * Implementation of {@link IStorageInteractionRunner#storageLoadMode(byte, int)} ()}
-     * Set storage system operation mode, e.g. load from grid
-     * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
-     * All modes except auto will reset to auto after ca. 30 seconds.
-     * @param watts set load power to watts
-     * @return power that was actually set
-     * @throws Exception, if connection to storage system fails
-     */
-    @Override
-    def storageLoadMode(byte mode, int watts) throws Exception {
-        if (mode in [AUTO, IDLE]) {
-            watts = 0
-        }
-        def response = interactions.sendRequest(E3dcRequests.loadFromGridRequest(mode, watts))
-        response.EMS_SET_POWER
+    def storageStatus() {
+        def responseStatus = interactions.sendRequest(E3dcRequests.emsValueRequest(RSCPTag.TAG_EMS_REQ_STATUS))
+        def responseMode = interactions.sendRequest(E3dcRequests.emsValueRequest(RSCPTag.TAG_EMS_REQ_MODE))
+        println "status: $responseStatus, mode: $responseMode"
     }
 
     /**
@@ -190,31 +223,31 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
 
     static void main(String[] args) {
         def interactionRunner = getInteractionRunner()
-//        def live = interactionRunner.currentValues
-//        println "initial $live"
+        def live = interactionRunner.currentValues
+        println "initial $live"
 
-        def dayOfMonth = DateTime.now().dayOfMonth
-        def start = new DateTime(2023, 11, dayOfMonth - 1, 0, 0)
-        def history = interactionRunner.getHistoryValues(start, HOUR, 2*24)
-        def ddmmyy =  DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
-        def hmm =  DateTimeFormat.forPattern('H')
-        history.keySet().each { dateTime ->
-            if (dateTime.hourOfDay == 0) {
-                def day = ddmmyy.print(dateTime)
-                println("\n$day")
-            }
-            print "${hmm.print dateTime}: ${history[dateTime].homeConsumption().round()}, "
-        }
-
-//        def load
-//        for (i in 0..2) {
-//            load = interactionRunner.storageLoadMode(GRIDLOAD, 3000)
-//            println "Gridload: <- $load"
-//            Thread.sleep(10000)
-//            live = interactionRunner.currentValues
-//            println "loop $i, live: $live"
-//            Thread.sleep(10000)
+//        def dayOfMonth = DateTime.now().dayOfMonth
+//        def start = new DateTime(2024, 6, dayOfMonth - 1, 0, 0)
+//        def history = interactionRunner.getHistoryValues(start, HOUR, 2*24)
+//        def ddmmyy =  DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+//        def hmm =  DateTimeFormat.forPattern('H')
+//        history.keySet().each { dateTime ->
+//            if (dateTime.hourOfDay == 0) {
+//                def day = ddmmyy.print(dateTime)
+//                println("\n$day")
+//            }
+//            print "${hmm.print dateTime}: ${history[dateTime].homeConsumption().round()}, "
 //        }
+
+        def load
+        for (i in 0..2) {
+            load = interactionRunner.storageLoadMode(GRIDLOAD, 1000)
+            live = interactionRunner.currentValues
+            println "loop $i, live: $live, load: $load"
+//            Thread.sleep(10000)
+//            println "loop $i, live: $live"
+            Thread.sleep(20000)
+        }
 //        live = interactionRunner.currentValues
 //        println "after loop: $live"
 //        load = interactionRunner.storageLoadMode(IDLE, 0)

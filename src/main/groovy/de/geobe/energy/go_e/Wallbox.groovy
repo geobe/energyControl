@@ -28,7 +28,6 @@ import groovy.json.JsonSlurper
 import groovy.transform.AutoClone
 import groovy.transform.ImmutableOptions
 import groovy.transform.Sortable
-import groovy.transform.ToString
 
 class Wallbox implements IWallboxValueSource {
     enum ForceState {
@@ -127,27 +126,27 @@ class Wallbox implements IWallboxValueSource {
     }
 
     /**
-     * sends request to wallbox api to start loading
+     * sends request to wallbox api to start charging
      * @return human readable response
      */
     def startCharging() {
-        // seems that NEUTRAL delegates loading state to the car (which makes sense)
+        // seems that NEUTRAL delegates charging state to the car (which makes sense)
         def uri = setRequest + "frc=${ForceState.NEUTRAL.ordinal()}"
         new URL(uri).text
     }
 
     /**
-     * sends request to wallbox api to start loading, overriding car state
+     * sends request to wallbox api to start charging, overriding car state
      * @return human readable response
      */
-    def startChargingRemote() {
-        // seems that ON overrides loading state of car (master is control program)
+    def forceStartCharging() {
+        // seems that ON overrides charging state of car (master is control program)
         def uri = setRequest + "frc=${ForceState.ON.ordinal()}"
         new URL(uri).text
     }
 
     /**
-     * sends request to wallbox api to stop loading
+     * sends request to wallbox api to stop charging
      * @return human readable response
      */
     def stopCharging() {
@@ -156,8 +155,8 @@ class Wallbox implements IWallboxValueSource {
     }
 
     /**
-     * sends request to wallbox api to set loading current
-     * @param current loading current in A, is limited between min and max values from properties
+     * sends request to wallbox api to set charging current
+     * @param current charging current in A, is limited between min and max values from properties
      * @return human readable response
      */
     def setChargingCurrent(short current) {
@@ -180,26 +179,45 @@ class Wallbox implements IWallboxValueSource {
         Wallbox wb = Wallbox.wallbox
         println "before start ${wb.getValues()}"
         println "set current: ${ wb.setChargingCurrent((short) 6) }"
-        println "start charging: ${wb.startChargingRemote()}"
+        println "start charging: ${wb.startCharging()}"
+        long run
         def start = System.currentTimeMillis()
-        for (i in 0..<20) {
-            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
-            i++
-            Thread.sleep(1000)
+        def previousValues = wb.values
+        println "@00.0 s: $previousValues"
+        while ((run = System.currentTimeMillis() - start) < 40000) {
+            def values = wb.values
+            if(values.differs(previousValues)) {
+                previousValues = values
+                def s = run.intdiv(1000)
+                def ms = run - s
+                println "@$s.$ms s: $values"
+            }
+            Thread.sleep(100)
         }
-        println "proceed @${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
-        for (i in 0..<2) {
-            i++
-            Thread.sleep(60000)
-            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
+        println "proceed @${(System.currentTimeMillis() - start).intdiv(1000)} s"
+        while ((run = System.currentTimeMillis() - start) < 120000) {
+            def values = wb.values
+            if(values.differs(previousValues)) {
+                previousValues = values
+                def s = run.intdiv(1000)
+                def ms = run - s
+                println "@$s.$ms s: $values"
+            }
+            Thread.sleep(100)
         }
+        previousValues = wb.values
         println "stop: ${wb.stopCharging()}"
-        for (i in 0..<5) {
-            println "@${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
-            i++
-            Thread.sleep(1000)
+        while ((run = System.currentTimeMillis() - start) < 130000) {
+            def values = wb.values
+            if(values.differs(previousValues)) {
+                previousValues = values
+                def s = run.intdiv(1000)
+                def ms = run - s
+                println "@$s.$ms s: $values"
+            }
+            Thread.sleep(100)
         }
-        println "end @${(start - System.currentTimeMillis()).intdiv(1000)} s: ${wb.getValues()}"
+        println "end @${(System.currentTimeMillis() - start).intdiv(1000)} s"
     }
 
     /**
@@ -236,7 +254,13 @@ record WallboxValues(
 ) {
     @Override
     String toString() {
-        "Wallbox -> mayCharge: $allowedToCharge, req: $requestedCurrent, car: $carState, force: $forceState, energy: $energy, phases: $phaseSwitchMode"
+        "Wallbox -> mayCharge: $allowedToCharge, req: $requestedCurrent, car: $carState, force: $forceState, energy: $energy"
+    }
+
+    boolean differs(WallboxValues o, short deltaE = 200) {
+        def realDeltaE = Math.abs(energy - o.energy) >= deltaE
+        realDeltaE || allowedToCharge != o.allowedToCharge || requestedCurrent != o.requestedCurrent ||
+                carState != o.carState || forceState != o.forceState
     }
 }
 

@@ -1,0 +1,110 @@
+/*
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2024. Georg Beier. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package de.geobe.energy.web
+
+import de.geobe.energy.automation.CurrentPowerPrices
+import de.geobe.energy.automation.PowerPriceMonitor
+import de.geobe.energy.automation.PowerPriceSubscriber
+import de.geobe.energy.automation.PowerStorageStatic
+import org.joda.time.DateTime
+
+class StorageController implements PowerPriceSubscriber {
+
+    private PowerStorageStatic powerStorageStatic = PowerStorageStatic.powerStorage
+    private ValueController valueController
+    private CurrentPowerPrices powerPrices
+
+    StorageController(ValueController vController) {
+        PowerPriceMonitor.monitor.subscribe this
+        valueController = vController
+    }
+
+    synchronized storageControlContext(Map<String, Map<String, String>> ti18n) {
+        def bufCtlStates = []
+        def bufCtlPrices = []
+        def hourNow = DateTime.now().hourOfDay
+        def hours = powerStorageStatic.timetable
+        hours.eachWithIndex { storageMode, hour ->
+            def entry = [state: storageMode.toString()]
+            float price
+            boolean today
+            if (hour < hourNow) {
+                price = powerPrices.tomorrow?.size() ? powerPrices.tomorrow[hour].price : 0.0
+                today = false
+            } else {
+                price = powerPrices.today[hour].price
+                today = true
+            }
+            def fPrice =  String.format('%.1f', price * 100)
+            def bPrice = today? '<b>'+fPrice+'</b>' : fPrice
+            entry.put('price', bPrice)
+            entry.put('today', today )//? 'true' : 'false')
+            bufCtlStates << entry
+        }
+        def ctx = [
+                bufCtlTitle   : ti18n.headingStrings.bufCtlTitle,
+                bufCtlHourly  : ti18n.bufCtl.bufCtlHourly,
+                bufCtlActive  : ti18n.bufCtl.bufCtlActive,
+                bufCtlInactive: ti18n.bufCtl.bufCtlInactive,
+                bufCtlStates  : bufCtlStates,
+                bufCtlPrices  : bufCtlPrices
+        ]
+        if (powerStorageStatic.active) {
+            ctx.put('checkedBufCtlActive', 'checked')
+        } else {
+            ctx.put('checkedBufCtlInactive', 'checked')
+        }
+        def selectMap = [day    : powerStorageStatic.socDay,
+                         night  : powerStorageStatic.socNight,
+                         reserve: powerStorageStatic.socReserve]
+        def socList = []
+        for (soc in socLabels.keySet()) {
+            def socMap = [label  : ti18n.bufCtlLabels[socLabels[soc]],
+                          name   : socLabels[soc],
+                          target : socLabels[soc],
+                          options: (soc == 'reserve' ?
+                                  PowerStorageStatic.reserveTargets :
+                                  PowerStorageStatic.socTargets),
+                          select : selectMap[soc]
+            ]
+            socList << socMap
+        }
+        ctx.put('bufCtlSocSelect', socList)
+        ctx
+    }
+
+    static final socLabels = [day    : 'bufCtlSocDay',
+                              night  : 'bufCtlSocNight',
+                              reserve: 'bufCtlSocReserve']
+
+    @Override
+    void takePriceUpdate(CurrentPowerPrices prices) {
+        powerPrices = prices
+        def ctx = storageControlContext(valueController.tGlobal)
+        def out = valueController.streamOut(
+                valueController.getStorageControlTemplate(), ctx)
+        valueController.updateWsValues(out)
+    }
+}

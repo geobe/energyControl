@@ -2,9 +2,15 @@
 'https://plantuml.com/activity-diagram-beta
 
 scale 1.5
+
 start
 :takePowerValues();
-if (houseConsumption - loadPower > stopThreshold) then (yes)
+floating note right
+    minimalPowerBalance = powerSolar
+         - consumptionHome
+         - minimalChargingPower
+end note
+if (minimalPowerBalance > stopThreshold) then (yes)
     :sendNoSurplus();
     stop
 else (no)

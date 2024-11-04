@@ -1,0 +1,57 @@
+<div id="div-power-buffering">
+    <div id="bufCtl-buttons" class="w3-col w3-padding-small">
+        <h4>{{ bufCtlHourly }}</h4>
+        <div class="w3-col w3-yellow s12 m6 l6 w3-left">
+          <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlActive }}
+          hx-post="bufCtlHour/start" hx-target="#div-power-buffering" hx-swap="outerHTML">
+          <label>{{ bufCtlActive }}</label>
+        </div>
+        <div class="w3-col w3-light-grey s12 m6 l6 w3-left">
+          <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlInactive}}
+          hx-post="bufCtlHour/stop" hx-target="#div-power-buffering" hx-swap="outerHTML">
+          <label>{{ bufCtlInactive }}</label>
+        </div>
+    </div>
+    <div id="timetable-grid" class="w3-col w3-light-grey w3-padding-small">
+        {% for bufCtlState in bufCtlStates %}
+            {% set hour=loop.index %}
+            {% autoescape false %}
+            <div class="w3-col s2 m1 l1 w3-left">
+                <p class="w3-btn w3-block w3-border w3-border-black w3-round {{ stateColor(state=bufCtlState.state, today=bufCtlState.today) }}"
+                    id="sg-hour-{{ hour }}" type="button" name="sg-hour-{{ hour }}"
+                    value="{{ hour }}" {{ hour }}
+                    hx-post="bufCtlHour/{{ hour }}">{{ hour }}{{ '<br>' }}{{ bufCtlState.price }} &cent;</p>
+            </div>
+            {% endautoescape %}
+        {% endfor %}
+    </div>
+    {% for socSelect in bufCtlSocSelect %}
+    <div id="bufCtlSoc-select" class="w3-col w3-padding  w3-light-grey s12 m4 l4 w3-left">
+        <label class="w3-label">{{ socSelect.label }}</label>
+        <select class="w3-select" name="{{ socSelect.name }}"
+        hx-post="bufCtlHour/{{ socSelect.target }}" hx-target="#div-power-buffering"
+        hx-include="[name='{{ socSelect.name }}']" hx-swap="outerHTML">
+        {% for socOption in socSelect.options %}
+          <option value="{{ socOption }}"{{ socOption == socSelect.select? ' selected' : '' }}>{{ socOption }} %</option>
+        {% endfor %}
+        </select>
+    </div>
+    {% endfor %}
+</div>
+
+{% macro stateColor(state, today) %}
+    {% if state == 'AUTO' and today %}
+        w3-green
+    {% elseif state == 'GRID_CHARGE' and today %}
+        w3-deep-orange
+    {% elseif state == 'NO_DISCHARGE' and today %}
+        w3-indigo
+    {% elseif state == 'AUTO' and not today %}
+        w3-vivid-yellow-green
+    {% elseif state == 'GRID_CHARGE' and not today %}
+        w3-vivid-orange
+    {% elseif state == 'NO_DISCHARGE' and not today %}
+        w3-vivid-blue
+    {% endif %}
+{% endmacro %}
+

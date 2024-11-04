@@ -105,7 +105,7 @@ class PowerPriceMonitor {
         def secondsToPeriod = secondsAway % cycle
         println "PowerPriceMonitor started with $cycle $timeUnit period, " +
                 "starting in ${secondsToPeriod + settlingOffset} $timeUnit"
-        executor = new PeriodicExecutor(powerPrices, cycle, timeUnit, secondsToPeriod)
+        executor = new PeriodicExecutor(powerPrices, cycle, timeUnit, secondsToPeriod + settlingOffset)
         executor.start()
     }
 

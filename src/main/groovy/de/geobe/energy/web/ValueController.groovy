@@ -53,6 +53,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     private PowerMonitor powerMonitor
     private WallboxMonitor wbMonitor
     private LogMessageRecorder logMessageRecorder
+    private PowerStorageStatic powerStorage
 //    private PowerPriceMonitor powerPriceMonitor
     /** shortcut to car charging manager singleton */
     private carChargingManager = CarChargingManager.carChargingManager
@@ -84,6 +85,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     EnergySettings es = new EnergySettings(this, tGlobal)
     GraphController gc = new GraphController(tGlobal)
     TibberController tibc = new TibberController(this)
+    StorageController stoc = new StorageController(this)
 
     /** translate pebble templates to java code */
     PebbleEngine engine
@@ -101,6 +103,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def graphButton = engine.getTemplate('template/chartbutton.peb')
     def tibberGraph = engine.getTemplate('template/tibbergraph.peb')
     def networkErrorTemplate = engine.getTemplate('template/networkerror.peb')
+    def storageControlTemplate = engine.getTemplate('template/storagecontrol.peb')
 
     void init() {
         try {
@@ -126,8 +129,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             chargingDetail = carChargingManager.chargeManagerStrategyDetail
             chargeManagerState = carChargingManager.chargeManagerState
 //            currentPrice = currentPowerPrice()
-            powerMonitor.initCycle(5, 0)
+            powerMonitor.initCycle(PowerMonitor.CYCLE_TIME, 0)
             powerMonitor.subscribe(this)
+            powerStorage = PowerStorageStatic.powerStorage
             wbMonitor.subscribeState(this)
             logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
         } catch (Exception exception) {
@@ -231,6 +235,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         ctx.putAll(tibc.createTibberDataCtx(ti18n))
         ctx.putAll(stringsI18n.i18nCtx(ti18n, uiLanguage))
         ctx.putAll(gc.graphControlValues())
+        ctx.putAll(stoc.storageControlContext(ti18n))
         ctx.putAll(errorContext(ti18n))
         ctx
     }
@@ -317,6 +322,46 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         } else {
             upd
         }
+    }
+
+    Route storagePost = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        def action = req?.params(':action')
+        if (action?.isInteger()) {
+            int hour = action?.toInteger()
+            if (hour in 0..23) {
+                powerStorage.incModeAt(hour)
+            }
+        } else {
+//            def qraw = req.queryParams(action)?.split()
+            def qparam = req.queryParams(action) //qraw?[0]
+            def value = qparam?.integer ? qparam.toInteger() : 0
+            switch (action) {
+                case 'stop':
+                    powerStorage.setActive(false)
+                    break
+                case 'start':
+                    powerStorage.setActive(true)
+                    break
+                case 'bufCtlSocDay':
+                    powerStorage.socDay = value
+                    break
+                case 'bufCtlSocNight':
+                    powerStorage.socNight = value
+                    break
+                case 'bufCtlSocReserve':
+                    powerStorage.socReserve = value
+                    break
+                default:
+                    println ":action $action"
+            }
+        }
+        def ti18n = tGlobal
+        def ctx = stoc.storageControlContext(ti18n)
+        def out = streamOut(storageControlTemplate, ctx)
+        updateWsValues(out)
+        resp.status 200
+        ''
     }
 
     Route graphPost = { Request req, Response resp ->
@@ -503,7 +548,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 
     /** realtime analog values for dashboard */
     def powerValues() {
-        def energy = (wbValues?.energy)?:0
+        def energy = (wbValues?.energy) ?: 0
         def ctx = [
                 pvValue     : pwrValues?.powerSolar,
                 gridValue   : pwrValues?.powerGrid,

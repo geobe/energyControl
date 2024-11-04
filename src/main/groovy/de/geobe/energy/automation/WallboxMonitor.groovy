@@ -24,9 +24,10 @@
 
 package de.geobe.energy.automation
 
-import de.geobe.energy.go_e.IWallboxValueSource
+
 import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
+import de.geobe.energy.recording.LogMessageRecorder
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 
@@ -62,15 +63,22 @@ class WallboxMonitor implements WallboxValueProvider {
     static enum CarChargingState {
         UNDEFINED,
         NO_CAR,
-        WAIT_CAR,
+        WAIT_CAR,               // transient ?
+        NOT_CHARGING,
+        CHARGE_REQUEST_0,       // transient
+        CHARGE_REQUEST_1,       // transient
+        STARTUP_CHARGING,       // transient
         CHARGING,
-        CHARGING_ANYWAY,
+        FORCE_CHARGING,
+        STOP_REQUEST_0,         // transient
+        STOP_REQUEST_1,         // transient
+        FINISH_CHARGING,
         FULLY_CHARGED,
-        CHARGING_STOPPED_BY_APP,
-        CHARGING_STOPPED_BY_CAR,
+        STOPPED_FULL,
     }
 
-    private CarChargingState newState, state = CarChargingState.UNDEFINED
+    private volatile CarChargingState currentWbState, prevWbState = CarChargingState.UNDEFINED
+    private volatile WallboxValues prevWbValues, currentWbValues
 
     private static WallboxMonitor wbMonitor
 
@@ -85,17 +93,21 @@ class WallboxMonitor implements WallboxValueProvider {
         @Override
         void run() {
             try {
-                def cwv = wallbox.values
+                currentWbValues = wallbox.values
+                currentWbState = calcChargingState(currentWbValues)
+                if (!prevWbValues || prevWbValues?.differs(currentWbValues)) {
+                    def log = "$currentWbValues @ WbState -> $currentWbState"
+                    LogMessageRecorder.recorder.logMessage(log.toString())
+                }
+                prevWbValues = currentWbValues
                 valueSubscribers.each {
-                    it.takeWallboxValues(cwv)
+                    it.takeWallboxValues(currentWbValues)
                 }
                 if (stateSubscribers) {
-                    newState = calcChargingState(cwv)
-                    if (newState != state) {
-                        state = newState
-//                    println "values: $cwv\n\t-> CarChargingState: $state"
+                    if (currentWbState != prevWbState) {
+                        prevWbState = currentWbState
                         stateSubscribers.each {
-                            it.takeWallboxState(state)
+                            it.takeWallboxState(prevWbState)
                         }
                     }
                 }
@@ -111,35 +123,67 @@ class WallboxMonitor implements WallboxValueProvider {
     }
 
     @ActiveMethod(blocking = true)
-    private CarChargingState calcChargingState(WallboxValues values) {
+    private CarChargingState calcChargingState(WallboxValues v) {
         CarChargingState result
-        if (values?.carState == Wallbox.CarState.IDLE) {
-            result = CarChargingState.NO_CAR
-        } else if (values?.carState == Wallbox.CarState.WAIT_CAR) {
-            result = CarChargingState.WAIT_CAR
-        } else if (values?.carState == Wallbox.CarState.CHARGING
-//                && values?.forceState == Wallbox.ForceState.NEUTRAL     // necessary condition ?
-        ) {
-            if (values.requestedCurrent == wallbox.maxCurrent) {
-                // unconditionally switch to maximal charging current
-                result = CarChargingState.CHARGING_ANYWAY
-            } else {
-                // continueCharging with default charging mode
-                result = CarChargingState.CHARGING
-            }
-        } else if (values?.carState == Wallbox.CarState.COMPLETE
-                && values?.allowedToCharge == true
-                && values.forceState == Wallbox.ForceState.NEUTRAL
-        ) {
-            // to be checked, same as stopped by car???
-            result = CarChargingState.CHARGING_STOPPED_BY_CAR
-//        } else if (values?.carState == Wallbox.CarState.COMPLETE
-//                && values?.allowedToCharge == true) {
-//            // to be checked, same as stopped by car???
-//            result = CarChargingState.FULLY_CHARGED
-        } else if (values?.forceState == Wallbox.ForceState.OFF
-                && values.allowedToCharge == false ) {
-            result = CarChargingState.CHARGING_STOPPED_BY_APP
+        switch (v) {
+            case (v?.carState == Wallbox.CarState.IDLE):
+                result = CarChargingState.NO_CAR
+                break
+            case (v?.carState == Wallbox.CarState.WAIT_CAR):
+                result = CarChargingState.WAIT_CAR
+                break
+            case (!v.allowedToCharge
+                    && v.forceState == Wallbox.ForceState.OFF
+                    && v.carState == Wallbox.CarState.COMPLETE):
+                result = CarChargingState.NOT_CHARGING
+                break
+            case (!v.allowedToCharge
+                    && v.forceState in [Wallbox.ForceState.NEUTRAL, Wallbox.ForceState.ON]
+                    && v.carState == Wallbox.CarState.COMPLETE):
+                result = CarChargingState.CHARGE_REQUEST_0
+                break
+            case (v.allowedToCharge
+                    && v.forceState in [Wallbox.ForceState.NEUTRAL, Wallbox.ForceState.ON]
+                    && v.carState == Wallbox.CarState.COMPLETE):
+                if (prevWbValues.carState == Wallbox.CarState.CHARGING) {
+                    result = CarChargingState.FULLY_CHARGED
+                } else {
+                    result = CarChargingState.CHARGE_REQUEST_1
+                }
+                break
+            case (v.allowedToCharge
+                    && v.forceState in [Wallbox.ForceState.NEUTRAL, Wallbox.ForceState.ON]
+                    && v.carState == Wallbox.CarState.CHARGING):
+                if (prevWbState == CarChargingState.CHARGING) {
+                    result = (v.energy < 3800) ? CarChargingState.FINISH_CHARGING : CarChargingState.CHARGING
+                } else {
+                    result = (v.energy < 3800) ? CarChargingState.STARTUP_CHARGING : CarChargingState.CHARGING
+                }
+                break
+            case (v.allowedToCharge
+                    && v.forceState == Wallbox.ForceState.OFF
+                    && v.carState == Wallbox.CarState.CHARGING):
+                result = CarChargingState.STOP_REQUEST_0
+                break
+            case (!v.allowedToCharge
+                    && v.forceState == Wallbox.ForceState.OFF
+                    && v.carState == Wallbox.CarState.CHARGING):
+                result = CarChargingState.STOP_REQUEST_1
+                break
+            case (!v.allowedToCharge
+                    && v.forceState == Wallbox.ForceState.OFF
+                    && v.carState == Wallbox.CarState.COMPLETE):
+                if (prevWbState == CarChargingState.FULLY_CHARGED) {
+                    result = CarChargingState.STOPPED_FULL
+                } else {
+                    result = CarChargingState.NOT_CHARGING
+                }
+                break
+            case (v.allowedToCharge
+                    && v.forceState == Wallbox.ForceState.OFF
+                    && v.carState == Wallbox.CarState.COMPLETE):
+                result = CarChargingState.FULLY_CHARGED
+                break
         }
         result
     }
@@ -167,8 +211,8 @@ Takes some time before load current is back to requested
     }
 
     @ActiveMethod(blocking = true)
-    def startChargingRemote() {
-        wallbox.startChargingRemote()
+    def forceStartCharging() {
+        wallbox.forceStartCharging()
     }
 
     @ActiveMethod(blocking = true)
@@ -230,7 +274,7 @@ Takes some time before load current is back to requested
 
     private start() {
         println "wbMonitor started with $cycle $timeUnit period"
-        if (! executor) {
+        if (!executor) {
             executor = new PeriodicExecutor(readWallbox, cycle, timeUnit, initialDelay)
         }
         executor.start()
@@ -252,10 +296,12 @@ Takes some time before load current is back to requested
             void takeWallboxState(CarChargingState carState) {
                 println carState
             }
+
             @Override
             void takeMonitorException(Exception exception) {
                 println exception
             }
+
             @Override
             void resumeAfterMonitorException() {
                 println 'resume after exception'
@@ -266,10 +312,12 @@ Takes some time before load current is back to requested
             void takeWallboxValues(WallboxValues values) {
                 println values
             }
+
             @Override
             void takeMonitorException(Exception exception) {
                 println exception
             }
+
             @Override
             void resumeAfterMonitorException() {
                 println 'resume after exception'
@@ -289,6 +337,7 @@ Takes some time before load current is back to requested
 
 interface WallboxValueProvider {
     void subscribeValue(WallboxValueSubscriber subscriber)
+
     void unsubscribeValue(WallboxValueSubscriber subscriber)
 }
 

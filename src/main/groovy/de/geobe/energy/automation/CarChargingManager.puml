@@ -1,7 +1,7 @@
 @startuml
 'https://plantuml.com/state-diagram
 
-scale 1200 width
+scale 1000 width
 
 [*] -right-> inAct
 

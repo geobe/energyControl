@@ -26,6 +26,7 @@ package de.geobe.energy.automation
 
 
 import de.geobe.energy.go_e.Wallbox
+import de.geobe.energy.recording.LogMessageRecorder
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 
@@ -113,6 +114,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
     @ActiveMethod(blocking = false)
     void takePMValues(PMValues pmValues) {
 //        println "new power values $pValues"
+        def prevWbValues
         if (valueTrace.size() >= params.toleranceStackSize) {
             valueTrace.removeLast()
         }
@@ -154,6 +156,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
     private evalPower() {
 //        print '*'
         def currentValues = valueTrace.first()
+
 //        println currentValues
         def powerValues = currentValues.powerValues
         def wallboxValues = currentValues.wallboxValues
@@ -229,7 +232,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
 //                " car: $wallboxValues.energy, req $requestedCurrent, gradient: $chargeGradient" +
 //                ", surplus: $availableChargingPower, avgSun: $meanPSun, avgHome: $meanCHome, bat: $batBalance"
 //        def evTrace = " PvChargeStrategy: $chargingState --$chargingEvent"
-//        int caseTrace = 0
+        int caseTrace = 0
         // now we can execute the internal state chart
         switch (chargingEvent) {
             case ChargingEvent.stopCharging:

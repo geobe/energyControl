@@ -40,10 +40,12 @@ import java.util.concurrent.TimeUnit
  */
 @ActiveObject
 class PowerMonitor implements WallboxValueSubscriber {
+    static final CYCLE_TIME = 5
+    static final TimeUnit TIME_UNIT = TimeUnit.SECONDS
     /** subscription cycle time */
-    private long cycle = 5
+    private long cycle = CYCLE_TIME
     /** subscription time unit */
-    private TimeUnit timeUnit = TimeUnit.SECONDS
+    private TimeUnit timeUnit = TIME_UNIT
     /** first subscription initial delay */
     private long initialDelay = 0
     /** Reference to Power System */
@@ -55,9 +57,9 @@ class PowerMonitor implements WallboxValueSubscriber {
     /** wallbox values that are periodically updated by wbValuesProvider */
     private volatile WallboxValues wallboxValues
     /** all valueSubscribers to power values */
-    private volatile List<PowerValueSubscriber> subscribers = []
+    private volatile List<PowerValueSubscriber> subscribers = new LinkedList<>().asSynchronized()
     /** all valueSubscribers to power values */
-    private volatile List<LogMessageRecorder> messageRecorders = []
+    private volatile List<LogMessageRecorder> messageRecorders = new LinkedList<>().asSynchronized()
     /** task to read power values periodically */
     private PeriodicExecutor executor
     /** remember exception state */
@@ -112,10 +114,11 @@ class PowerMonitor implements WallboxValueSubscriber {
     private Runnable readPower = new Runnable() {
         PMValues lastValues
         String last
+
         @Override
         void run() {
             try {
-                if(hasWallboxException) {
+                if (hasWallboxException) {
                     throw wallboxException
                 }
                 def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
@@ -126,13 +129,15 @@ class PowerMonitor implements WallboxValueSubscriber {
                     }
                     stoppedByException = false
                 }
-                subscribers.each {
-                    it.takePMValues(pmValues)
+                synchronized (subscribers) {
+                    subscribers.each {
+                        it.takePMValues(pmValues)
+                    }
                 }
             } catch (Exception ex) {
 //                ex.printStackTrace()
                 // notify about exception only once every 10 minutes
-                if(++exceptionCount >= 120) {
+                if (++exceptionCount >= 120) {
                     exceptionCount = 0
                     stoppedByException = false
                 }
@@ -185,19 +190,24 @@ class PowerMonitor implements WallboxValueSubscriber {
         hasWallboxException = false
     }
 
-    @ActiveMethod(blocking = false)
+    @ActiveMethod(blocking = true)
     void subscribe(PowerValueSubscriber subscriber) {
         def willStart = subscribers.size() == 0
-        subscribers.add subscriber
+//        synchronized (subscribers) {
+            subscribers.add subscriber
+//        }
         if (willStart) {
             start()
         }
     }
 
-    @ActiveMethod
+    @ActiveMethod(blocking = true)
     void unsubscribe(PowerValueSubscriber subscriber) {
-        subscribers.remove subscriber
-        if (subscribers.size() == 0)
+        boolean removed
+//        synchronized (subscribers) {
+            removed = subscribers.remove subscriber
+//        }
+        if (removed && subscribers.size() == 0)
             stop()
     }
 

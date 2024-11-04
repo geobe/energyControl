@@ -1,0 +1,28 @@
+before start Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: OFF, energy: 0
+set current: {"amp":true}
+start charging: {"frc":true}
+@00.0 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@0.885 s: Wallbox -> mayCharge: true, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@11.11751 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 20
+@15.15870 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 520
+@16.16934 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 4170
+proceed @40 s
+externally stopped by app
+@47.47163 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: OFF, energy: 4080
+@47.47681 s: Wallbox -> mayCharge: false, req: 6, car: CHARGING, force: OFF, energy: 4080
+@48.48831 s: Wallbox -> mayCharge: false, req: 6, car: CHARGING, force: OFF, energy: 710
+@49.49839 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: OFF, energy: 0
+externally started by app
+@56.56411 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@56.56752 s: Wallbox -> mayCharge: true, req: 6, car: COMPLETE, force: NEUTRAL, energy: 0
+@59.58955 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 20
+@93.93135 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 720
+@94.94078 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 4280
+@97.97033 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: NEUTRAL, energy: 4070
+stop: {"frc":true}
+@120.120224 s: Wallbox -> mayCharge: true, req: 6, car: CHARGING, force: OFF, energy: 4080
+@121.120895 s: Wallbox -> mayCharge: false, req: 6, car: CHARGING, force: OFF, energy: 4080
+@122.122067 s: Wallbox -> mayCharge: false, req: 6, car: CHARGING, force: OFF, energy: 810
+@123.123130 s: Wallbox -> mayCharge: false, req: 6, car: COMPLETE, force: OFF, energy: 0
+end @130 s
+

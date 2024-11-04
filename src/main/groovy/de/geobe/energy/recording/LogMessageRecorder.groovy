@@ -50,8 +50,8 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
 
     LogMessageRecorder() {
         stateMessageFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'StateSequence', RecordingFile.Span.DAY)
-        WallboxMonitor.monitor.subscribeState this
-        WallboxMonitor.monitor.subscribeValue this
+//        WallboxMonitor.monitor.subscribeState this
+//        WallboxMonitor.monitor.subscribeValue this
     }
 
     volatile WallboxMonitor.CarChargingState carChargingState
