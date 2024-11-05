@@ -78,6 +78,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
         int hour = DateTime.now().hourOfDay
         currentMode = timetable[hour]
         chargingModeController = new E3dcChargingModeController(CHARGE_POWER, DEF_SOC_DAY)
+        PowerMonitor.monitor.subscribe(this)
     }
 
     /**
@@ -94,6 +95,9 @@ class PowerStorageStatic implements PowerValueSubscriber {
             lastHour = now
         } else if(lastHour > now) {
             shiftTimetable()
+        }
+        if(!active) {
+            return
         }
         def targetMode = timetable[now]
         if (targetMode != currentMode) {
@@ -140,12 +144,10 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     def setActive(boolean activityState) {
         if (activityState && !active) {
-            PowerMonitor.monitor.subscribe(this)
             active = true
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
         } else if (active) {
             active = false
-            PowerMonitor.monitor.unsubscribe(this)
             chargingModeController.stopChargeControl()
         }
     }
@@ -258,7 +260,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
     static void main(String[] args) {
         PowerStorageStatic powerStorage = new PowerStorageStatic()
 //        powerStorage.loadOrInitTimetable()
-        powerStorage.saveTimetable()
+        powerStorage.shiftTimetable()
         println powerStorage.timetable
     }
 }
