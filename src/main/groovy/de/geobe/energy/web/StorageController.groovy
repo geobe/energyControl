@@ -49,18 +49,20 @@ class StorageController implements PowerPriceSubscriber {
         hours.eachWithIndex { storageMode, hour ->
             def entry = [state: storageMode.toString()]
             float price
-            boolean today
-            if (hour < hourNow) {
-                price = powerPrices.tomorrow?.size() ? powerPrices.tomorrow[hour].price : 0.0
-                today = false
+            boolean inTheFuture
+            if (hour >= PowerStorageStatic.HOURS) {
+                price = powerPrices.tomorrow?.size() ?
+                        powerPrices.tomorrow[hour % PowerStorageStatic.HOURS].price : 0.0
+                inTheFuture = true
             } else {
                 price = powerPrices.today[hour].price
-                today = true
+                inTheFuture = hour >= hourNow ? true : false
+
             }
             def fPrice =  String.format('%.1f', price * 100)
-            def bPrice = today? '<b>'+fPrice+'</b>' : fPrice
+            def bPrice = inTheFuture? '<b>'+fPrice+'</b>' : fPrice
             entry.put('price', bPrice)
-            entry.put('today', today )//? 'true' : 'false')
+            entry.put('today', inTheFuture )//? 'true' : 'false')
             bufCtlStates << entry
         }
         def ctx = [

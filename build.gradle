@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.5.2-pb' // branch power buffering
+version '0.5.3-pb' // branch power buffering
 
 repositories {
     mavenCentral()

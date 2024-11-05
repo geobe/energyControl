@@ -329,7 +329,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def action = req?.params(':action')
         if (action?.isInteger()) {
             int hour = action?.toInteger()
-            if (hour in 0..23) {
+            if (hour in 0..47) {
                 powerStorage.incModeAt(hour)
             }
         } else {

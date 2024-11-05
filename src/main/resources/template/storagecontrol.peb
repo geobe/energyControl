@@ -19,8 +19,8 @@
             <div class="w3-col s2 m1 l1 w3-left">
                 <p class="w3-btn w3-block w3-border w3-border-black w3-round {{ stateColor(state=bufCtlState.state, today=bufCtlState.today) }}"
                     id="sg-hour-{{ hour }}" type="button" name="sg-hour-{{ hour }}"
-                    value="{{ hour }}" {{ hour }}
-                    hx-post="bufCtlHour/{{ hour }}">{{ hour }}{{ '<br>' }}{{ bufCtlState.price }} &cent;</p>
+                    value="{{ hour }}"
+                    hx-post="bufCtlHour/{{ hour }}">{{ hour % 24 }}{{ hour > 23 ? '+' : '' }}{{ '<br>' }}{{ bufCtlState.price }} &cent;</p>
             </div>
             {% endautoescape %}
         {% endfor %}
