@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
  * have changed more than hysteresis, send new values to PvChargeStrategy
  */
 @ActiveObject
-class PowerMonitor implements WallboxValueSubscriber {
+class PowerMonitor /* implements WallboxValueSubscriber */ {
     static final CYCLE_TIME = 5
     static final TimeUnit TIME_UNIT = TimeUnit.SECONDS
     /** subscription cycle time */
@@ -53,7 +53,7 @@ class PowerMonitor implements WallboxValueSubscriber {
     /** Reference to current dynamic prices */
     private final PowerPriceMonitor powerPriceInfo
     /** Reference to WallboxMonitor which provides wallbox values */
-    private final WallboxValueProvider wbValuesProvider
+    private final WallboxMonitor wbValuesProvider
     /** wallbox values that are periodically updated by wbValuesProvider */
     private volatile WallboxValues wallboxValues
     /** all valueSubscribers to power values */
@@ -63,7 +63,7 @@ class PowerMonitor implements WallboxValueSubscriber {
     /** task to read power values periodically */
     private PeriodicExecutor executor
     /** remember exception state */
-    private volatile boolean stoppedByException = false
+    private volatile boolean resumeAfterException = false
     private volatile int exceptionCount = 0
     /** store wallbox exception to propagate it */
     private volatile Exception wallboxException
@@ -118,16 +118,17 @@ class PowerMonitor implements WallboxValueSubscriber {
         @Override
         void run() {
             try {
-                if (hasWallboxException) {
-                    throw wallboxException
-                }
+//                if (hasWallboxException) {
+//                    throw wallboxException
+//                }
+                wbValuesProvider.readWallbox()
                 def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
-                if (stoppedByException) {
+                if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
-                    subscribers.each {
+                    exceptionSubscribers().each {
                         it.resumeAfterMonitorException()
                     }
-                    stoppedByException = false
+                    resumeAfterException = false
                 }
                 synchronized (subscribers) {
                     subscribers.each {
@@ -139,15 +140,21 @@ class PowerMonitor implements WallboxValueSubscriber {
                 // notify about exception only once every 10 minutes
                 if (++exceptionCount >= 120) {
                     exceptionCount = 0
-                    stoppedByException = false
+                    resumeAfterException = false
                 }
-                if (!stoppedByException) {
-                    subscribers.each {
+                if (!resumeAfterException) {
+                    exceptionSubscribers().each {
                         it.takeMonitorException(ex)
                     }
-                    stoppedByException = true
+                    resumeAfterException = true
                 }
             }
+        }
+
+        def exceptionSubscribers() {
+            Set<MonitorExceptionSubscriber> xSubs = new HashSet<>(subscribers)
+            xSubs.addAll(wbValuesProvider.subscribers)
+            xSubs
         }
 
         boolean stateChange(PMValues pmValues) {
@@ -171,24 +178,24 @@ class PowerMonitor implements WallboxValueSubscriber {
         powerInfo.currentValues
     }
 
-    @Override
-    void takeWallboxValues(WallboxValues values) {
-        wallboxValues = values
-        wallboxException = null
-        hasWallboxException = false
-    }
-
-    @Override
-    void takeMonitorException(Exception exception) {
-        wallboxException = exception
-        hasWallboxException = true
-    }
-
-    @Override
-    void resumeAfterMonitorException() {
-        wallboxException = null
-        hasWallboxException = false
-    }
+//    @Override
+//    void takeWallboxValues(WallboxValues values) {
+//        wallboxValues = values
+//        wallboxException = null
+//        hasWallboxException = false
+//    }
+//
+//    @Override
+//    void takeMonitorException(Exception exception) {
+//        wallboxException = exception
+//        hasWallboxException = true
+//    }
+//
+//    @Override
+//    void resumeAfterMonitorException() {
+//        wallboxException = null
+//        hasWallboxException = false
+//    }
 
     @ActiveMethod(blocking = true)
     void subscribe(PowerValueSubscriber subscriber) {
@@ -221,7 +228,7 @@ class PowerMonitor implements WallboxValueSubscriber {
 
     private start() {
         println "PowerMonitor started with $cycle $timeUnit period"
-        wbValuesProvider.subscribeValue(this)
+//        wbValuesProvider.subscribeValue(this)
         executor = new PeriodicExecutor(readPower, cycle, timeUnit)
         executor.start()
     }

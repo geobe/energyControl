@@ -89,7 +89,7 @@ class WallboxMonitor implements WallboxValueProvider {
         wbMonitor
     }
 
-    private Runnable readWallbox = new Runnable() {
+    private Runnable readWallboxTask = new Runnable() {
         @Override
         void run() {
             try {
@@ -120,6 +120,35 @@ class WallboxMonitor implements WallboxValueProvider {
                 }
             }
         }
+    }
+
+    WallboxValues readWallbox() {
+        currentWbValues = wallbox.values
+        currentWbState = calcChargingState(currentWbValues)
+        if (!prevWbValues || prevWbValues?.differs(currentWbValues)) {
+            def log = "$currentWbValues @ WbState -> $currentWbState"
+            LogMessageRecorder.recorder.logMessage(log.toString())
+        }
+        prevWbValues = currentWbValues
+//        valueSubscribers.each {
+//            it.takeWallboxValues(currentWbValues)
+//        }
+        if (stateSubscribers) {
+            if (currentWbState != prevWbState) {
+                prevWbState = currentWbState
+                stateSubscribers.each {
+                    it.takeWallboxState(prevWbState)
+                }
+            }
+        }
+        currentWbValues
+    }
+
+    Set<MonitorExceptionSubscriber> getSubscribers(){
+        ArrayList<MonitorExceptionSubscriber> subscribers = []
+        subscribers.addAll(stateSubscribers)
+        subscribers.addAll(valueSubscribers)
+        subscribers.toSet()
     }
 
     @ActiveMethod(blocking = true)
@@ -275,7 +304,7 @@ Takes some time before load current is back to requested
     private start() {
         println "wbMonitor started with $cycle $timeUnit period"
         if (!executor) {
-            executor = new PeriodicExecutor(readWallbox, cycle, timeUnit, initialDelay)
+            executor = new PeriodicExecutor(readWallboxTask, cycle, timeUnit, initialDelay)
         }
         executor.start()
     }

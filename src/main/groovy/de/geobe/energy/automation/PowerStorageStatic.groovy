@@ -65,6 +65,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     private volatile List<StorageMode> timetable = new ArrayList<>(HOURS * 2)
     private volatile boolean active = false
+    private volatile boolean savedActive = active
     private StorageMode currentMode = StorageMode.AUTO
     private int socDay = DEF_SOC_DAY
     private int socNight = DEF_SOC_NIGHT
@@ -93,10 +94,10 @@ class PowerStorageStatic implements PowerValueSubscriber {
         def now = DateTime.now().hourOfDay
         if (lastHour == -1) {
             lastHour = now
-        } else if(lastHour > now) {
+        } else if (lastHour > now) {
             shiftTimetable()
         }
-        if(!active) {
+        if (!active) {
             return
         }
         def targetMode = timetable[now]
@@ -125,11 +126,12 @@ class PowerStorageStatic implements PowerValueSubscriber {
     @Override
     void takeMonitorException(Exception exception) {
         println exception
+        setActive(false)
     }
 
     @Override
     void resumeAfterMonitorException() {
-
+        setActive(savedActive)
     }
 
     def incModeAt(int hour) {
@@ -144,10 +146,10 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     def setActive(boolean activityState) {
         if (activityState && !active) {
-            active = true
+            savedActive = active = true
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
         } else if (active) {
-            active = false
+            savedActive = active = false
             chargingModeController.stopChargeControl()
         }
     }
@@ -182,7 +184,14 @@ class PowerStorageStatic implements PowerValueSubscriber {
             dir.mkdir()
         }
         if (dir.isDirectory()) {
-            def json = JsonOutput.toJson(timetable)
+            def out = [
+                    active    : active,
+                    socDay    : socDay,
+                    socNight  : socNight,
+                    socReserve: socReserve,
+                    timetable : timetable
+            ]
+            def json = JsonOutput.toJson(out)
             json = JsonOutput.prettyPrint(json)
 //            println "new JSON settings: $json"
             def settingsFile = new File(settingsDir, TIMETABLE_FILE).withWriter { w ->
@@ -198,12 +207,19 @@ class PowerStorageStatic implements PowerValueSubscriber {
         def file = new File("$home/.${EnergySettings.SETTINGS_DIR}/", "${TIMETABLE_FILE}")
         if (file.exists() && file.text) {
             def json = file.text
-            table = new JsonSlurper().parseText(json)
-            timetable = string2StorageMode(table)
-        } else {
-            for (i in 0..<HOURS * 2) {
-                timetable << StorageMode.AUTO
+            def saved = new JsonSlurper().parseText(json)
+            if (saved instanceof Map) {
+                active = saved.active
+                socDay = saved.socDay
+                socNight = saved.socNight
+                socReserve = saved.socReserve
+                table = saved.timetable
+                timetable = string2StorageMode(table)
+                return
             }
+        }
+        for (i in 0..<HOURS * 2) {
+            timetable << StorageMode.AUTO
         }
     }
 

@@ -109,8 +109,8 @@ class Wallbox implements IWallboxValueSource {
     WallboxValues getValues() {
         def url = new URL(readRequest + "$FILTER")
         def getParams = [
-                connectTimeout: 5000,
-                readTimeout   : 6000]
+                connectTimeout: 30000,
+                readTimeout   : 30000]
         def text = url.getText(getParams)
         def response = jsonSlurper.parseText(text)
         allowedToCharge = response.alw
