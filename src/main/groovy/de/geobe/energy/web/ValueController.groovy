@@ -359,9 +359,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ti18n = tGlobal
         def ctx = stoc.storageControlContext(ti18n)
         def out = streamOut(storageControlTemplate, ctx)
+        def sess = req.session()
         updateWsValues(out)
         resp.status 200
-        ''
+        out//''
     }
 
     Route graphPost = { Request req, Response resp ->

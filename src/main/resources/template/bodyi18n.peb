@@ -37,7 +37,7 @@
                     <select  class="w3-button w3-right w3-margin-right" name="language"
                     hx-post="/language" hx-target="body"  >
                         {{ languageOptions | raw }}
-                    <select>
+                    </select>
                 </div>
             </div>
             <!-- websocket connection -->

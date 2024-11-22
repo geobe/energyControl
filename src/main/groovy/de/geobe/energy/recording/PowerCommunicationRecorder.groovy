@@ -27,6 +27,7 @@ package de.geobe.energy.recording
 import de.geobe.energy.automation.PMValues
 import de.geobe.energy.automation.PeriodicExecutor
 import de.geobe.energy.automation.PowerMonitor
+import de.geobe.energy.automation.PowerStorageStatic
 import de.geobe.energy.automation.PowerValueSubscriber
 import de.geobe.energy.web.EnergySettings
 import org.joda.time.DateTime
@@ -151,6 +152,16 @@ class PowerCommunicationRecorder implements PowerValueSubscriber {
     void resumeAfterMonitorException() {
         def protocol = "${stamp.print(DateTime.now())}\tResume"
 //        println protocol
+        recordingFile.appendReport(protocol)
+    }
+
+    void powerStorageModeChanged(PowerStorageStatic.StorageMode storageMode) {
+        def protocol = "${stamp.print(DateTime.now())}\tbattery switched to\t$storageMode"
+        recordingFile.appendReport(protocol)
+    }
+
+    void powerStoragePresetChanged(PowerStorageStatic.StorageMode storageMode, int hour) {
+        def protocol = "${stamp.print(DateTime.now())}\tbattery preset at\t$hour to\t$storageMode"
         recordingFile.appendReport(protocol)
     }
 

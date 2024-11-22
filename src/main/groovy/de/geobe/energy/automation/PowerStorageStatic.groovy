@@ -26,6 +26,7 @@ package de.geobe.energy.automation
 
 import de.geobe.energy.e3dc.E3dcChargingModeController
 import de.geobe.energy.e3dc.E3dcInteractionRunner
+import de.geobe.energy.recording.PowerCommunicationRecorder
 import de.geobe.energy.web.EnergySettings
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
@@ -63,7 +64,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     static final HOURS = 24
 
-    private volatile List<StorageMode> timetable = new ArrayList<>(HOURS * 2)
+    private volatile List<StorageMode> hourtable = new ArrayList<>(HOURS * 2)
     private volatile boolean active = false
     private volatile boolean savedActive = active
     private StorageMode currentMode = StorageMode.AUTO
@@ -77,7 +78,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
     private PowerStorageStatic() {
         loadOrInitTimetable()
         int hour = DateTime.now().hourOfDay
-        currentMode = timetable[hour]
+        currentMode = hourtable[hour]
         chargingModeController = new E3dcChargingModeController(CHARGE_POWER, DEF_SOC_DAY)
         PowerMonitor.monitor.subscribe(this)
     }
@@ -85,7 +86,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
     /**
      * Realtime behaviour is triggered by the PowerMonitor instance reading new storage values.
      * Check every readout period (usually every 5 sec) if storage mode has changed since last period.
-     * Changes may result from user input or proceeding to next hour in the timetable. Changes are
+     * Changes may result from user input or proceeding to next hour in the hourtable. Changes are
      * passed along to the E3DdcChargingMode instance.
      * @param pmValues current power values
      */
@@ -96,19 +97,23 @@ class PowerStorageStatic implements PowerValueSubscriber {
             lastHour = now
         } else if (lastHour > now) {
             shiftTimetable()
+        } else {
+            lastHour = now
         }
         if (!active) {
             return
         }
-        def targetMode = timetable[now]
+        def targetMode = hourtable[now]
         if (targetMode != currentMode) {
             currentMode = targetMode
-            def soc = pmValues.powerValues.socBattery()
-            println "storage mode set to $currentMode with soc $soc"
+//            def soc = pmValues.powerValues.socBattery()
+//            println "storage mode set to $currentMode with soc $soc"
             byte e3dcMode
+            int socNow = now in DAY ? socDay : socNight
             switch (targetMode) {
                 case StorageMode.AUTO:
                     e3dcMode = E3dcInteractionRunner.AUTO
+                    socNow = socReserve
                     break
                 case StorageMode.GRID_CHARGE:
                     e3dcMode = E3dcInteractionRunner.GRIDLOAD
@@ -118,8 +123,10 @@ class PowerStorageStatic implements PowerValueSubscriber {
                     break
                 default:
                     e3dcMode = E3dcInteractionRunner.AUTO
+                    socNow = socReserve
             }
-            chargingModeController.setChargingMode(e3dcMode, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
+            chargingModeController.setChargingMode(e3dcMode, CHARGE_POWER, socNow, endDate)
+            PowerCommunicationRecorder.recorder.powerStorageModeChanged(currentMode)
         }
     }
 
@@ -136,11 +143,13 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     def incModeAt(int hour) {
         if (hour in 0..47) {
-            def current = timetable[hour]
+            def current = hourtable[hour]
             def pos = current.ordinal()
             def inc = (pos + 1) % StorageMode.values().size()
-            timetable[hour] = StorageMode.values()[inc]
+            def newMode = StorageMode.values()[inc]
+            hourtable[hour] = newMode
             saveTimetable()
+            PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, hour)
         }
     }
 
@@ -172,7 +181,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
      */
     def shiftTimetable() {
         for (i in 0..<HOURS) {
-            timetable[i] = timetable[HOURS + i]
+            hourtable[i] = hourtable[HOURS + i]
         }
     }
 
@@ -189,7 +198,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
                     socDay    : socDay,
                     socNight  : socNight,
                     socReserve: socReserve,
-                    timetable : timetable
+                    timetable : hourtable
             ]
             def json = JsonOutput.toJson(out)
             json = JsonOutput.prettyPrint(json)
@@ -214,20 +223,20 @@ class PowerStorageStatic implements PowerValueSubscriber {
                 socNight = saved.socNight
                 socReserve = saved.socReserve
                 table = saved.timetable
-                timetable = string2StorageMode(table)
+                hourtable = string2StorageMode(table)
                 return
             }
         }
         for (i in 0..<HOURS * 2) {
-            timetable << StorageMode.AUTO
+            hourtable << StorageMode.AUTO
         }
     }
 
     /**
      * transform list of strings to list of enums
-     * @param key selects the timetable
+     * @param key selects the hourtable
      * @param table saved timetables as read by jsonSlurper
-     * @return timetable as list of StorageMode enum values
+     * @return hourtable as list of StorageMode enum values
      */
     List<StorageMode> string2StorageMode(List table) {
         List<StorageMode> listOfModes = new ArrayList<>(HOURS * 2)
@@ -242,7 +251,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
     }
 
     def getTimetable() {
-        timetable.asImmutable()
+        hourtable.asImmutable()
     }
 
     def getStorageMode() {
@@ -258,18 +267,21 @@ class PowerStorageStatic implements PowerValueSubscriber {
     def setSocDay(int soc) {
         if (soc in socTargets) {
             socDay = soc
+            saveTimetable()
         }
     }
 
     def setSocNight(int soc) {
         if (soc in socTargets) {
             socNight = soc
+            saveTimetable()
         }
     }
 
     def setSocReserve(int soc) {
         if (soc in reserveTargets) {
             socReserve = soc
+            saveTimetable()
         }
     }
 
