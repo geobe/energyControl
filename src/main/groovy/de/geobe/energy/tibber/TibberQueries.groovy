@@ -94,7 +94,7 @@ class TibberQueries {
     /**
      * Decode tibber price info query result for a time interval
      * @param jsonResult query result as json string
-     * @return lis of hourly prices for a time interval
+     * @return list of hourly prices for a time interval
      */
     def scanInterval(String jsonResult) {
         def result = slurper.parseText(jsonResult)

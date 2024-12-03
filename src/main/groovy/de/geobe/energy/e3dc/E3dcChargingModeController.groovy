@@ -29,6 +29,7 @@ import de.geobe.energy.automation.PeriodicExecutor
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerStorageStatic
 import de.geobe.energy.automation.PowerValueSubscriber
+import de.geobe.energy.recording.LogMessageRecorder
 import org.joda.time.DateTime
 
 import java.util.concurrent.TimeUnit
@@ -61,6 +62,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
 //    private int triggerCount = 0
     PowerValues powerValues
     def e3dc = E3dcInteractionRunner.interactionRunner
+    def logRecorder = LogMessageRecorder.recorder
     PowerMonitor powerMonitor = PowerMonitor.monitor
     CtlState controlState = CtlState.Auto
     CtlState historyState = CtlState.None
@@ -84,20 +86,20 @@ class E3dcChargingModeController implements PowerValueSubscriber {
         // implement realtime events derived from power values
         if (controlState == CtlState.Auto && powerValues.socBattery <= socBlackoutReserve) {
             setIdleState()
-            println "$controlState -> set idle to hold emergency reserve"
+            logRecorder.logMessage "$controlState -> set idle to hold emergency reserve"
         } else if (controlState == CtlState.GridLoad && powerValues.socBattery >= chargeMax) {
             setIdleState()
-            println "$controlState -> set idle, soc >= chargeMax"
+            logRecorder.logMessage "$controlState -> set idle, soc >= chargeMax"
         } else if (controlState in [CtlState.GridLoad, CtlState.Idle] && powerValues.powerGrid <= -gridFeedLimit) {
             setSolarState()
-            println "$controlState -> set solar, don't feed grid"
+            logRecorder.logMessage "$controlState -> set solar, don't feed grid"
         } else if (controlState == CtlState.Solar && powerValues.powerGrid > 0) {
             if (historyState == CtlState.GridLoad) {
                 setGridLoadState()
-                println "history: $historyState; $controlState -> set gridload"
+                logRecorder.logMessage "history: $historyState; $controlState -> set gridload"
             } else if (historyState == CtlState.Idle) {
                 setIdleState()
-                println "history: $historyState; $controlState -> set idle"
+                logRecorder.logMessage "history: $historyState; $controlState -> set idle"
             } else {
                 // should never happen, disable realtime control
                 stopChargeControl()
@@ -115,10 +117,10 @@ class E3dcChargingModeController implements PowerValueSubscriber {
     void resumeAfterMonitorException() {
         // don't resume at this level of control
     }
-/**
- * implement stopped state
- * stop realtime control activities and set E3DC storage to default (auto mode)
- */
+    /**
+     * implement stopped state
+     * stop realtime control activities and set E3DC storage to default (auto mode)
+     */
     void stopChargeControl() {
         isRunning = false
 //        executor.stop()
@@ -132,20 +134,21 @@ class E3dcChargingModeController implements PowerValueSubscriber {
      * start realtime control of E3DC storage
      * @param mode E3dc storage control byte
      * @param watts charging or supplying power
-     * @param minSoc minimal soc for current time slot
+     * @param targetSoc target soc for current time slot
      * @param timeout timeout instant of this run mode
      */
-    void setChargingMode(byte mode, int watts, int minSoc, DateTime timeout) {
+    void setChargingMode(byte mode, int watts, int targetSoc, DateTime timeout) {
         if (!isRunning) {
             // is it an entry of running mode?
 //            executor.start()
             powerMonitor.subscribe(this)
             isRunning = true
-            println "chargingModeController subscribed"
+//            println "chargingModeController subscribed"
+            logRecorder.logMessage("chargingModeController subscribed")
         }
         e3dcMode = mode
         inOutPower = watts
-        socBlackoutReserve = minSoc
+        chargeMax = targetSoc
         currentTimeout = timeout
         // select simple target state
         switch (mode) {
@@ -158,9 +161,16 @@ class E3dcChargingModeController implements PowerValueSubscriber {
             case E3dcInteractionRunner.IDLE:
                 setIdleState()
                 break
+            case E3dcInteractionRunner.LOAD:
+                setSolarState()
+                break
             default:
                 stopChargeControl()
         }
+    }
+
+    void setSocBlackoutReserve(int socReserve) {
+        socBlackoutReserve = socReserve
     }
 
     private setAutoState() {

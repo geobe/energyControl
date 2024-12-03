@@ -24,8 +24,12 @@
 
 package de.geobe.energy.tibber
 
+import de.geobe.energy.recording.LogMessageRecorder
+import de.geobe.energy.recording.PowerCommunicationRecorder
+import groovy.io.GroovyPrintWriter
 import org.apache.hc.client5.http.fluent.Request
 import org.apache.hc.core5.http.ContentType
+import org.codehaus.groovy.runtime.StringBufferWriter
 
 /**
  * Responsibility: Format queries and send them to tibbew GraphQL API. Return resulting json data.<br>
@@ -54,13 +58,21 @@ class TibberAccess {
      * @return query result as a json string
      */
     def jsonFromTibber(String query) {
-        def postableQuery = makeViewerQuery(query)
-        Request request = Request.post tibberUri
-        request.addHeader('Authorization', "Bearer ${accessToken}")
-        request.bodyString(postableQuery, ContentType.APPLICATION_JSON)
-        def response = request.execute()
-        def json = response.returnContent().asString()
-        json
+        try {
+            def postableQuery = makeViewerQuery(query)
+            Request request = Request.post tibberUri
+            request.addHeader('Authorization', "Bearer ${accessToken}")
+            request.bodyString(postableQuery, ContentType.APPLICATION_JSON)
+            def response = request.execute()
+            def json = response.returnContent().asString()
+            json
+        } catch(Exception exception) {
+            PowerCommunicationRecorder.logMessage "TibberAccess exception $exception"
+            def sbw = new StringBufferWriter(new StringBuffer())
+            exception.printStackTrace(new GroovyPrintWriter(sbw))
+            LogMessageRecorder.recorder.logMessage "TibberAccess ${sbw.toString()}"
+            return ''
+        }
     }
 
     /**

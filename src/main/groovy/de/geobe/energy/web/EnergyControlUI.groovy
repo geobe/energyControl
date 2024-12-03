@@ -88,6 +88,7 @@ class EnergyControlUI {
         post('/language', valueController.languagePost)
 
         post('/stop') { req, res ->
+            valueController.showStopServer()
             stop()
             System.exit(0)
         }
@@ -95,7 +96,7 @@ class EnergyControlUI {
 
     static shutdown() {
         CarChargingManager.carChargingManager.shutDown()
-        PowerCommunicationRecorder.stopRecorder()
+//        PowerCommunicationRecorder.stopRecorder()
         WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor?.shutdown()
         PowerPriceMonitor.monitor?.shutdown()

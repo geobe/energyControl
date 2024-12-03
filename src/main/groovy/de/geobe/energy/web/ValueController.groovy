@@ -188,6 +188,15 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //        println "carChargingState changed: $carChargingState"
     }
 
+    void showStopServer() {
+        networkError = true
+        networkErrorFatal = false
+        networkException = new Exception('Shutdown')
+        networkErrorResume = false
+        errorTimestamp = gc.full.print DateTime.now()
+        updateWsValues(errorMessageString(tGlobal))
+    }
+
     /***************** Routing methods **************/
 
     Route indexRoute = { Request req, Response resp ->
@@ -338,10 +347,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             def value = qparam?.integer ? qparam.toInteger() : 0
             switch (action) {
                 case 'stop':
-                    powerStorage.setActive(false)
+                    powerStorage.setControlActive(false)
                     break
                 case 'start':
-                    powerStorage.setActive(true)
+                    powerStorage.setControlActive(true)
                     break
                 case 'bufCtlSocDay':
                     powerStorage.socDay = value

@@ -72,17 +72,22 @@ class TibberQueryRunner implements IPowerQueryRunner {
 
     /**
      * get tibber prices for today and tomorrow for this account
-     * @return map of lists of date / price pairs
+     * @return map of lists of date / price pairs or empty map if failure
      */
     def runPriceQuery() {
         def query = tibberQueries.priceQuery(home)
         def jsonResult = tibberAccess.jsonFromTibber(query)
 //        println "${jsonResult.}"
-        def result = tibberQueries.scanPrice(jsonResult)
-        def dateYesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
-        def yesterday = runIntervalQuery(dateYesterday, 24)
-        result.yesterday = yesterday
-        result
+        if(jsonResult) {
+            def result = tibberQueries.scanPrice(jsonResult)
+            def dateYesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
+            def yesterday = runIntervalQuery(dateYesterday, 24)
+            if(yesterday) {
+                result.yesterday = yesterday
+                return result
+            }
+        }
+        [:]
     }
 
     /**
@@ -94,7 +99,11 @@ class TibberQueryRunner implements IPowerQueryRunner {
     def runIntervalQuery(DateTime startingAt, int hours) {
         def query = tibberQueries.intervalQuery(home, startingAt, hours)
         def jsonResult = tibberAccess.jsonFromTibber(query)
-        tibberQueries.scanInterval(jsonResult)
+        if(jsonResult) {
+            tibberQueries.scanInterval(jsonResult)
+        } else {
+            []
+        }
     }
 
     /**

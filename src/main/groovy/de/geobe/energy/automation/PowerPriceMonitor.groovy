@@ -24,12 +24,16 @@
 
 package de.geobe.energy.automation
 
+import de.geobe.energy.recording.LogMessageRecorder
+import de.geobe.energy.recording.PowerCommunicationRecorder
 import de.geobe.energy.tibber.IPowerQueryRunner
 import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.tibber.TibberQueryRunner
 import de.geobe.energy.web.GraphController
+import groovy.io.GroovyPrintWriter
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
+import org.codehaus.groovy.runtime.StringBufferWriter
 import org.joda.time.DateTime
 import org.joda.time.Duration
 
@@ -79,10 +83,17 @@ class PowerPriceMonitor {
     private Runnable powerPrices = new Runnable() {
         @Override
         void run() {
-            def priceRecord = powerPriceSource.runPriceQuery()
-            latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
-            subscribers.each {
-                it.takePriceUpdate(latestPrices)
+            try {
+                def priceRecord = powerPriceSource.runPriceQuery()
+                latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
+                subscribers.each {
+                    it.takePriceUpdate(latestPrices)
+                }
+            } catch (exception) {
+                PowerCommunicationRecorder.logMessage "PowerPriceMonitor exception $exception"
+                def sbw = new StringBufferWriter(new StringBuffer())
+                exception.printStackTrace(new GroovyPrintWriter(sbw))
+                LogMessageRecorder.recorder.logMessage "PowerPriceMonitor ${sbw.toString()}"
             }
         }
     }
@@ -117,23 +128,6 @@ class PowerPriceMonitor {
     def shutdown() {
         executor?.shutdown()
         executor = null
-    }
-
-//    Float currentPrice(int hourIndex = DateTime.now().hourOfDay) {
-//        (latestPrices?.today[hourIndex].price?:-999.9944f).round(2)
-//    }
-
-    static void main(String[] args) {
-        def monitor = PowerPriceMonitor.monitor
-        def subscriber = new PowerPriceSubscriber() {
-            @Override
-            void takePriceUpdate(CurrentPowerPrices prices) {
-                def now = GraphController.hmmss.print DateTime.now()
-                println "[$now] today: ${prices.today[12].price}, tomorrow: ${prices?.tomorrow[12].price}"
-            }
-        }
-        println "start subscription @ ${GraphController.hmmss.print DateTime.now()}"
-        monitor.subscribe(subscriber)
     }
 }
 

@@ -26,6 +26,7 @@ package de.geobe.energy.automation
 
 import de.geobe.energy.e3dc.E3dcChargingModeController
 import de.geobe.energy.e3dc.E3dcInteractionRunner
+import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.recording.PowerCommunicationRecorder
 import de.geobe.energy.web.EnergySettings
 import groovy.json.JsonOutput
@@ -76,10 +77,10 @@ class PowerStorageStatic implements PowerValueSubscriber {
     private E3dcChargingModeController chargingModeController
 
     private PowerStorageStatic() {
-        loadOrInitTimetable()
         int hour = DateTime.now().hourOfDay
         currentMode = hourtable[hour]
         chargingModeController = new E3dcChargingModeController(CHARGE_POWER, DEF_SOC_DAY)
+        loadOrInitTimetable()
         PowerMonitor.monitor.subscribe(this)
     }
 
@@ -92,53 +93,60 @@ class PowerStorageStatic implements PowerValueSubscriber {
      */
     @Override
     void takePMValues(PMValues pmValues) {
-        def now = DateTime.now().hourOfDay
-        if (lastHour == -1) {
-            lastHour = now
-        } else if (lastHour > now) {
-            shiftTimetable()
-        } else {
-            lastHour = now
-        }
-        if (!active) {
-            return
-        }
-        def targetMode = hourtable[now]
-        if (targetMode != currentMode) {
-            currentMode = targetMode
+        try {
+            def now = DateTime.now().hourOfDay
+            if (lastHour == -1) {
+                lastHour = now
+            } else if (lastHour > now) {
+                shiftTimetable()
+                PowerCommunicationRecorder.logMessage "Timetable shifted, now = $now, lastHour = $lastHour"
+                lastHour = now
+            } else {
+                lastHour = now
+            }
+            if (!active) {
+                return
+            }
+            def targetMode = hourtable[now]
+            if (targetMode != currentMode) {
+                currentMode = targetMode
 //            def soc = pmValues.powerValues.socBattery()
 //            println "storage mode set to $currentMode with soc $soc"
-            byte e3dcMode
-            int socNow = now in DAY ? socDay : socNight
-            switch (targetMode) {
-                case StorageMode.AUTO:
-                    e3dcMode = E3dcInteractionRunner.AUTO
-                    socNow = socReserve
-                    break
-                case StorageMode.GRID_CHARGE:
-                    e3dcMode = E3dcInteractionRunner.GRIDLOAD
-                    break
-                case StorageMode.NO_DISCHARGE:
-                    e3dcMode = E3dcInteractionRunner.IDLE
-                    break
-                default:
-                    e3dcMode = E3dcInteractionRunner.AUTO
-                    socNow = socReserve
+                byte e3dcMode
+                int socNow = now in DAY ? socDay : socNight
+                switch (targetMode) {
+                    case StorageMode.AUTO:
+                        e3dcMode = E3dcInteractionRunner.AUTO
+                        socNow = socReserve
+                        break
+                    case StorageMode.GRID_CHARGE:
+                        e3dcMode = E3dcInteractionRunner.GRIDLOAD
+                        break
+                    case StorageMode.NO_DISCHARGE:
+                        e3dcMode = E3dcInteractionRunner.IDLE
+                        break
+                    default:
+                        e3dcMode = E3dcInteractionRunner.AUTO
+                        socNow = socReserve
+                }
+                chargingModeController.setChargingMode(e3dcMode, CHARGE_POWER, socNow, endDate)
+                PowerCommunicationRecorder.recorder.powerStorageModeChanged(currentMode)
             }
-            chargingModeController.setChargingMode(e3dcMode, CHARGE_POWER, socNow, endDate)
-            PowerCommunicationRecorder.recorder.powerStorageModeChanged(currentMode)
+        } catch (exception) {
+            PowerCommunicationRecorder.logMessage "PowerStorageStatic exception $exception"
         }
     }
 
     @Override
     void takeMonitorException(Exception exception) {
-        println exception
-        setActive(false)
+        PowerCommunicationRecorder.logMessage exception
+        setControlActive(false)
     }
 
     @Override
     void resumeAfterMonitorException() {
-        setActive(savedActive)
+        PowerCommunicationRecorder.logMessage 'Resumed after exception'
+        setControlActive(savedActive)
     }
 
     def incModeAt(int hour) {
@@ -153,13 +161,20 @@ class PowerStorageStatic implements PowerValueSubscriber {
         }
     }
 
-    def setActive(boolean activityState) {
+    /**
+     * change activity state of control task
+     * @param activityState true if PowerStorageStatic task is set to active
+     * @param saveChange default is save to disk
+     */
+    void setControlActive(boolean activityState, boolean saveChange = true) {
         if (activityState && !active) {
-            savedActive = active = true
+            this.@savedActive = active = true
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
+            if (saveChange) saveTimetable()
         } else if (active) {
-            savedActive = active = false
+            this.@savedActive = active = false
             chargingModeController.stopChargeControl()
+            if (saveChange) saveTimetable()
         }
     }
 
@@ -218,17 +233,19 @@ class PowerStorageStatic implements PowerValueSubscriber {
             def json = file.text
             def saved = new JsonSlurper().parseText(json)
             if (saved instanceof Map) {
-                active = saved.active
-                socDay = saved.socDay
-                socNight = saved.socNight
-                socReserve = saved.socReserve
+                this.@active = saved.active
+                this.@socDay = saved.socDay
+                this.@socNight = saved.socNight
+                this.@socReserve = saved.socReserve
                 table = saved.timetable
                 hourtable = string2StorageMode(table)
-                return
+                setControlActive(active, false)
             }
-        }
-        for (i in 0..<HOURS * 2) {
-            hourtable << StorageMode.AUTO
+        } else {
+            for (i in 0..<HOURS * 2) {
+                hourtable << StorageMode.AUTO
+            }
+            setControlActive(false)
         }
     }
 
@@ -264,23 +281,29 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     def getSocReserve() { socReserve }
 
+    def setSavedActive(boolean act) {
+        this.@savedActive = act
+        saveTimetable()
+    }
+
     def setSocDay(int soc) {
         if (soc in socTargets) {
-            socDay = soc
+            this.@socDay = soc
             saveTimetable()
         }
     }
 
     def setSocNight(int soc) {
         if (soc in socTargets) {
-            socNight = soc
+            this.@socNight = soc
             saveTimetable()
         }
     }
 
     def setSocReserve(int soc) {
         if (soc in reserveTargets) {
-            socReserve = soc
+            this.@socReserve = soc
+            chargingModeController.socBlackoutReserve = socReserve
             saveTimetable()
         }
     }
