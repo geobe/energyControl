@@ -85,9 +85,11 @@ class PowerPriceMonitor {
         void run() {
             try {
                 def priceRecord = powerPriceSource.runPriceQuery()
-                latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
-                subscribers.each {
-                    it.takePriceUpdate(latestPrices)
+                if (priceRecord) {
+                    latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
+                    subscribers.each {
+                        it.takePriceUpdate(latestPrices)
+                    }
                 }
             } catch (exception) {
                 PowerCommunicationRecorder.logMessage "PowerPriceMonitor exception $exception"
