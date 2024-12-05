@@ -84,7 +84,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
     void takePMValues(PMValues pmValues) {
         powerValues = pmValues.powerValues
         // implement realtime events derived from power values
-        if (controlState == CtlState.Auto && powerValues.socBattery <= socBlackoutReserve) {
+        if (controlState == CtlState.Auto && powerValues.socBattery < socBlackoutReserve) {
             setIdleState()
             logRecorder.logMessage "$controlState -> set idle to hold emergency reserve"
         } else if (controlState == CtlState.GridLoad && powerValues.socBattery >= chargeMax) {

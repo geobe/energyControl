@@ -1,12 +1,16 @@
 <div id="div-power-buffering">
     <div id="bufCtl-buttons" class="w3-col w3-padding-small">
-        <h4>{{ bufCtlHourly }}</h4>
-        <div class="w3-col w3-yellow s12 m6 l6 w3-left">
-          <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlActive }}
-          hx-post="bufCtlHour/start" hx-target="#div-power-buffering" hx-swap="outerHTML">
-          <label>{{ bufCtlActive }}</label>
+        <div class="w3-col w3-yellow s12 m4 l4 w3-left">
+          <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlAuto }}
+          hx-post="bufCtlHour/auto" hx-target="#div-power-buffering" hx-swap="outerHTML">
+          <label>{{ bufCtlAuto }}</label>
         </div>
-        <div class="w3-col w3-light-grey s12 m6 l6 w3-left">
+        <div class="w3-col w3-yellow s12 m4 l4 w3-left">
+          <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlManual }}
+          hx-post="bufCtlHour/manual" hx-target="#div-power-buffering" hx-swap="outerHTML">
+          <label>{{ bufCtlManual }}</label>
+        </div>
+        <div class="w3-col w3-light-grey s12 m4 l4 w3-left">
           <input class="w3-radio" type="radio" name="bufCtl-management" {{ checkedBufCtlInactive}}
           hx-post="bufCtlHour/stop" hx-target="#div-power-buffering" hx-swap="outerHTML">
           <label>{{ bufCtlInactive }}</label>

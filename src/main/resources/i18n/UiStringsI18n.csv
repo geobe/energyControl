@@ -135,8 +135,9 @@ tibAnd:und:and
 tibUpd:aktualisiert:updated
 * bufCtl::
 bufCtlHourly:Manuelle Speichersteuerung:Manual Storage Control
-bufCtlActive:Aktiv:Active
-bufCtlInactive:Angehalten:Stopped
+bufCtlAuto:Automatik:Automatic
+bufCtlManual:Manuell:Manual
+bufCtlInactive:Inaktiv:Inactive
 * bufCtlLabels::
 bufCtlSocDay:Ladeziel Tag:Requested SOC Day
 bufCtlSocNight:Ladeziel Nacht:Requested SOC Night

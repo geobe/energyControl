@@ -68,9 +68,10 @@ class TibberAccess {
             json
         } catch(Exception exception) {
             PowerCommunicationRecorder.logMessage "TibberAccess exception $exception"
-            def sbw = new StringBufferWriter(new StringBuffer())
-            exception.printStackTrace(new GroovyPrintWriter(sbw))
-            LogMessageRecorder.recorder.logMessage "TibberAccess ${sbw.toString()}"
+            LogMessageRecorder.recorder.logMessage "TibberAccess exception $exception"
+//            def sbw = new StringBufferWriter(new StringBuffer())
+//            exception.printStackTrace(new GroovyPrintWriter(sbw))
+//            LogMessageRecorder.recorder.logMessage "TibberAccess ${sbw.toString()}"
             return ''
         }
     }

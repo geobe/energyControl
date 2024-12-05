@@ -347,10 +347,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
             def value = qparam?.integer ? qparam.toInteger() : 0
             switch (action) {
                 case 'stop':
-                    powerStorage.setControlActive(false)
+                    powerStorage.setChargeControlMode(PowerStorageStatic.ChargeControlMode.INACTIVE)
                     break
-                case 'start':
-                    powerStorage.setControlActive(true)
+                case 'manual':
+                    powerStorage.setChargeControlMode(PowerStorageStatic.ChargeControlMode.MANUAL)
+                    break
+                case 'auto':
+                    powerStorage.setChargeControlMode(PowerStorageStatic.ChargeControlMode.AUTO)
                     break
                 case 'bufCtlSocDay':
                     powerStorage.socDay = value

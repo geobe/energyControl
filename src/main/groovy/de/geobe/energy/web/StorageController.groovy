@@ -30,6 +30,9 @@ import de.geobe.energy.automation.PowerPriceSubscriber
 import de.geobe.energy.automation.PowerStorageStatic
 import org.joda.time.DateTime
 
+/**
+ * Supply values and static strings for storage control part of ui
+ */
 class StorageController implements PowerPriceSubscriber {
 
     private PowerStorageStatic powerStorageStatic = PowerStorageStatic.powerStorage
@@ -59,24 +62,32 @@ class StorageController implements PowerPriceSubscriber {
                 inTheFuture = hour >= hourNow ? true : false
 
             }
-            def fPrice =  String.format('%.1f', price * 100)
-            def bPrice = inTheFuture? '<b>'+fPrice+'</b>' : fPrice
+            def fPrice = String.format('%.1f', price * 100)
+            def bPrice = inTheFuture ? '<b>' + fPrice + '</b>' : fPrice
             entry.put('price', bPrice)
-            entry.put('today', inTheFuture )//? 'true' : 'false')
+            entry.put('today', inTheFuture)//? 'true' : 'false')
             bufCtlStates << entry
         }
         def ctx = [
                 bufCtlTitle   : ti18n.headingStrings.bufCtlTitle,
-                bufCtlHourly  : ti18n.bufCtl.bufCtlHourly,
-                bufCtlActive  : ti18n.bufCtl.bufCtlActive,
+                bufCtlAuto    : ti18n.bufCtl.bufCtlAuto,
+                bufCtlManual  : ti18n.bufCtl.bufCtlManual,
                 bufCtlInactive: ti18n.bufCtl.bufCtlInactive,
                 bufCtlStates  : bufCtlStates,
                 bufCtlPrices  : bufCtlPrices
         ]
-        if (powerStorageStatic.active) {
-            ctx.put('checkedBufCtlActive', 'checked')
-        } else {
-            ctx.put('checkedBufCtlInactive', 'checked')
+        switch (powerStorageStatic.chargeControlMode) {
+            case PowerStorageStatic.ChargeControlMode.AUTO:
+                ctx.put('checkedBufCtlAuto', 'checked')
+                break
+            case PowerStorageStatic.ChargeControlMode.MANUAL:
+                ctx.put('checkedBufCtlManual', 'checked')
+                break
+            case PowerStorageStatic.ChargeControlMode.INACTIVE:
+                ctx.put('checkedBufCtlInactive', 'checked')
+                break
+            default:
+                ctx.put('checkedBufCtlInactive', 'checked')
         }
         def selectMap = [day    : powerStorageStatic.socDay,
                          night  : powerStorageStatic.socNight,

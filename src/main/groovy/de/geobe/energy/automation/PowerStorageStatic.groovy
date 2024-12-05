@@ -26,17 +26,19 @@ package de.geobe.energy.automation
 
 import de.geobe.energy.e3dc.E3dcChargingModeController
 import de.geobe.energy.e3dc.E3dcInteractionRunner
-import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.recording.PowerCommunicationRecorder
+import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.web.EnergySettings
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+import org.joda.time.format.DateTimeFormatter
 
 /**
  * Data structures and functionality for manual power buffering control
  */
-class PowerStorageStatic implements PowerValueSubscriber {
+class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     static final DEF_SOC_DAY = 75
     static final DEF_SOC_NIGHT = 75
@@ -47,6 +49,8 @@ class PowerStorageStatic implements PowerValueSubscriber {
     static final socTargets = [0, 25, 40, 50, 60, 75, 90, 100]
     static final reserveTargets = [0, 10, 25, 50]
     static final TIMETABLE_FILE = 'timetable.json'
+    static final PRICETABLE_FILE = 'Pricetable'
+    static final DateTimeFormatter F_DAY = DateTimeFormat.forPattern('yy-MM-dd-HH-mm')
 
     static synchronized PowerStorageStatic getPowerStorage() {
         if (!powerStorage) {
@@ -63,16 +67,25 @@ class PowerStorageStatic implements PowerValueSubscriber {
         NO_DISCHARGE,
     }
 
+    enum ChargeControlMode {
+        INACTIVE,
+        MANUAL,
+        AUTO
+    }
+
     static final HOURS = 24
 
     private volatile List<StorageMode> hourtable = new ArrayList<>(HOURS * 2)
     private volatile boolean active = false
     private volatile boolean savedActive = active
+    private volatile ChargeControlMode chargeControlMode = ChargeControlMode.INACTIVE
     private StorageMode currentMode = StorageMode.AUTO
     private int socDay = DEF_SOC_DAY
     private int socNight = DEF_SOC_NIGHT
     private int socReserve = DEF_SOC_RESERVE
     private int lastHour = -1
+    private DateTime controlPlanningStamp
+    private CurrentPowerPrices planningPrices
 
     private E3dcChargingModeController chargingModeController
 
@@ -82,6 +95,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
         chargingModeController = new E3dcChargingModeController(CHARGE_POWER, DEF_SOC_DAY)
         loadOrInitTimetable()
         PowerMonitor.monitor.subscribe(this)
+        PowerPriceMonitor.monitor.subscribe(this)
     }
 
     /**
@@ -149,6 +163,17 @@ class PowerStorageStatic implements PowerValueSubscriber {
         setControlActive(savedActive)
     }
 
+    @Override
+    void takePriceUpdate(CurrentPowerPrices prices) {
+        if(chargeControlMode == ChargeControlMode.AUTO && prices.tomorrow) {
+            if(!controlPlanningStamp || controlPlanningStamp.isBefore(DateTime.now())) {
+                // set timestamp to tomorrow 01:00
+                controlPlanningStamp = DateTime.now().withTimeAtStartOfDay().plusHours(25)
+//                planTomorrow(prices)
+            }
+        }
+    }
+
     def incModeAt(int hour) {
         if (hour in 0..47) {
             def current = hourtable[hour]
@@ -159,6 +184,21 @@ class PowerStorageStatic implements PowerValueSubscriber {
             saveTimetable()
             PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, hour)
         }
+    }
+
+    /**
+     * change activity planning and activity mode of control task and propagate to active state control
+     * @param mode one of the three charge control modes
+     */
+    void setChargeControlMode(ChargeControlMode mode) {
+        this.@chargeControlMode = mode
+        PowerCommunicationRecorder.recorder.powerStorageControlModeChanged(mode)
+        if (mode in [ChargeControlMode.AUTO, ChargeControlMode.MANUAL]) {
+            setControlActive(true)
+        } else {
+            setControlActive(false)
+        }
+
     }
 
     /**
@@ -200,6 +240,9 @@ class PowerStorageStatic implements PowerValueSubscriber {
         }
     }
 
+    /**
+     * storage control timetable and all related parameters are saved as a json file
+     */
     def saveTimetable() {
         def home = System.getProperty('user.home')
         def settingsDir = "$home/.${EnergySettings.SETTINGS_DIR}/"
@@ -209,11 +252,12 @@ class PowerStorageStatic implements PowerValueSubscriber {
         }
         if (dir.isDirectory()) {
             def out = [
-                    active    : active,
-                    socDay    : socDay,
-                    socNight  : socNight,
-                    socReserve: socReserve,
-                    timetable : hourtable
+                    active           : active,
+                    chargeControlMode: chargeControlMode,
+                    socDay           : socDay,
+                    socNight         : socNight,
+                    socReserve       : socReserve,
+                    timetable        : hourtable
             ]
             def json = JsonOutput.toJson(out)
             json = JsonOutput.prettyPrint(json)
@@ -234,6 +278,7 @@ class PowerStorageStatic implements PowerValueSubscriber {
             def saved = new JsonSlurper().parseText(json)
             if (saved instanceof Map) {
                 this.@active = saved.active
+                this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode?:'INACTIVE')
                 this.@socDay = saved.socDay
                 this.@socNight = saved.socNight
                 this.@socReserve = saved.socReserve
@@ -269,6 +314,14 @@ class PowerStorageStatic implements PowerValueSubscriber {
 
     def getTimetable() {
         hourtable.asImmutable()
+    }
+
+    def getActive() {
+        active
+    }
+
+    def getChargeControlMode() {
+        chargeControlMode
     }
 
     def getStorageMode() {
@@ -308,10 +361,36 @@ class PowerStorageStatic implements PowerValueSubscriber {
         }
     }
 
+    def planTomorrow(CurrentPowerPrices prices) {
+        def home = System.getProperty('user.home')
+        def settingsDir = "$home/.${EnergySettings.SETTINGS_DIR}/"
+        def dir = new File(settingsDir)
+        if (!dir.exists()) {
+            dir.mkdir()
+        }
+        if (dir.isDirectory()) {
+            def out = []
+            prices.today.each { PriceAt entry ->
+                out << entry.price
+            }
+
+            def json = JsonOutput.toJson(out)
+            json = JsonOutput.prettyPrint(json)
+            def date = F_DAY.print(DateTime.now())
+            def filename = "$PRICETABLE_FILE-$date"
+            new File(settingsDir, filename).withWriter { w ->
+                w << json
+            }
+            return json
+        }
+    }
+
     static void main(String[] args) {
         PowerStorageStatic powerStorage = new PowerStorageStatic()
+        def prices = PowerPriceMonitor.monitor.latestPrices
 //        powerStorage.loadOrInitTimetable()
-        powerStorage.shiftTimetable()
-        println powerStorage.timetable
+        def json = powerStorage.planTomorrow(prices)
+        println json
+        System.exit(0)
     }
 }
