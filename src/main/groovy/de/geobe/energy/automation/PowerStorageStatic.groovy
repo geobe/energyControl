@@ -31,6 +31,7 @@ import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.web.EnergySettings
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
+import org.codehaus.groovy.runtime.NumberAwareComparator
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
@@ -165,8 +166,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     @Override
     void takePriceUpdate(CurrentPowerPrices prices) {
-        if(chargeControlMode == ChargeControlMode.AUTO && prices.tomorrow) {
-            if(!controlPlanningStamp || controlPlanningStamp.isBefore(DateTime.now())) {
+        if (chargeControlMode == ChargeControlMode.AUTO && prices.tomorrow) {
+            if (!controlPlanningStamp || controlPlanningStamp.isBefore(DateTime.now())) {
                 // set timestamp to tomorrow 01:00
                 controlPlanningStamp = DateTime.now().withTimeAtStartOfDay().plusHours(25)
 //                planTomorrow(prices)
@@ -278,7 +279,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             def saved = new JsonSlurper().parseText(json)
             if (saved instanceof Map) {
                 this.@active = saved.active
-                this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode?:'INACTIVE')
+                this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode ?: 'INACTIVE')
                 this.@socDay = saved.socDay
                 this.@socNight = saved.socNight
                 this.@socReserve = saved.socReserve
@@ -361,7 +362,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         }
     }
 
-    def planTomorrow(CurrentPowerPrices prices) {
+    def savePrices(CurrentPowerPrices prices) {
         def home = System.getProperty('user.home')
         def settingsDir = "$home/.${EnergySettings.SETTINGS_DIR}/"
         def dir = new File(settingsDir)
@@ -385,12 +386,49 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         }
     }
 
+    def MIN_PRICE_DIFF = 0.050
+    float LOSS = 1.1
+
+    def planTomorrow(CurrentPowerPrices prices) {
+        if (prices.tomorrow) {
+            List<StorageControlRecord> scratch = []
+            prices.yesterday.eachWithIndex { PriceAt entry, int i ->
+                scratch <<  new StorageControlRecord(price: entry.price, hour : i)
+            }
+            def sorted = scratch.sort(false)
+            outer:
+            for (i in 23..12) {
+                def hi = sorted[i]
+                inner:
+                for (j in 0..11) {
+                    def lo = sorted[j]
+                    def loplus = (lo * LOSS)
+                    def diff = hi - loplus
+                    if (hi.before(lo) || lo.mode) {
+                        continue inner
+                    } else if (diff < MIN_PRICE_DIFF) {
+                        break outer
+                    } else {
+                        def lox = lo.hour
+                        def hix = hi.hour
+                        scratch[lox].mode = StorageMode.GRID_CHARGE
+                        scratch[hix].mode = StorageMode.AUTO
+                        continue outer
+                    }
+
+                }
+            }
+            println sorted
+            println scratch
+        }
+    }
+
     static void main(String[] args) {
         PowerStorageStatic powerStorage = new PowerStorageStatic()
         def prices = PowerPriceMonitor.monitor.latestPrices
 //        powerStorage.loadOrInitTimetable()
         def json = powerStorage.planTomorrow(prices)
-        println json
+//        println json
         System.exit(0)
     }
 }
