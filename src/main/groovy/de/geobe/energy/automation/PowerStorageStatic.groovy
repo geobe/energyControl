@@ -31,7 +31,6 @@ import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.web.EnergySettings
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
-import org.codehaus.groovy.runtime.NumberAwareComparator
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
@@ -49,6 +48,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     static final DAY = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     static final socTargets = [0, 25, 40, 50, 60, 75, 90, 100]
     static final reserveTargets = [0, 10, 25, 50]
+    static final powerFactorTargets = [100, 90, 80, 75, 60, 50, 40, 25]
     static final TIMETABLE_FILE = 'timetable.json'
     static final PRICETABLE_FILE = 'Pricetable'
     static final DateTimeFormatter F_DAY = DateTimeFormat.forPattern('yy-MM-dd-HH-mm')
@@ -80,6 +80,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     private volatile boolean active = false
     private volatile boolean savedActive = active
     private volatile ChargeControlMode chargeControlMode = ChargeControlMode.INACTIVE
+    private volatile float saving = 0.0
     private StorageMode currentMode = StorageMode.AUTO
     private int socDay = DEF_SOC_DAY
     private int socNight = DEF_SOC_NIGHT
@@ -203,7 +204,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     }
 
     /**
-     * change activity state of control task
+     * change activity state of control task. make sure that E3DC runs in AUTO mode.
      * @param activityState true if PowerStorageStatic task is set to active
      * @param saveChange default is save to disk
      */
@@ -214,9 +215,37 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             if (saveChange) saveTimetable()
         } else if (active) {
             this.@savedActive = active = false
+            chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
             chargingModeController.stopChargeControl()
             if (saveChange) saveTimetable()
         }
+    }
+
+    def resetTomorrow() {
+        for (i in 0..<HOURS) {
+            hourtable[HOURS + i] = StorageMode.AUTO
+        }
+        saveTimetable()
+    }
+
+    def optimizeTomorrow() {
+        def pricesAt = PowerPriceMonitor.monitor.latestPrices.tomorrow
+        if(pricesAt) {
+            def prices = []
+            pricesAt.each {prices << it.price }
+            def optimum = PowerStorageAutomation.optimizeTryBest(prices)
+            saving = optimum.saving
+            List<StorageControlRecord> optimized = optimum.records
+            if(saving) {
+                for (i in 0..<HOURS) {
+                    assert optimized[i].hour == i
+                    hourtable[HOURS + i] = optimized[i].mode
+                }
+            }
+        } else {
+            saving = 0.0
+        }
+        saveTimetable()
     }
 
     def getEndDate() {
@@ -334,6 +363,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def getSocNight() { socNight }
 
     def getSocReserve() { socReserve }
+
+    def getSaving() { saving }
 
     def setSavedActive(boolean act) {
         this.@savedActive = act

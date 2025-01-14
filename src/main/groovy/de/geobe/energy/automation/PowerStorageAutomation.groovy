@@ -41,12 +41,13 @@ import static de.geobe.energy.automation.PowerStorageStatic.StorageMode
  * Conditions:
  * <ul>
  *     <li>Capacity: It takes 5,75 hours to fully charge an empty storage.</li>
- *     <li>Max: A max of 8 hours of charging along the day are enough. </li>
+ *     <li>MaxLo: The maximal number of hours of charging along the day.</li>
  *     <li>Loss: Inverter loss is at least 10%.</li>
  *     <li>Load: Charging is 3 kWh/hour</li>
  *     <li>Unload: Average discharging is 2.5 kWh/hour</li>
  *     <li>Saving: At least 0.05 €/kWh should be effective price difference</li>
  * </ul>
+ * First experience: Variing the number of potential Load records between 10 and 14 seems to bring best results.
  * Algorithm:
  * <ol>
  *     <li>Start with a list of 24 StorageControlRecord objects sorted by ascending price.</li>
@@ -55,24 +56,58 @@ import static de.geobe.energy.automation.PowerStorageStatic.StorageMode
  *     <li>Build a new list with the marked records in daytime (hour) order.</li>
  *     <li>Eliminate marks for low-price records that have no following high-price record.</li>
  *     <li>Eliminate marks for high-price records that have no preceding low-price record.</li>
- *     <li>Calculate total Savings for a complete enumeration of combinations of Load and Unload records.</li>
+ *     <li>Rerun steps above and calculate total Savings for different numbers of Load and Unload records.</li>
  *     <li>Return the combination with maximal Saving.</li>
  * </ol>
  */
 class PowerStorageAutomation {
 
-    static final MAX_LO = 11
+    static final MAX_LO = 12
+    static final MAX_LO_LOOP = 10..14
     static final float LOSS_FACTOR = 1.1
     static final float LOAD_PWR = 3.0
     static final float LOAD_LAST_PWR = 2.0
     static final float LOAD_MAX = 17.6
     static final LOAD_COUNT = 6
+    /** maximal power drain when unloading */
     static final float UNLOAD_PWR = 2.8
-    static final float SAVING_MIN = .05
+    static final float SAVING_MIN_HOUR = .05
+    static final float SAVING_MIN_DAY = .4
     static final DateTimeFormatter F_DAY = DateTimeFormat.forPattern('yy-MM-dd')
     static final PRICETABLE_FILE = 'pricetable'
+    /** which fraction of available power is really used in average */
+    static float unloadFactor = 0.75
 
-    static optimize(List<Float> prices, int maxLo = MAX_LO) {
+    static setUnloadFactor(def value) {
+
+        println "unload factor $value"
+    }
+
+    /**
+     * try optimization with different # of Load records to find best solution
+     * @param prices a list of tibber prices in €/kWh for all 24 hours of a day
+     * @return saving and best found combination of StorageControlRecords or empty list
+     */
+    static optimizeTryBest(List<Float> prices) {
+        def optimizations = []
+        for (i in MAX_LO_LOOP) {
+            optimizations << optimizeOne(prices, i)
+        }
+        def best = optimizations.min { it.saving }
+        if (best.saving <= -SAVING_MIN_DAY) {
+            return [saving: best.saving,
+                    records: best.records]
+        }
+        return [saving: 0.0,
+                records: []]
+    }
+    /**
+     * Run an optimization for a given maximal number of Load records.
+     * @param prices a list of tibber prices in €/kWh for all 24 hours of a day
+     * @param maxLo maximal number of Load records at the beginning of the algorithm
+     * @return best found combination of StorageControlRecords and calculated saving
+     */
+    static optimizeOne(List<Float> prices, int maxLo = MAX_LO) {
         assert prices.size() == 24
         def rawRecords = StorageControlRecord.createRecords(prices)
         def records = rawRecords.sort(false)
@@ -95,7 +130,7 @@ class PowerStorageAutomation {
         def nLo = 0
         def nHi = 0
         for (i in 0..<maxLo) {
-            if ((records[i].price * LOSS_FACTOR + SAVING_MIN) < records.last().price) {
+            if ((records[i].price * LOSS_FACTOR + SAVING_MIN_HOUR) < records.last().price) {
                 nLo++
                 records[i].mode = StorageMode.GRID_CHARGE
             } else {
@@ -106,7 +141,7 @@ class PowerStorageAutomation {
             records.last().mode = StorageMode.AUTO
             nHi++
             for (i in 1..<maxHi) {
-                if ((records.first().price * LOSS_FACTOR + SAVING_MIN) < records[23 - i].price) {
+                if ((records.first().price * LOSS_FACTOR + SAVING_MIN_HOUR) < records[23 - i].price) {
                     records[23 - i].mode = StorageMode.AUTO
                     nHi++
                 }
@@ -170,7 +205,7 @@ class PowerStorageAutomation {
                 records[i].loadPwr = loadPwr
                 visitedLo << records[i]
             } else if (records[i].mode == StorageMode.AUTO) {
-                if (loadState <= 0.5 * UNLOAD_PWR) {
+                if (loadState <= 0.5 * UNLOAD_PWR * unloadFactor) {
                     if (visitedHi.first() && records[i].price > visitedHi.first().price) {
                         // skip least expensive record
                         def skip = visitedHi.first()
@@ -185,7 +220,7 @@ class PowerStorageAutomation {
                         continue
                     }
                 }
-                float unloadPwr = Math.min(loadState, UNLOAD_PWR)
+                float unloadPwr = Math.min(loadState, UNLOAD_PWR * unloadFactor)
                 loadState -= unloadPwr
                 loading--
                 float save = records[i].price * unloadPwr
@@ -223,7 +258,7 @@ class PowerStorageAutomation {
         for (i in to + 1..<24) {
             records[i].mode = StorageMode.AUTO
             if (leftLoad >= 0.3) {
-                float unloadPwr = Math.min(leftLoad, UNLOAD_PWR)
+                float unloadPwr = Math.min(leftLoad, UNLOAD_PWR * unloadFactor)
                 leftLoad -= unloadPwr
                 float save = records[i].price * unloadPwr
                 records[i].cost = -save
@@ -289,30 +324,39 @@ class PowerStorageAutomation {
     }
 
     static void main(String[] args) {
+//        def testdate = new DateTime(2025, 1, 1, 1, 0)
+//        for (i in 0..<12) {
+//            def loopdate = testdate.plusDays(i)
+//            def testData = makeTestData(loopdate)
+//            savePrices(testData, loopdate)
+//        }
         def prices = restorePrices()
         float total
         for (i in 1..12) {
-            def date = "24-12-${i < 10 ? '0' : ''}$i"
+            def date = "25-01-${i < 10 ? '0' : ''}$i"
             def day0 = prices[date]
-            def optimizations = []
-            print "$date: "
-            for (maxLo in 0..<5) {
-                optimizations << optimize(day0, 10 + maxLo).saving
+            if(day0) {
+                def optimizations = []
+                print "$date: "
+                for (maxLo in 0..<5) {
+                    optimizations << [save: optimizeOne(day0, 10 + maxLo).saving,
+                                      time: 10 + maxLo]
 //                print "${10 + maxLo}: ${optimizations.last()}, "
+                }
+                def min = optimizations.min {
+                    it.save
+                }
+                total += min.save
+                def loop = optimizeTryBest(day0)
+                def l = loop.saving ? "${loop.saving}" : "---"
+                println "loop: $l, best: $min, @12: ${optimizations[2]}"
+            } else {
+                println "$date: no values"
             }
-            def min = optimizations.min()
-            total += min
-            println "@12: ${optimizations[2]}, best: $min"
         }
         println "Monat $total"
 //        println optimizations(day0)
 //        prices.each {println it}
-//        def date = new DateTime(2024, 12, 1, 1, 0)
-//        for (i in 0..<30) {
-//            def loopdate = date.plusDays(i)
-//            def testData = makeTestData(loopdate)
-//            savePrices(testData, loopdate)
-//        }
     }
 
 }

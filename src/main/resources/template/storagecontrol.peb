@@ -29,8 +29,25 @@
             {% endautoescape %}
         {% endfor %}
     </div>
+    <div id="timetable-buttons" class="w3-col w3-padding-small w3-light-grey">
+        <div class="w3-col s12 m4 l4 w3-left">
+            <button class="w3-btn w3-round w3-green"
+             hx-post="bufCtlHour/planReset" hx-target="#div-power-buffering" hx-swap="outerHTML">
+                {{ bufCtlPlanReset }}
+            </button>
+        </div>
+        <div class="w3-col s12 m4 l4 w3-left">
+            <button class="w3-btn w3-round w3-yellow"
+             hx-post="bufCtlHour/planCreate" hx-target="#div-power-buffering" hx-swap="outerHTML">
+                {{ bufCtlPlanCreate }}
+            </button>
+        </div>
+        <div class="w3-col s12 m4 l4 w3-left">
+            <button class="w3-btn w3-round w3-light-grey">{{ bufCtlPlanEstimate }}</button>
+        </div>
+    </div>
     {% for socSelect in bufCtlSocSelect %}
-    <div id="bufCtlSoc-select" class="w3-col w3-padding  w3-light-grey s12 m4 l4 w3-left">
+    <div id="bufCtlSoc-select" class="w3-col w3-padding  w3-light-grey s12 m3 l3 w3-left">
         <label class="w3-label">{{ socSelect.label }}</label>
         <select class="w3-select" name="{{ socSelect.name }}"
         hx-post="bufCtlHour/{{ socSelect.target }}" hx-target="#div-power-buffering"

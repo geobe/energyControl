@@ -138,10 +138,14 @@ bufCtlHourly:Manuelle Speichersteuerung:Manual Storage Control
 bufCtlAuto:Automatik:Automatic
 bufCtlManual:Manuell:Manual
 bufCtlInactive:Inaktiv:Inactive
+bufCtlPlanReset:Planung löschen:Reset Planning
+bufCtlPlanCreate:Planung erzeugen:Create Planning
+bufCtlPlanEstimate:Einsparung ca. [€]:Saving ca. [€]
 * bufCtlLabels::
 bufCtlSocDay:Ladeziel Tag:Requested SOC Day
 bufCtlSocNight:Ladeziel Nacht:Requested SOC Night
 bufCtlSocReserve:Notstrom Reserve:Emergency Reserve
+bufCtlPowerFactor:Verbrauchsfaktor:Drain Factor
 * HeatpumpStrings::
 hpcEarly:früh:early
 hpcLate:spät:late

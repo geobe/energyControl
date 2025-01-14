@@ -2,7 +2,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2023. Georg Beier. All rights reserved.
+ * Copyright (c) 2025. Georg Beier. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,11 @@
  * SOFTWARE.
  */
 
-package de.geobe.energy.automation
+package de.geobe.energy.obsolete
 
+import de.geobe.energy.automation.CurrentPowerPrices
+import de.geobe.energy.automation.PowerPriceMonitor
+import de.geobe.energy.automation.PowerStrategyParams
 import de.geobe.energy.e3dc.E3dcChargingModeController
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.tibber.PriceAt
@@ -31,8 +34,6 @@ import org.joda.time.DateTime
 import org.joda.time.Duration
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
-
-import java.util.concurrent.TimeUnit
 
 class PowerBufferingStrategy {
 

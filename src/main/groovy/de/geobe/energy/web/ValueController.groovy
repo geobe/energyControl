@@ -355,6 +355,14 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 case 'auto':
                     powerStorage.setChargeControlMode(PowerStorageStatic.ChargeControlMode.AUTO)
                     break
+                case 'planReset':
+                    powerStorage.resetTomorrow()
+                    break
+                case 'bufCtlPowerFactor':
+                    PowerStorageAutomation.setUnloadFactor(value)
+                case 'planCreate':
+                    powerStorage.optimizeTomorrow()
+                    break
                 case 'bufCtlSocDay':
                     powerStorage.socDay = value
                     break

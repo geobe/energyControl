@@ -49,6 +49,7 @@ class StorageController implements PowerPriceSubscriber {
         def bufCtlPrices = []
         def hourNow = DateTime.now().hourOfDay
         def hours = powerStorageStatic.timetable
+        def saving = powerStorageStatic.saving
         hours.eachWithIndex { storageMode, hour ->
             def entry = [state: storageMode.toString()]
             float price
@@ -69,12 +70,15 @@ class StorageController implements PowerPriceSubscriber {
             bufCtlStates << entry
         }
         def ctx = [
-                bufCtlTitle   : ti18n.headingStrings.bufCtlTitle,
-                bufCtlAuto    : ti18n.bufCtl.bufCtlAuto,
-                bufCtlManual  : ti18n.bufCtl.bufCtlManual,
-                bufCtlInactive: ti18n.bufCtl.bufCtlInactive,
-                bufCtlStates  : bufCtlStates,
-                bufCtlPrices  : bufCtlPrices
+                bufCtlTitle       : ti18n.headingStrings.bufCtlTitle,
+                bufCtlAuto        : ti18n.bufCtl.bufCtlAuto,
+                bufCtlManual      : ti18n.bufCtl.bufCtlManual,
+                bufCtlInactive    : ti18n.bufCtl.bufCtlInactive,
+                bufCtlPlanReset   : ti18n.bufCtl.bufCtlPlanReset,
+                bufCtlPlanCreate  : ti18n.bufCtl.bufCtlPlanCreate,
+                bufCtlPlanEstimate: ti18n.bufCtl.bufCtlPlanEstimate + ' ' + saving.round(2),
+                bufCtlStates      : bufCtlStates,
+                bufCtlPrices      : bufCtlPrices
         ]
         switch (powerStorageStatic.chargeControlMode) {
             case PowerStorageStatic.ChargeControlMode.AUTO:
@@ -89,9 +93,10 @@ class StorageController implements PowerPriceSubscriber {
             default:
                 ctx.put('checkedBufCtlInactive', 'checked')
         }
-        def selectMap = [day    : powerStorageStatic.socDay,
-                         night  : powerStorageStatic.socNight,
-                         reserve: powerStorageStatic.socReserve]
+        def selectMap = [day        : powerStorageStatic.socDay,
+                         night      : powerStorageStatic.socNight,
+                         reserve    : powerStorageStatic.socReserve,
+                         powerFactor: powerStorageStatic.powerFactorTargets]
         def socList = []
         for (soc in socLabels.keySet()) {
             def socMap = [label  : ti18n.bufCtlLabels[socLabels[soc]],
@@ -108,9 +113,10 @@ class StorageController implements PowerPriceSubscriber {
         ctx
     }
 
-    static final socLabels = [day    : 'bufCtlSocDay',
-                              night  : 'bufCtlSocNight',
-                              reserve: 'bufCtlSocReserve']
+    static final socLabels = [day        : 'bufCtlSocDay',
+                              night      : 'bufCtlSocNight',
+                              reserve    : 'bufCtlSocReserve',
+                              powerFactor: 'bufCtlPowerFactor']
 
     @Override
     void takePriceUpdate(CurrentPowerPrices prices) {
