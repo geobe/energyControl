@@ -140,7 +140,7 @@ bufCtlManual:Manuell:Manual
 bufCtlInactive:Inaktiv:Inactive
 bufCtlPlanReset:Planung löschen:Reset Planning
 bufCtlPlanCreate:Planung erzeugen:Create Planning
-bufCtlPlanEstimate:Einsparung ca. [€]:Saving ca. [€]
+bufCtlPlanEstimate:Einsparung (Plan) ca. [€]:Planned Saving ca. [€]
 * bufCtlLabels::
 bufCtlSocDay:Ladeziel Tag:Requested SOC Day
 bufCtlSocNight:Ladeziel Nacht:Requested SOC Night

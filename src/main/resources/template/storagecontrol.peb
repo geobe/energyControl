@@ -30,20 +30,22 @@
         {% endfor %}
     </div>
     <div id="timetable-buttons" class="w3-col w3-padding-small w3-light-grey">
-        <div class="w3-col s12 m4 l4 w3-left">
+        <div class="w3-col w3-padding-small s6 m4 l4 w3-left">
             <button class="w3-btn w3-round w3-green"
              hx-post="bufCtlHour/planReset" hx-target="#div-power-buffering" hx-swap="outerHTML">
                 {{ bufCtlPlanReset }}
             </button>
         </div>
-        <div class="w3-col s12 m4 l4 w3-left">
+        <div class="w3-col w3-padding-small s6 m4 l4 w3-left">
             <button class="w3-btn w3-round w3-yellow"
              hx-post="bufCtlHour/planCreate" hx-target="#div-power-buffering" hx-swap="outerHTML">
                 {{ bufCtlPlanCreate }}
             </button>
         </div>
-        <div class="w3-col s12 m4 l4 w3-left">
-            <button class="w3-btn w3-round w3-light-grey">{{ bufCtlPlanEstimate }}</button>
+        <div class="w3-col w3-padding-small s12 m4 l4 w3-left">
+            <button class="w3-btn w3-round {{ bufCtlPlanFlag < 0 ? 'w3-green' : (bufCtlPlanFlag > 0 ? 'w3-red' : 'w3-light-grey') }}">
+                {{ bufCtlPlanEstimate }}
+            </button>
         </div>
     </div>
     {% for socSelect in bufCtlSocSelect %}

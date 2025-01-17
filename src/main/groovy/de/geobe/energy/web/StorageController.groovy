@@ -77,6 +77,7 @@ class StorageController implements PowerPriceSubscriber {
                 bufCtlPlanReset   : ti18n.bufCtl.bufCtlPlanReset,
                 bufCtlPlanCreate  : ti18n.bufCtl.bufCtlPlanCreate,
                 bufCtlPlanEstimate: ti18n.bufCtl.bufCtlPlanEstimate + ' ' + saving.round(2),
+                bufCtlPlanFlag    : saving <=> 0.0,
                 bufCtlStates      : bufCtlStates,
                 bufCtlPrices      : bufCtlPrices
         ]
@@ -96,15 +97,17 @@ class StorageController implements PowerPriceSubscriber {
         def selectMap = [day        : powerStorageStatic.socDay,
                          night      : powerStorageStatic.socNight,
                          reserve    : powerStorageStatic.socReserve,
-                         powerFactor: powerStorageStatic.powerFactorTargets]
+                         powerFactor: powerStorageStatic.unloadFactor]
         def socList = []
         for (soc in socLabels.keySet()) {
             def socMap = [label  : ti18n.bufCtlLabels[socLabels[soc]],
                           name   : socLabels[soc],
                           target : socLabels[soc],
-                          options: (soc == 'reserve' ?
-                                  PowerStorageStatic.reserveTargets :
-                                  PowerStorageStatic.socTargets),
+                          options: (soc == 'powerFactor' ?
+                                  PowerStorageStatic.powerFactorTargets :
+                                  (soc == 'reserve' ?
+                                          PowerStorageStatic.reserveTargets :
+                                          PowerStorageStatic.socTargets)),
                           select : selectMap[soc]
             ]
             socList << socMap

@@ -67,6 +67,10 @@ class PowerCommunicationRecorder /*implements PowerValueSubscriber*/ {
         logMessage "battery switched to\t$storageMode"
     }
 
+    void powerStoragePresetReset() {1
+        logMessage "battery reset 0 +1D .. 23 +1D to\t$PowerStorageStatic.StorageMode.AUTO"
+    }
+
     void powerStoragePresetChanged(PowerStorageStatic.StorageMode storageMode, int hour) {
         def day = hour > 23 ? ' +1D' : ''
         logMessage "battery preset at\t${hour%24}$day to\t$storageMode"
@@ -74,6 +78,10 @@ class PowerCommunicationRecorder /*implements PowerValueSubscriber*/ {
 
     void powerStorageControlModeChanged(PowerStorageStatic.ChargeControlMode controlMode) {
         logMessage "set battery control mode $controlMode"
+    }
+
+    void powerStorageControlModeActive(boolean isActive) {
+        logMessage "set battery control mode ${isActive ? 'active' : 'not active'}"
     }
 
     static void logMessage(String msg) {

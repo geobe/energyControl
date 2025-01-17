@@ -32,6 +32,8 @@ import groovy.json.JsonSlurper
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
+
+import static de.geobe.energy.automation.PowerStorageStatic.HOURS
 import static groovy.io.FileType.FILES
 import static de.geobe.energy.automation.PowerStorageStatic.StorageMode
 
@@ -66,12 +68,13 @@ class PowerStorageAutomation {
     static final MAX_LO_LOOP = 10..14
     static final float LOSS_FACTOR = 1.1
     static final float LOAD_PWR = 3.0
-    static final float LOAD_LAST_PWR = 2.0
+//    static final float LOAD_LAST_PWR = 2.0
     static final float LOAD_MAX = 17.6
+    /** full hours to completely load storage */
     static final LOAD_COUNT = 6
     /** maximal power drain when unloading */
-    static final float UNLOAD_PWR = 2.8
-    static final float SAVING_MIN_HOUR = .05
+//    static final float UNLOAD_PWR = 2.8
+    static final float SAVING_MIN_HOUR = .04
     static final float SAVING_MIN_DAY = .4
     static final DateTimeFormatter F_DAY = DateTimeFormat.forPattern('yy-MM-dd')
     static final PRICETABLE_FILE = 'pricetable'
@@ -79,12 +82,13 @@ class PowerStorageAutomation {
     static float unloadFactor = 0.75
 
     static setUnloadFactor(def value) {
-
-        println "unload factor $value"
+        unloadFactor = value
     }
 
     /**
      * try optimization with different # of Load records to find best solution
+     * price calculation is done with a new list of records populated from optimum
+     * in a straight simple way.
      * @param prices a list of tibber prices in €/kWh for all 24 hours of a day
      * @return saving and best found combination of StorageControlRecords or empty list
      */
@@ -95,10 +99,13 @@ class PowerStorageAutomation {
         }
         def best = optimizations.min { it.saving }
         if (best.saving <= -SAVING_MIN_DAY) {
-            return [saving: best.saving,
-                    records: best.records]
+            def modes = best.records.collect { it.mode }
+            def records = StorageControlRecord.createRecords(prices, modes)
+            def saving = calculate(records)
+            return [saving : saving,
+                    records: records]
         }
-        return [saving: 0.0,
+        return [saving : 0.0,
                 records: []]
     }
     /**
@@ -205,7 +212,7 @@ class PowerStorageAutomation {
                 records[i].loadPwr = loadPwr
                 visitedLo << records[i]
             } else if (records[i].mode == StorageMode.AUTO) {
-                if (loadState <= 0.5 * UNLOAD_PWR * unloadFactor) {
+                if (loadState <= 0.5 * LOAD_PWR * unloadFactor) {
                     if (visitedHi.first() && records[i].price > visitedHi.first().price) {
                         // skip least expensive record
                         def skip = visitedHi.first()
@@ -220,7 +227,7 @@ class PowerStorageAutomation {
                         continue
                     }
                 }
-                float unloadPwr = Math.min(loadState, UNLOAD_PWR * unloadFactor)
+                float unloadPwr = Math.min(loadState, LOAD_PWR * unloadFactor)
                 loadState -= unloadPwr
                 loading--
                 float save = records[i].price * unloadPwr
@@ -258,7 +265,7 @@ class PowerStorageAutomation {
         for (i in to + 1..<24) {
             records[i].mode = StorageMode.AUTO
             if (leftLoad >= 0.3) {
-                float unloadPwr = Math.min(leftLoad, UNLOAD_PWR * unloadFactor)
+                float unloadPwr = Math.min(leftLoad, LOAD_PWR * unloadFactor)
                 leftLoad -= unloadPwr
                 float save = records[i].price * unloadPwr
                 records[i].cost = -save
@@ -335,21 +342,20 @@ class PowerStorageAutomation {
         for (i in 1..12) {
             def date = "25-01-${i < 10 ? '0' : ''}$i"
             def day0 = prices[date]
-            if(day0) {
-                def optimizations = []
+            if (day0) {
                 print "$date: "
-                for (maxLo in 0..<5) {
-                    optimizations << [save: optimizeOne(day0, 10 + maxLo).saving,
-                                      time: 10 + maxLo]
-//                print "${10 + maxLo}: ${optimizations.last()}, "
-                }
-                def min = optimizations.min {
-                    it.save
-                }
-                total += min.save
                 def loop = optimizeTryBest(day0)
+                def modes = loop.records.collect { it.mode }
+                def rec = StorageControlRecord.createRecords(day0, modes)
+                def saving = calculate(rec)
                 def l = loop.saving ? "${loop.saving}" : "---"
-                println "loop: $l, best: $min, @12: ${optimizations[2]}"
+                println "saving from loop: $l, saving from modes: $saving"
+                def lrec = loop.records
+                if (saving)
+                    for (h in 0..<HOURS) {
+                        if (rec[h].mode in [StorageMode.GRID_CHARGE, StorageMode.AUTO])
+                            println "$h: rec.cost = ${rec[h].cost} lrec.cost = ${lrec[h].cost} => ${(lrec[h].cost - rec[h].cost).round(2)}"
+                    }
             } else {
                 println "$date: no values"
             }
@@ -366,12 +372,38 @@ class StorageControlRecord implements Comparable {
     float cost
     float loadPwr
     int hour
-    PowerStorageStatic.StorageMode mode
+    StorageMode mode
 
     static List<StorageControlRecord> createRecords(List<Float> prices) {
         def records = []
         prices.eachWithIndex { float price, int hour ->
             def record = new StorageControlRecord(price: price, hour: hour)
+            records << record
+        }
+        records
+    }
+
+    static List<StorageControlRecord> createRecords(List<Float> prices, List<StorageMode> modes) {
+        def records = []
+        float loadHours = 0.0
+        float loadHoursLimit = PowerStorageAutomation.LOAD_MAX / PowerStorageAutomation.LOAD_PWR
+        prices.eachWithIndex { float price, int hour ->
+            def record = new StorageControlRecord(price: price, hour: hour)
+            if (modes) {
+                def mode = modes[hour]
+                float cost = 0.0
+                record.mode = mode
+                if (mode == StorageMode.GRID_CHARGE && loadHours < loadHoursLimit) {
+                    float loadTime = Math.min(1.0, loadHoursLimit - loadHours)
+                    loadHours += 1
+                    cost = loadTime * price * PowerStorageAutomation.LOSS_FACTOR * PowerStorageAutomation.LOAD_PWR
+                } else if (mode == StorageMode.AUTO && loadHours > 0.0) {
+                    def unloadDuration = Math.min(loadHours, PowerStorageAutomation.unloadFactor)
+                    loadHours -= unloadDuration
+                    cost = -price * PowerStorageAutomation.LOAD_PWR * unloadDuration
+                }
+                record.cost = cost
+            }
             records << record
         }
         records

@@ -93,9 +93,9 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     private PowerStorageStatic() {
         int hour = DateTime.now().hourOfDay
-        currentMode = hourtable[hour]
         chargingModeController = new E3dcChargingModeController(CHARGE_POWER, DEF_SOC_DAY)
         loadOrInitTimetable()
+        currentMode = hourtable[hour]
         PowerMonitor.monitor.subscribe(this)
         PowerPriceMonitor.monitor.subscribe(this)
     }
@@ -183,6 +183,9 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             def inc = (pos + 1) % StorageMode.values().size()
             def newMode = StorageMode.values()[inc]
             hourtable[hour] = newMode
+            if(hour >= 24) {
+                updateSaving()
+            }
             saveTimetable()
             PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, hour)
         }
@@ -209,14 +212,16 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
      * @param saveChange default is save to disk
      */
     void setControlActive(boolean activityState, boolean saveChange = true) {
-        if (activityState && !active) {
+        if (activityState && !active) { // switch to active only if not active
             this.@savedActive = active = true
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
+            PowerCommunicationRecorder.recorder.powerStorageControlModeActive(true)
             if (saveChange) saveTimetable()
-        } else if (active) {
+        } else if (!activityState && active) { // switch to not active only if active
             this.@savedActive = active = false
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
             chargingModeController.stopChargeControl()
+            PowerCommunicationRecorder.recorder.powerStorageControlModeActive(false)
             if (saveChange) saveTimetable()
         }
     }
@@ -225,6 +230,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         for (i in 0..<HOURS) {
             hourtable[HOURS + i] = StorageMode.AUTO
         }
+        PowerCommunicationRecorder.recorder.powerStoragePresetReset()
+        updateSaving()
         saveTimetable()
     }
 
@@ -239,13 +246,29 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             if(saving) {
                 for (i in 0..<HOURS) {
                     assert optimized[i].hour == i
-                    hourtable[HOURS + i] = optimized[i].mode
+                    def newMode = optimized[i].mode
+                    if(hourtable[HOURS + i] != newMode) {
+                        PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, HOURS + i)
+                        hourtable[HOURS + i] = newMode
+                    }
                 }
             }
         } else {
+            resetTomorrow()
             saving = 0.0
         }
         saveTimetable()
+    }
+
+    private void updateSaving() {
+        def modes = hourtable[24..47]
+        def prices = PowerPriceMonitor.monitor.latestPrices.tomorrow.collect {it.price}
+        if (prices) {
+            def records = StorageControlRecord.createRecords(prices, modes)
+            saving = PowerStorageAutomation.calculate(records)
+        } else {
+            saving = 0.0
+        }
     }
 
     def getEndDate() {
@@ -307,14 +330,14 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             def json = file.text
             def saved = new JsonSlurper().parseText(json)
             if (saved instanceof Map) {
-                this.@active = saved.active
+                def lactive = saved.active
                 this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode ?: 'INACTIVE')
                 this.@socDay = saved.socDay
                 this.@socNight = saved.socNight
                 this.@socReserve = saved.socReserve
                 table = saved.timetable
                 hourtable = string2StorageMode(table)
-                setControlActive(active, false)
+                setControlActive(lactive, false)
             }
         } else {
             for (i in 0..<HOURS * 2) {
@@ -391,6 +414,16 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             chargingModeController.socBlackoutReserve = socReserve
             saveTimetable()
         }
+    }
+
+    def setUnloadFactor(int factor) {
+        if (factor in 0..100) {
+            PowerStorageAutomation.unloadFactor = (float) factor/100
+        }
+    }
+
+    int getUnloadFactor() {
+        (PowerStorageAutomation.unloadFactor * 100).round()
     }
 
     def savePrices(CurrentPowerPrices prices) {

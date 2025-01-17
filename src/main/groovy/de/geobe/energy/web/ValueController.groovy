@@ -359,7 +359,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                     powerStorage.resetTomorrow()
                     break
                 case 'bufCtlPowerFactor':
-                    PowerStorageAutomation.setUnloadFactor(value)
+                    powerStorage.unloadFactor = value
                 case 'planCreate':
                     powerStorage.optimizeTomorrow()
                     break

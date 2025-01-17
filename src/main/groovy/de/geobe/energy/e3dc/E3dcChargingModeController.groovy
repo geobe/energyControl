@@ -27,9 +27,9 @@ package de.geobe.energy.e3dc
 import de.geobe.energy.automation.PMValues
 import de.geobe.energy.automation.PeriodicExecutor
 import de.geobe.energy.automation.PowerMonitor
-import de.geobe.energy.automation.PowerStorageStatic
 import de.geobe.energy.automation.PowerValueSubscriber
 import de.geobe.energy.recording.LogMessageRecorder
+import de.geobe.energy.recording.PowerCommunicationRecorder
 import org.joda.time.DateTime
 
 import java.util.concurrent.TimeUnit
@@ -125,6 +125,8 @@ class E3dcChargingModeController implements PowerValueSubscriber {
         isRunning = false
 //        executor.stop()
         powerMonitor.unsubscribe(this)
+        PowerCommunicationRecorder.recorder.logMessage("chargingModeController unsubscribed")
+        logRecorder.logMessage("chargingModeController unsubscribed")
 //        e3dc.storageLoadMode(E3dcInteractionRunner.AUTO, 0)
         controlState = CtlState.Stopped
     }
@@ -144,6 +146,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
             powerMonitor.subscribe(this)
             isRunning = true
 //            println "chargingModeController subscribed"
+            PowerCommunicationRecorder.recorder.logMessage("chargingModeController subscribed")
             logRecorder.logMessage("chargingModeController subscribed")
         }
         e3dcMode = mode
