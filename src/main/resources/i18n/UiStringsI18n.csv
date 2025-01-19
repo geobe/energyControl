@@ -1,4 +1,8 @@
 key:de:en
+* menuBarStrings::
+powerStoreManagement:Stromspeicher:Power Storage
+carChargeControl:Auto Ladesteuerung:Car Charge Control
+generalSettings:Einstellungen:Settings
 * languages::
 de:Deutsch:German
 en:Englisch:English
@@ -28,13 +32,13 @@ tibberStrategyLabel:Tibber Ladestrategie:tibber charge strategy
 tibberPriceLabel:Tibber Preis:tibber price
 * headingStrings::
 websiteTitle:PowerManagement:PowerManagement
-powerTitle:Energiewerte:Energy Values
 statesTitle:Statuswerte:State Values
 chartsHeader:Grafiken:Charts
 graphTitle:Energie Status:Energy State
 tibTitle:Tibber Preis:Tibber Price
 bufCtlTitle:Stromspeicher Steuerung:Power Storage Control
 * powerStrings::
+powerTitle:Energiewerte:Energy Values
 pvLabel:PV:PV
 gridLabel:Netz:Grid
 batteryLabel:Batterie:Battery

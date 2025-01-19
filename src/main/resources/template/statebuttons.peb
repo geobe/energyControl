@@ -1,34 +1,37 @@
     <div id="div-state" class=" {{ mgmtColor }} w3-col w3-left">
-          <div id="strategy-buttons" class="w3-col w3-padding-small w3-hide w3-show">
-                  <div class="w3-col w3-yellow s12 m6 l6 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-management" {{ checkedActive }}
-                      hx-post="/wallboxStrategy/{{ mgmtActivate }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{ mgmtActive }}</label>
-                  </div>
-                  <div class="w3-col w3-light-grey s12 m6 l6 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-management" {{ checkedInactive}}
-                      hx-post="/wallboxStrategy/{{ mgmtDeactivate }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{ mgmtInactive }}</label>
-                  </div>
-                  <div class="w3-col s6 m3 l3 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdSurplus }}" {{ checkedSurplus }}
-                      hx-post="/wallboxStrategy/{{ cmdSurplus }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{ pvStrategy }}</label>
-                  </div>
-                  <div class="w3-col s6 m3 l3 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdTibber }}" {{ checkedTibber}}
-                      hx-post="/wallboxStrategy/{{ cmdTibber }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{ tibberStrategy }}</label>
-                  </div>
-                  <div class="w3-col s6 m3 l3 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdAnyway }}" {{ checkedAnyway }}
-                      hx-post="/wallboxStrategy/{{ cmdAnyway }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{  anywayStrategy }}</label>
-                  </div>
-                  <div class="w3-col s6 m3 l3 w3-left">
-                      <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdStop }}" {{ checkedStop }}
-                      hx-post="/wallboxStrategy/{{ cmdStop }}" hx-target="#div-state" hx-swap="outerHTML">
-                      <label>{{ stopStrategy }}</label>
-                  </div>
+          <div id="strategy-buttons" class="w3-col w3-padding-small w3-hide tabContent">
+              <h4>{{ statesTitle }}</h4>
+              {% include "./chargeinfo.peb" %}
+              <h4>{{ wallboxStrategyHeader }}</h4>
+              <div class="w3-col w3-yellow s12 m6 l6 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-management" {{ checkedActive }}
+                  hx-post="/wallboxStrategy/{{ mgmtActivate }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{ mgmtActive }}</label>
+              </div>
+              <div class="w3-col w3-light-grey s12 m6 l6 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-management" {{ checkedInactive}}
+                  hx-post="/wallboxStrategy/{{ mgmtDeactivate }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{ mgmtInactive }}</label>
+              </div>
+              <div class="w3-col s6 m3 l3 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdSurplus }}" {{ checkedSurplus }}
+                  hx-post="/wallboxStrategy/{{ cmdSurplus }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{ pvStrategy }}</label>
+              </div>
+              <div class="w3-col s6 m3 l3 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdTibber }}" {{ checkedTibber}}
+                  hx-post="/wallboxStrategy/{{ cmdTibber }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{ tibberStrategy }}</label>
+              </div>
+              <div class="w3-col s6 m3 l3 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdAnyway }}" {{ checkedAnyway }}
+                  hx-post="/wallboxStrategy/{{ cmdAnyway }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{  anywayStrategy }}</label>
+              </div>
+              <div class="w3-col s6 m3 l3 w3-left">
+                  <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdStop }}" {{ checkedStop }}
+                  hx-post="/wallboxStrategy/{{ cmdStop }}" hx-target="#div-state" hx-swap="outerHTML">
+                  <label>{{ stopStrategy }}</label>
+              </div>
           </div>
     </div>

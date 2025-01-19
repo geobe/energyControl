@@ -235,7 +235,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     def bodyCtx(Request req, Response resp) {
         def strategy = chargeStrategy
         def ti18n = tGlobal
-        def ctx = setChargeCommandContext(strategy, ti18n)
+        def ctx = setMenubarContext(ti18n)
+        ctx.putAll setChargeCommandContext(strategy, ti18n)
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         ctx.putAll(joinDashboardContext(ti18n))
         ctx.putAll(es.settingsFormContext(ti18n))
@@ -594,6 +595,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                 ctx.mgmtColor = 'w3-yellow'
         }
         ctx
+    }
+
+    def setMenubarContext(Map<String, Map<String, String>> ti18n) {
+        ti18n.menuBarStrings
     }
 
     def setChargeCommandContext(CarChargingManager.ChargeManagerStrategy strategy, Map<String, Map<String, String>> ti18n) {

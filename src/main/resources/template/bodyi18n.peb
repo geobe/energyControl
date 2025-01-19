@@ -6,31 +6,17 @@
             </div>
             <!-- Nav tabs -->
             <div class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6" style="width:100%">
-{#
-                    <button class="w3-bar-item w3-button"
-                            hx-get="/state"
-                            hx-target="#tab_content">
-                        Smart Grid Status
-                    </button>
-                    <button class="w3-bar-item w3-button" id="history-graph-button"
-                            hx-get="/pvYieldGraph"
-                            hx-target="#tab_content">
-                        PV Info
-                    </button>
-                    <button class="w3-bar-item w3-button"
-                            hx-post="/nosettings"
-                            hx-target="#tab_content">
-                        Einstellungen
-                    </button>
-                    <button class="w3-bar-item w3-button"
-                            hx-post="/forecast"
-                            hx-target="#tab_content">
-                        Wettervorhersage
-                    </button>
-#}
-                <button class="w3-bar-item w3-button"
-                        hx-post="/stop"
-                        >
+                <button class="w3-bar-item w3-button" onClick="openTab('timetable-tab')">
+                    {{ powerStoreManagement }}
+                </button>
+                <button class="w3-bar-item w3-button" onClick="openTab('strategy-buttons')">
+                    {{ carChargeControl }}
+                </button>
+                <button class="w3-bar-item w3-button" onClick="openTab('settings-form')">
+                    {{ generalSettings }}
+                </button>
+                <button class="w3-bar-item w3-button w3-right w3-blue-grey"
+                        hx-post="/stop">
                     Stop Server
                 </button>
                 <div id="language-select">
@@ -44,29 +30,25 @@
             <div hx-ext="ws" ws-connect="/dash">
             </div>
             <!-- error message pane -->
-                {% include "./networkerror.peb" %}
-            <!-- dashboard panes -->
-            <!-- div id="dashboard" hx-trigger="load" -->
-               {% include "./dashboard.peb" %}
-            <!-- /div -->
+            {% include "./networkerror.peb" %}
+        <!-- dashboard pane -->
+            <div class="w3-container w3-border">
+                {% include "./powervalues.peb" %}
+            </div>
+        <!-- container for tab pages -->
+            <div class="w3-container w3-border">
             <!-- Charge strategy control pane -->
-            <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
-                onClick="accordeon('strategy-buttons')">
-              <h5 class="w3-margin-left">{{ wallboxStrategyHeader }} &raquo;</h5>
-            </div>
-            {% include "./statebuttons.peb" %}
+                {% include "./statebuttons.peb" %}
             <!-- Charge settings pane -->
-            {% include "./settings.peb" %}
+                {% include "./settings.peb" %}
             <!-- power buffering control pane -->
-            <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
-             onClick="accordeon('timetable-show')">
-              <h5 class="w3-margin-left">{{ bufCtlTitle }} &raquo;</h5>
+                <div id="timetable-tab" class=" w3-hide w3-show tabContent">
+                <h4>{{ bufCtlTitle }}</h4>
+                {% include "./storagecontrol.peb" %}
+                </div>
             </div>
-            <div id="timetable-show" class=" w3-hide w3show">
-            {% include "./storagecontrol.peb" %}
-            </div>
-            <!-- Select energy charts -->
-            <div class="w3-col s12 w3-left w3-dark-grey w3-border-bottom w3-border-light-grey"
+        <!-- Select energy charts -->
+            <div class="w3-col s12 w3-left w3-light-grey w3-border-bottom w3-border-light-grey"
                 onClick="accordeon('charts')">
               <h5 class="w3-margin-left">{{ chartsHeader }} &raquo;</h5>
             </div>
@@ -77,19 +59,20 @@
                     {% include "./chartbutton.peb" with {"chartId": "power-chart", "updatePause": "'false'", "buttonTitle": powerTitle } %}
                     {% include "./chartbutton.peb" with {"chartId": "tibber-chart", "updatePause": "'true'", "buttonTitle": tibTitle } %}
                 </div>
-
-            <!-- Power charts defined here -->
-                <div id="power-chart" class="w3-hide w3-show">
-                    <div>
-                        <canvas id="myChart"></canvas>
+                <div class="w3-container w3-border">
+                <!-- Power charts defined here -->
+                    <div id="power-chart" class="w3-hide w3-show">
+                        <div>
+                            <canvas id="myChart"></canvas>
+                        </div>
+                       {% include "./graph.peb" %}
                     </div>
-                   {% include "./graph.peb" %}
-                </div>
-                <div id="tibber-chart" class="w3-hide">
-                    <div style="max-height: 500px">
-                        <canvas id="tibberChart"></canvas>
+                    <div id="tibber-chart" class="w3-hide">
+                        <div style="max-height: 500px">
+                            <canvas id="tibberChart"></canvas>
+                        </div>
+                       {% include "./tibbergraph.peb" %}
                     </div>
-                   {% include "./tibbergraph.peb" %}
                 </div>
             </div>
         </div>
@@ -118,5 +101,19 @@ function oneGraphOnly(allIds, idShow) {
             x.className = x.className.replace(" w3-show", "");
         }
     }
+}
+function openTab(tabId) {
+  var i;
+  var x = document.getElementsByClassName("tabContent");
+  for (i = 0; i < x.length; i++) {
+      var tab = x[i]
+      var id = tab.id
+      if(id == tabId && tab.className.indexOf("w3-show") == -1) {
+        tab.className += " w3-show";
+      } else {
+        tab.className = tab.className.replace(" w3-show", "");
+      }
+  }
+  document.getElementById(tabContent).style.display = "block";
 }
 </script>

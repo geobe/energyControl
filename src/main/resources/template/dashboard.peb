@@ -12,6 +12,7 @@
     <div id="hide-power" class=" w3-hide w3-show">
         {% include "./powervalues.peb" %}
     </div>
+{#
     <div class="w3-col s12 w3-dark-grey w3-border-bottom w3-border-light-grey"
         onClick="accordeon('hide-charge')">
       <h5 class="w3-margin-left">{{ statesTitle }} &raquo;</h5>
@@ -19,3 +20,4 @@
     <div id="hide-charge" class=" w3-hide w3-show">
         {% include "./chargeinfo.peb" %}
     </div>
+#}
