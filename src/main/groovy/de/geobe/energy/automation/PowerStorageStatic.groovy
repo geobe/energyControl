@@ -44,6 +44,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     static final DEF_SOC_NIGHT = 75
     static final DEF_SOC_RESERVE = 0
     static final CHARGE_POWER = 3000
+    static final NO_DISCHARGE_LIMIT = 0
+    static final NO_DISCHARGE_HYSTERESIS = 300
     static final NIGHT = [20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7]
     static final DAY = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     static final socTargets = [0, 25, 40, 50, 60, 75, 90, 100]
@@ -81,13 +83,15 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     private volatile boolean savedActive = active
     private volatile ChargeControlMode chargeControlMode = ChargeControlMode.INACTIVE
     private volatile float saving = 0.0
-    private StorageMode currentMode = StorageMode.AUTO
+    private StorageMode currentMode = StorageMode.NO_DISCHARGE
     private int socDay = DEF_SOC_DAY
     private int socNight = DEF_SOC_NIGHT
     private int socReserve = DEF_SOC_RESERVE
     private int lastHour = -1
     private DateTime controlPlanningStamp
     private CurrentPowerPrices planningPrices
+    private PowerAverager surplusAverager =
+            new PowerAverager(hysteresis: NO_DISCHARGE_HYSTERESIS, limit: NO_DISCHARGE_LIMIT)
 
     private E3dcChargingModeController chargingModeController
 
@@ -123,7 +127,11 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             if (!active) {
                 return
             }
+            surplusAverager.put(pmValues.powerValues.powerGrid)
             def targetMode = hourtable[now]
+            if (targetMode == StorageMode.NO_DISCHARGE && surplusAverager.check()) {
+                targetMode = StorageMode.AUTO
+            }
             if (targetMode != currentMode) {
                 currentMode = targetMode
 //            def soc = pmValues.powerValues.socBattery()
@@ -183,7 +191,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             def inc = (pos + 1) % StorageMode.values().size()
             def newMode = StorageMode.values()[inc]
             hourtable[hour] = newMode
-            if(hour >= 24) {
+            if (hour >= 24) {
                 updateSaving()
             }
             saveTimetable()
@@ -214,6 +222,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     void setControlActive(boolean activityState, boolean saveChange = true) {
         if (activityState && !active) { // switch to active only if not active
             this.@savedActive = active = true
+            surplusAverager.clear()
             chargingModeController.setChargingMode(E3dcInteractionRunner.AUTO, CHARGE_POWER, DEF_SOC_RESERVE, endDate)
             PowerCommunicationRecorder.recorder.powerStorageControlModeActive(true)
             if (saveChange) saveTimetable()
@@ -237,17 +246,17 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     def optimizeTomorrow() {
         def pricesAt = PowerPriceMonitor.monitor.latestPrices.tomorrow
-        if(pricesAt) {
+        if (pricesAt) {
             def prices = []
-            pricesAt.each {prices << it.price }
+            pricesAt.each { prices << it.price }
             def optimum = PowerStorageAutomation.optimizeTryBest(prices)
             saving = optimum.saving
             List<StorageControlRecord> optimized = optimum.records
-            if(saving) {
+            if (saving) {
                 for (i in 0..<HOURS) {
                     assert optimized[i].hour == i
                     def newMode = optimized[i].mode
-                    if(hourtable[HOURS + i] != newMode) {
+                    if (hourtable[HOURS + i] != newMode) {
                         PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, HOURS + i)
                         hourtable[HOURS + i] = newMode
                     }
@@ -260,9 +269,18 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         saveTimetable()
     }
 
+    /**
+     * check if power is fed back into the grid
+     * @param pmValues current power values
+     * @return true if too much power is fed into the grid
+     */
+    private boolean solarSurplus(PMValues pmValues) {
+        pmValues.powerValues.powerGrid() < NO_DISCHARGE_LIMIT
+    }
+
     private void updateSaving() {
         def modes = hourtable[24..47]
-        def prices = PowerPriceMonitor.monitor.latestPrices.tomorrow.collect {it.price}
+        def prices = PowerPriceMonitor.monitor.latestPrices.tomorrow.collect { it.price }
         if (prices) {
             def records = StorageControlRecord.createRecords(prices, modes)
             saving = PowerStorageAutomation.calculate(records)
@@ -418,12 +436,16 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     def setUnloadFactor(int factor) {
         if (factor in 0..100) {
-            PowerStorageAutomation.unloadFactor = (float) factor/100
+            PowerStorageAutomation.unloadFactor = (float) factor / 100
         }
     }
 
     int getUnloadFactor() {
         (PowerStorageAutomation.unloadFactor * 100).round()
+    }
+
+    E3dcChargingModeController.CtlState getChargingMode() {
+        chargingModeController?.controlState
     }
 
     def savePrices(CurrentPowerPrices prices) {
@@ -457,7 +479,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         if (prices.tomorrow) {
             List<StorageControlRecord> scratch = []
             prices.yesterday.eachWithIndex { PriceAt entry, int i ->
-                scratch <<  new StorageControlRecord(price: entry.price, hour : i)
+                scratch << new StorageControlRecord(price: entry.price, hour: i)
             }
             def sorted = scratch.sort(false)
             outer:
@@ -494,5 +516,47 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         def json = powerStorage.planTomorrow(prices)
 //        println json
         System.exit(0)
+    }
+}
+
+class PowerAverager {
+    def buf = []
+    int size = 5
+    int limit = 0
+    int hysteresis = 0
+    boolean positive = false
+    private boolean last = false
+
+    void put(int val) {
+        buf << val
+        if (buf.size() > size)
+            buf.remove(0)
+    }
+
+    void clear() {
+        buf.clear()
+    }
+
+    boolean check() {
+        if (buf.size() < size) {
+            last = false
+            return false
+        }
+        def average = ((int) buf.sum()).intdiv(size)
+        if (positive) {
+            if (average > limit + hysteresis || (last && average > limit - hysteresis)) {
+                last = true
+                return true
+            } else {
+                last = false
+                return false
+            }
+        } else if (average < -limit - hysteresis || (last && average < -limit + hysteresis)) {
+            last = true
+            return true
+        } else {
+            last = false
+            return false
+        }
     }
 }

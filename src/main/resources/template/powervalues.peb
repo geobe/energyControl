@@ -16,7 +16,17 @@
         <div class="w3-col s6 m4 l2 w3-left">
         {{ carLabel }}: {{ carValue }}&nbsp;W
         </div>
-        <div class="w3-col s5 m3 l2  w3-left">
+        <div class="w3-col s5 m3 l2  w3-left {{ powerColor((chargingMode)) }}">
         {{ socLabel }}: {{ socValue }}&nbsp;%
         </div>
     </div>
+
+{% macro powerColor(mode) %}
+    {% if mode == 'Auto' or mode == 'Stopped' %}
+        w3-green
+    {% elseif mode == 'GridLoad' %}
+        w3-deep-orange
+    {% elseif mode == 'Idle' or mode == 'Solar' %}
+        w3-indigo
+    {% endif %}
+{% endmacro %}

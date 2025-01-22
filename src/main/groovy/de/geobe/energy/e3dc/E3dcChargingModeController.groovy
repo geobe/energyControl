@@ -122,6 +122,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
      * stop realtime control activities and set E3DC storage to default (auto mode)
      */
     void stopChargeControl() {
+        setAutoState()
         isRunning = false
 //        executor.stop()
         powerMonitor.unsubscribe(this)

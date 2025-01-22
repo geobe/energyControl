@@ -491,6 +491,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         def ctx = [:]
         ctx.putAll(ti18n.powerStrings)
         ctx.putAll(powerValues())
+        ctx.put('chargingMode', PowerStorageStatic.powerStorage.chargingMode)
         def out = streamOut(powerValuesTemplate, ctx)
         out
     }
