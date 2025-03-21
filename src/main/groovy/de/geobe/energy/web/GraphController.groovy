@@ -153,6 +153,20 @@ class GraphController {
         graphControlValues()
     }
 
+    Map updateDateCtx(DateTime now,  Map<String, Map<String, String>> ti18n) {
+        if (graphUiState == GraphUiState.LIVE) {
+            initLiveState()
+            def ctx = graphControlValues()
+            ctx.putAll(createGraphControlCtx(ti18n))
+            ctx.putAll(getSnapshotCtx(ti18n))
+            ctx.put('newChart', true)
+            ctx
+        } else {
+            [:]
+        }
+
+    }
+
     def initLiveState() {
         graphUiState = GraphUiState.LIVE
         graphOffset = 100
@@ -355,7 +369,7 @@ class GraphController {
      * @return the snapshots dequeue
      */
     def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
-        short energy = (wallboxValues?.energy)?:0
+        short energy = (wallboxValues?.energy) ?: 0
         short cHome = powerValues.consumptionHome - energy
         def snap = new Snapshot(
                 powerValues.timestamp.toEpochMilli(),

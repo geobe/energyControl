@@ -24,6 +24,7 @@
 
 package de.geobe.energy.automation
 
+import de.geobe.energy.automation.utils.HourTable
 import de.geobe.energy.e3dc.E3dcChargingModeController
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.recording.PowerCommunicationRecorder
@@ -78,7 +79,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     static final HOURS = 24
 
-    private volatile List<StorageMode> hourtable = new ArrayList<>(HOURS * 2)
+//    private volatile List<StorageMode> hourtable = new ArrayList<>(HOURS * 2)
+    private hourtable = new HourTable(StorageMode)
     private volatile boolean active = false
     private volatile boolean savedActive = active
     private volatile ChargeControlMode chargeControlMode = ChargeControlMode.INACTIVE
@@ -87,7 +89,6 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     private int socDay = DEF_SOC_DAY
     private int socNight = DEF_SOC_NIGHT
     private int socReserve = DEF_SOC_RESERVE
-    private int lastHour = -1
     private DateTime controlPlanningStamp
     private CurrentPowerPrices planningPrices
     private PowerAverager surplusAverager =
@@ -114,15 +115,10 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     @Override
     void takePMValues(PMValues pmValues) {
         try {
-            def now = DateTime.now().hourOfDay
-            if (lastHour == -1) {
-                lastHour = now
-            } else if (lastHour > now) {
+            def now = pmValues.timeStamp.hourOfDay
+            if (pmValues.nextDay) {
                 shiftTimetable()
-                PowerCommunicationRecorder.logMessage "Timetable shifted, now = $now, lastHour = $lastHour"
-                lastHour = now
-            } else {
-                lastHour = now
+                PowerCommunicationRecorder.logMessage "Timetable shifted, now = $now"
             }
             if (!active) {
                 return
@@ -186,24 +182,35 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 
     def incModeAt(int hour) {
         if (hour in 0..47) {
-            def current = hourtable[hour]
-            def pos = current.ordinal()
-            def inc = (pos + 1) % StorageMode.values().size()
-            def newMode = StorageMode.values()[inc]
-            hourtable[hour] = newMode
+            def newMode = hourtable.incModeAt(hour)
+//            def current = hourtable[hour]
+//            def pos = current.ordinal()
+//            def inc = (pos + 1) % StorageMode.values().size()
+//            def newMode = StorageMode.values()[inc]
+//            hourtable[hour] = newMode
             if (hour >= 24) {
                 updateSaving()
             }
             saveTimetable()
-            PowerCommunicationRecorder.recorder.powerStoragePresetChanged(newMode, hour)
+            if (newMode) {
+                PowerCommunicationRecorder.recorder.
+                        powerStoragePresetChanged(newMode, hour)
+            }
         }
     }
 
     /**
      * change activity planning and activity mode of control task and propagate to active state control
-     * @param mode one of the three charge control modes
+     * @param storedMode String representation of one of the three charge control modes
      */
-    void setChargeControlMode(ChargeControlMode mode) {
+    void setChargeControlMode(String storedMode) {
+//        this.@chargeControlMode = mode
+        ChargeControlMode mode
+        if(storedMode && hourtable.isMode(storedMode)) {
+            mode = ChargeControlMode.valueOf(storedMode)
+        } else {
+            mode = ChargeControlMode.INACTIVE
+        }
         this.@chargeControlMode = mode
         PowerCommunicationRecorder.recorder.powerStorageControlModeChanged(mode)
         if (mode in [ChargeControlMode.AUTO, ChargeControlMode.MANUAL]) {
@@ -236,9 +243,10 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     }
 
     def resetTomorrow() {
-        for (i in 0..<HOURS) {
-            hourtable[HOURS + i] = StorageMode.AUTO
-        }
+        hourtable.resetHourtable(HOURS..<(2 * HOURS))
+//        for (i in 0..<HOURS) {
+//            hourtable[HOURS + i] = StorageMode.AUTO
+//        }
         PowerCommunicationRecorder.recorder.powerStoragePresetReset()
         updateSaving()
         saveTimetable()
@@ -306,85 +314,104 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
      * copy settings from next day (i >= 24) to current day
      */
     def shiftTimetable() {
-        for (i in 0..<HOURS) {
-            hourtable[i] = hourtable[HOURS + i]
-        }
+        hourtable.shiftHourtable()
+//        for (i in 0..<HOURS) {
+//            hourtable[i] = hourtable[HOURS + i]
+//        }
     }
 
     /**
      * storage control timetable and all related parameters are saved as a json file
      */
     def saveTimetable() {
-        def home = System.getProperty('user.home')
-        def settingsDir = "$home/.${EnergySettings.SETTINGS_DIR}/"
-        def dir = new File(settingsDir)
-        if (!dir.exists()) {
-            dir.mkdir()
-        }
-        if (dir.isDirectory()) {
-            def out = [
-                    active           : active,
-                    chargeControlMode: chargeControlMode,
-                    socDay           : socDay,
-                    socNight         : socNight,
-                    socReserve       : socReserve,
-                    timetable        : hourtable
-            ]
-            def json = JsonOutput.toJson(out)
-            json = JsonOutput.prettyPrint(json)
-//            println "new JSON settings: $json"
-            def settingsFile = new File(settingsDir, TIMETABLE_FILE).withWriter { w ->
-                w << json
-            }
-        }
-
+        def params = [
+                active           : active,
+                chargeControlMode: chargeControlMode,
+                socDay           : socDay,
+                socNight         : socNight,
+                socReserve       : socReserve,
+                unloadFactor     : getUnloadFactor()
+        ]
+        hourtable.saveHourtable(TIMETABLE_FILE, params)
+//        def home = System.getProperty('user.home')
+//        def settingsDir = "$home/.${EnergySettings.SETTINGS_DIR}/"
+//        def dir = new File(settingsDir)
+//        if (!dir.exists()) {
+//            dir.mkdir()
+//        }
+//        if (dir.isDirectory()) {
+//            def out = [
+//                    active           : active,
+//                    chargeControlMode: chargeControlMode,
+//                    socDay           : socDay,
+//                    socNight         : socNight,
+//                    socReserve       : socReserve,
+//                    timetable        : hourtable
+//            ]
+//            def json = JsonOutput.toJson(out)
+//            json = JsonOutput.prettyPrint(json)
+////            println "new JSON settings: $json"
+//            def settingsFile = new File(settingsDir, TIMETABLE_FILE).withWriter { w ->
+//                w << json
+//            }
+//    }
     }
 
     def loadOrInitTimetable() {
-        def table
-        def home = System.getProperty('user.home')
-        def file = new File("$home/.${EnergySettings.SETTINGS_DIR}/", "${TIMETABLE_FILE}")
-        if (file.exists() && file.text) {
-            def json = file.text
-            def saved = new JsonSlurper().parseText(json)
-            if (saved instanceof Map) {
-                def lactive = saved.active
-                this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode ?: 'INACTIVE')
-                this.@socDay = saved.socDay
-                this.@socNight = saved.socNight
-                this.@socReserve = saved.socReserve
-                table = saved.timetable
-                hourtable = string2StorageMode(table)
-                setControlActive(lactive, false)
-            }
-        } else {
-            for (i in 0..<HOURS * 2) {
-                hourtable << StorageMode.AUTO
-            }
-            setControlActive(false)
-        }
+        def setters = [
+                active           : this.&setSavedActive,
+                chargeControlMode: this.&setChargeControlMode,
+                socDay           : this.&setSocDay,
+                socNight         : this.&setSocNight,
+                socReserve       : this.&setSocReserve,
+                unloadFactor     : this.&setUnloadFactor
+        ]
+        def defaults = [ active: false]
+        hourtable.loadOrInitHourtable(TIMETABLE_FILE, setters, defaults)
+//        def table
+//        def home = System.getProperty('user.home')
+//        def file = new File("$home/.${EnergySettings.SETTINGS_DIR}/", "${TIMETABLE_FILE}")
+//        if (file.exists() && file.text) {
+//            def json = file.text
+//            def saved = new JsonSlurper().parseText(json)
+//            if (saved instanceof Map) {
+//                def lactive = saved.active
+//                this.@chargeControlMode = ChargeControlMode.valueOf(saved?.chargeControlMode ?: 'INACTIVE')
+//                this.@socDay = saved.socDay
+//                this.@socNight = saved.socNight
+//                this.@socReserve = saved.socReserve
+//                table = saved.timetable
+//                hourtable = string2StorageMode(table)
+//                setControlActive(lactive, false)
+//            }
+//        } else {
+//            for (i in 0..<HOURS * 2) {
+//                hourtable << StorageMode.AUTO
+//            }
+//            setControlActive(false)
+//        }
     }
 
-    /**
-     * transform list of strings to list of enums
-     * @param key selects the hourtable
-     * @param table saved timetables as read by jsonSlurper
-     * @return hourtable as list of StorageMode enum values
-     */
-    List<StorageMode> string2StorageMode(List table) {
-        List<StorageMode> listOfModes = new ArrayList<>(HOURS * 2)
-        table?.eachWithIndex { String entry, int i ->
-            try {
-                listOfModes[i] = StorageMode.valueOf(entry)
-            } catch (Exception ex) {
-                listOfModes[i] = StorageMode.AUTO
-            }
-        }
-        listOfModes
-    }
+/**
+ * transform list of strings to list of enums
+ * @param key selects the hourtable
+ * @param table saved timetables as read by jsonSlurper
+ * @return hourtable as list of StorageMode enum values
+ */
+//    List<StorageMode> string2StorageMode(List table) {
+//        List<StorageMode> listOfModes = new ArrayList<>(HOURS * 2)
+//        table?.eachWithIndex { String entry, int i ->
+//            try {
+//                listOfModes[i] = StorageMode.valueOf(entry)
+//            } catch (Exception ex) {
+//                listOfModes[i] = StorageMode.AUTO
+//            }
+//        }
+//        listOfModes
+//    }
 
     def getTimetable() {
-        hourtable.asImmutable()
+        hourtable.hourtable.asImmutable()
     }
 
     def getActive() {
@@ -408,35 +435,39 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def getSaving() { saving }
 
     def setSavedActive(boolean act) {
-        this.@savedActive = act
-        saveTimetable()
+        setControlActive(act, false)
     }
 
-    def setSocDay(int soc) {
+    def setSocDay(int soc, boolean save = false) {
         if (soc in socTargets) {
             this.@socDay = soc
-            saveTimetable()
+            if(save)
+                saveTimetable()
         }
     }
 
-    def setSocNight(int soc) {
+    def setSocNight(int soc, boolean save = false) {
         if (soc in socTargets) {
             this.@socNight = soc
-            saveTimetable()
+            if(save)
+                saveTimetable()
         }
     }
 
-    def setSocReserve(int soc) {
+    def setSocReserve(int soc, boolean save = false) {
         if (soc in reserveTargets) {
             this.@socReserve = soc
             chargingModeController.socBlackoutReserve = socReserve
-            saveTimetable()
+            if(save)
+                saveTimetable()
         }
     }
 
-    def setUnloadFactor(int factor) {
+    def setUnloadFactor(int factor, boolean save = false) {
         if (factor in 0..100) {
             PowerStorageAutomation.unloadFactor = (float) factor / 100
+            if(save)
+                saveTimetable()
         }
     }
 
@@ -517,6 +548,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
 //        println json
         System.exit(0)
     }
+
 }
 
 class PowerAverager {

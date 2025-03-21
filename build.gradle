@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.5.12-pb' // branch power buffering, ui tabs
+version '0.6.2-cc' // refactoring, extracting hourtable for car charging
 
 repositories {
     mavenCentral()

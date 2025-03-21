@@ -31,6 +31,7 @@ import de.geobe.energy.go_e.WallboxValues
 import de.geobe.energy.recording.LogMessageRecorder
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
+import org.joda.time.DateTime
 
 import java.util.concurrent.TimeUnit
 
@@ -118,9 +119,6 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         @Override
         void run() {
             try {
-//                if (hasWallboxException) {
-//                    throw wallboxException
-//                }
                 wbValuesProvider.readWallbox()
                 def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
                 if (resumeAfterException) {
@@ -274,13 +272,18 @@ interface PowerValueSubscriber extends MonitorExceptionSubscriber {
 }
 
 class PMValues {
+    private static int lastDay
     PowerValues powerValues
     WallboxValues wallboxValues
+    DateTime timeStamp = DateTime.now()
+    boolean nextDay = false
 //    Float currentPrice
 
     PMValues(PowerValues powerValues, WallboxValues wallboxValues) {
         this.powerValues = powerValues
         this.wallboxValues = wallboxValues
+        nextDay = lastDay && timeStamp.dayOfMonth != lastDay
+        lastDay = timeStamp.dayOfMonth
 //        this.currentPrice = currentPrice
     }
 

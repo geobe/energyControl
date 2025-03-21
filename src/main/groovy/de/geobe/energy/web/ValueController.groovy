@@ -151,6 +151,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
 //        currentPrice = currentPowerPrice()
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
+        if(pmValues.nextDay) {
+            def ctx = gc.updateDateCtx(pmValues.timeStamp, tGlobal)
+            if (ctx) {
+                def out = streamOut(graph, ctx)
+                updateWsValues(out)
+            }
+        }
 //        updateWsValues(statesInfoString(tGlobal))
         gc.updateCounter++
         if (!gc.updatePause && gc.updateCounter >= gc.updateFrequency) {
@@ -360,18 +367,18 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
                     powerStorage.resetTomorrow()
                     break
                 case 'bufCtlPowerFactor':
-                    powerStorage.unloadFactor = value
+                    powerStorage.setUnloadFactor(value, true)
                 case 'planCreate':
                     powerStorage.optimizeTomorrow()
                     break
                 case 'bufCtlSocDay':
-                    powerStorage.socDay = value
+                    powerStorage.setSocDay(value, true)
                     break
                 case 'bufCtlSocNight':
-                    powerStorage.socNight = value
+                    powerStorage.setSocNight(value, true)
                     break
                 case 'bufCtlSocReserve':
-                    powerStorage.socReserve = value
+                    powerStorage.setSocReserve(value, true)
                     break
                 default:
                     println ":action $action"
