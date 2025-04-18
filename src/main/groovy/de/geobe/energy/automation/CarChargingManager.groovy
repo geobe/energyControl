@@ -173,7 +173,7 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     @Override
     void resumeAfterMonitorException() {
-        // ignore
+        // handled elsewhere
     }
 
     @ActiveMethod(blocking = true)

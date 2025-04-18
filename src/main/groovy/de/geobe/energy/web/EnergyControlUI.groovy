@@ -26,6 +26,7 @@ package de.geobe.energy.web
 
 import de.geobe.energy.automation.CarChargingManager
 import de.geobe.energy.automation.PeriodicExecutor
+import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.recording.PowerCommunicationRecorder
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerPriceMonitor
@@ -44,10 +45,16 @@ class EnergyControlUI {
         PebbleEngine engine = new PebbleEngine.Builder().build()
 
 //        ValueController
-        valueController = new ValueController(engine)
-        valueController.init()
+        try {
+            valueController = new ValueController(engine)
+            valueController.init()
 
-        PowerCommunicationRecorder.recorder
+            PowerCommunicationRecorder.recorder
+        } catch (Exception exception) {
+            LogMessageRecorder.logStackTrace('startup', exception)
+            def term = new sun.misc.Signal('TERM').number
+            failed(128 + term)
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             void run() {
@@ -57,6 +64,8 @@ class EnergyControlUI {
                 println 'done'
             }
         })
+
+        PowerCommunicationRecorder.logMessage('energy control service started')
 
         staticFiles.location("public")
         staticFiles.expireTime(10)
@@ -89,12 +98,19 @@ class EnergyControlUI {
 
         post('/stop') { req, res ->
             valueController.showStopServer()
-            stop()
-            System.exit(0)
+            exit()
         }
     }
 
-    static shutdown() {
+    /**
+     * Method will be automatically called when program is stopped by
+     * <ul>
+     *     <li> call to System.exit()</li>
+     *     <li>sig_kill (^C)</li>
+     *     <li>stopping or restarting service if program runs as a service</li>
+     * </ul>
+     */
+    static void shutdown() {
         CarChargingManager.carChargingManager.shutDown()
 //        PowerCommunicationRecorder.stopRecorder()
         WallboxMonitor.monitor.shutdown()
@@ -102,5 +118,29 @@ class EnergyControlUI {
         PowerPriceMonitor.monitor?.shutdown()
         valueController?.shutdown()
         PeriodicExecutor?.shutdown()
+    }
+
+    /**
+     * exit without restart by systemctl demon.
+     */
+    static void exit() {
+        PowerCommunicationRecorder.logMessage("shut down with System.exit(0)")
+        stop()
+        System.exit(0)
+    }
+
+    /**
+     * Restart is configured in systemd.service control file in [Service] section.
+     *  To prevent restart in case of fatal errors, exit status with SIG_TERM (exit(143))
+     *  is configured as success:<ul>
+     *     <li>SuccessExitStatus=143 # don't try to resatrt after fatal errors</li>
+     *     <li>Restart=on-failure   # exit-code != 0, ...</li>
+     *     <li>RestartSec=120       # wait 120 seconds</li>
+     *</ul>
+     */
+    static void failed(int status = 1) {
+        PowerCommunicationRecorder.logMessage("request restart with System.exit($status), if not fatal (143)")
+        stop()
+        System.exit(status)
     }
 }

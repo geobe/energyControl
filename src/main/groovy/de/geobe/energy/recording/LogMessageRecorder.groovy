@@ -25,19 +25,27 @@
 package de.geobe.energy.recording
 
 import de.geobe.energy.automation.CarChargingManager
+import de.geobe.energy.automation.FatalExceptionSubscriber
+import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.WallboxMonitor
 import de.geobe.energy.automation.WallboxStateSubscriber
 import de.geobe.energy.automation.WallboxValueSubscriber
 import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
 import de.geobe.energy.web.EnergySettings
+import groovy.io.GroovyPrintWriter
+import org.codehaus.groovy.runtime.StringBufferWriter
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
 
-class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscriber {
+class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscriber, FatalExceptionSubscriber {
     private static RecordingFile stateMessageFile
     static DateTimeFormatter stamp = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+
+    static {
+        stateMessageFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'StateSequence', RecordingFile.Span.DAY)
+    }
 
     private static LogMessageRecorder recorder
 
@@ -49,7 +57,7 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
     }
 
     LogMessageRecorder() {
-        stateMessageFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'StateSequence', RecordingFile.Span.DAY)
+        PowerMonitor.monitor.subscribeFatalErrors this
 //        WallboxMonitor.monitor.subscribeState this
 //        WallboxMonitor.monitor.subscribeValue this
     }
@@ -118,13 +126,28 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
     }
 
     @Override
+    void restartService(Exception exception) {
+        def exStack = exception.stackTrace
+        logMessage "Restart after monitor Exception $exception"
+        exStack.each {
+            logMessage "        $it"
+        }
+    }
+
+    @Override
     void resumeAfterMonitorException() {
         logMessage 'resume after Monitor exception'
     }
 
-    void logMessage(String message) {
+    static void logMessage(String message) {
         def protocol = "${stamp.print(DateTime.now())}\t$message"
         stateMessageFile.appendReport(protocol)
         println protocol
+    }
+
+    static void logStackTrace(String location, Exception ex) {
+        def sbw = new StringBufferWriter(new StringBuffer())
+        ex.printStackTrace(new GroovyPrintWriter(sbw))
+        logMessage "$location exception ${sbw.toString()}"
     }
 }

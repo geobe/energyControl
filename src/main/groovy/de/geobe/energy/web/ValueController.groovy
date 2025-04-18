@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
 
 @WebSocket
 //@ActiveObject
-class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
+class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, FatalExceptionSubscriber {
 
     ValueController(PebbleEngine engine) {
         this.engine = engine
@@ -131,6 +131,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
 //            currentPrice = currentPowerPrice()
             powerMonitor.initCycle(PowerMonitor.CYCLE_TIME, 0)
             powerMonitor.subscribe(this)
+            powerMonitor.subscribeFatalErrors this
             powerStorage = PowerStorageStatic.powerStorage
             wbMonitor.subscribeState(this)
             logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
@@ -151,7 +152,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
 //        currentPrice = currentPowerPrice()
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
-        if(pmValues.nextDay) {
+        if (pmValues.nextDay) {
             def ctx = gc.updateDateCtx(pmValues.timeStamp, tGlobal)
             if (ctx) {
                 def out = streamOut(graph, ctx)
@@ -167,6 +168,23 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
     }
 
     @Override
+    void restartService(Exception exception) {
+        networkError = true
+        networkException = exception
+        def reason = exception.message
+        networkErrorFatal = reason.contains(E3dcError.AUTH) || reason.contains(E3dcError.IP)
+        errorTimestamp = gc.full.print DateTime.now()
+        updateWsValues(errorMessageString(tGlobal))
+        if (networkErrorFatal) {
+            // unrecoverable errors, stop process
+            EnergyControlUI.exit()
+        } else {
+            // try to recover by restarting process
+            EnergyControlUI.failed()
+        }
+    }
+
+    @Override
     void takeMonitorException(Exception exception) {
         networkError = true
         networkException = exception
@@ -174,9 +192,6 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber {
         errorTimestamp = gc.full.print DateTime.now()
         networkErrorFatal = reason.contains(E3dcError.AUTH) || reason.contains(E3dcError.IP)
         updateWsValues(errorMessageString(tGlobal))
-        if (networkErrorFatal) {
-            EnergyControlUI.shutdown()
-        }
     }
 
     @Override

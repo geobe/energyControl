@@ -29,5 +29,10 @@ package de.geobe.energy.automation
  */
 interface MonitorExceptionSubscriber {
     void takeMonitorException(Exception exception)
+//    void restartService(Exception exception)
     void resumeAfterMonitorException()
+}
+
+interface FatalExceptionSubscriber {
+    void restartService(Exception exception)
 }

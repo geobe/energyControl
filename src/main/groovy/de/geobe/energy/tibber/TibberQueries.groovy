@@ -60,7 +60,7 @@ class TibberQueries {
      * @return price info subtree of result
      */
     def priceInfo(def result) {
-        result.data.viewer.home ?
+        result.data?.viewer.home ?
                 result.data.viewer.home.currentSubscription.priceInfo :
                 result.data.viewer.homes[0].currentSubscription.priceInfo
     }
@@ -72,7 +72,7 @@ class TibberQueries {
      */
     def extractPriceAt(List list) {
         def priceList = []
-        list.each {
+        list?.each {
             def t = new PriceAt(DateTime.parse(it.startsAt), (Float)it.total)
             priceList.add(t)
         }
@@ -98,7 +98,7 @@ class TibberQueries {
      */
     def scanInterval(String jsonResult) {
         def result = slurper.parseText(jsonResult)
-        extractPriceAt(priceInfo(result).range.nodes)
+        extractPriceAt(priceInfo(result).range?.nodes)
     }
 
     /**

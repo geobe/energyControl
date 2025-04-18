@@ -24,11 +24,14 @@
 
 package de.geobe.energy.automation
 
+import de.geobe.energy.e3dc.E3dcError
+import de.geobe.energy.e3dc.E3dcException
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.e3dc.IStorageInteractionRunner
 import de.geobe.energy.go_e.WallboxValues
 import de.geobe.energy.recording.LogMessageRecorder
+import de.geobe.energy.recording.PowerCommunicationRecorder
 import groovyx.gpars.activeobject.ActiveMethod
 import groovyx.gpars.activeobject.ActiveObject
 import org.joda.time.DateTime
@@ -57,9 +60,11 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     private final WallboxMonitor wbValuesProvider
     /** wallbox values that are periodically updated by wbValuesProvider */
     private volatile WallboxValues wallboxValues
-    /** all valueSubscribers to power values */
+    /** all valueSubscribers to power values and recoverable exceptions*/
     private volatile List<PowerValueSubscriber> subscribers = new LinkedList<>().asSynchronized()
-    /** all valueSubscribers to power values */
+    /** list of subscribers to record or handle fatal exceptions */
+    private volatile List<FatalExceptionSubscriber> fatalExceptionSubscribers = new LinkedList<>().asSynchronized()
+    /** all message recorders */
     private volatile List<LogMessageRecorder> messageRecorders = new LinkedList<>().asSynchronized()
     /** task to read power values periodically */
     private PeriodicExecutor executor
@@ -126,12 +131,22 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                     exceptionSubscribers().each {
                         it.resumeAfterMonitorException()
                     }
+                    LogMessageRecorder.recorder.resumeAfterMonitorException()
                     resumeAfterException = false
                 }
                 synchronized (subscribers) {
                     subscribers.each {
                         it.takePMValues(pmValues)
                     }
+                }
+            } catch (E3dcException e3dcEx) {
+                // found no way to recover from this error, so completely stop and restart this service
+                PowerCommunicationRecorder.logMessage "PowerMonitor exception $e3dcEx"
+//                LogMessageRecorder.recorder.logStackTrace('PowerMonitor', e3dcEx)
+                // wait 30 seconds before restarting service
+                Thread.sleep(3000)
+                fatalExceptionSubscribers.each {
+                    it.restartService(e3dcEx)
                 }
             } catch (Exception ex) {
 //                ex.printStackTrace()
@@ -141,6 +156,8 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                     resumeAfterException = false
                 }
                 if (!resumeAfterException) {
+                    PowerCommunicationRecorder.logMessage "PowerMonitor exception $ex"
+                    LogMessageRecorder.recorder.logStackTrace('PowerMonitor', ex)
                     exceptionSubscribers().each {
                         it.takeMonitorException(ex)
                     }
@@ -199,7 +216,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     void subscribe(PowerValueSubscriber subscriber) {
         def willStart = subscribers.size() == 0
 //        synchronized (subscribers) {
-            subscribers.add subscriber
+        subscribers.add subscriber
 //        }
         if (willStart) {
             start()
@@ -210,18 +227,26 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     void unsubscribe(PowerValueSubscriber subscriber) {
         boolean removed
 //        synchronized (subscribers) {
-            removed = subscribers.remove subscriber
+        removed = subscribers.remove subscriber
 //        }
         if (removed && subscribers.size() == 0)
             stop()
     }
 
-    void subscribeMessages(LogMessageRecorder recorder) {
-        messageRecorders.add recorder
+//    void subscribeMessages(LogMessageRecorder recorder) {
+//        messageRecorders.add recorder
+//    }
+
+//    void unsubscribeMessages(LogMessageRecorder recorder) {
+//        messageRecorders.remove recorder
+//    }
+
+    void subscribeFatalErrors(FatalExceptionSubscriber fes) {
+        fatalExceptionSubscribers.add(fes)
     }
 
-    void unsubscribeMessages(LogMessageRecorder recorder) {
-        messageRecorders.remove recorder
+    void unsubscribeFatalErrors(FatalExceptionSubscriber fes) {
+        fatalExceptionSubscribers.remove(fes)
     }
 
     private start() {
@@ -254,6 +279,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
             void takeMonitorException(Exception exception) {
                 println "$exception -> $exception.cause"
             }
+
 
             @Override
             void resumeAfterMonitorException() {

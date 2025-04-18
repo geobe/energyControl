@@ -143,7 +143,7 @@ class E3dcInteractionRunner implements IStorageInteractionRunner {
     }
 
     /**
-     * Implementation of {@link IStorageInteractionRunner#storageLoadMode(byte, int)} ()}
+     * Implementation of {@link IStorageInteractionRunner#storageLoadMode(byte, int)}
      * Set storage system operation mode, e.g. load from grid
      * @param mode operation mode (auto - 0, idle - 1, unload - 2, load - 3, load from grid - 4)
      * All modes except auto will reset to auto after ca. 30 seconds.

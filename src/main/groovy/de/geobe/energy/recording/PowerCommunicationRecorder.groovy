@@ -43,7 +43,12 @@ import java.util.concurrent.TimeUnit
 class PowerCommunicationRecorder /*implements PowerValueSubscriber*/ {
     private static RecordingFile recordingFile
     /** first recording initial delay */
-    static DateTimeFormatter stamp = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+    static DateTimeFormatter stamp
+
+    static {
+        recordingFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'CommRecord', RecordingFile.Span.MONTH)
+        stamp = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+    }
 
     private static PowerCommunicationRecorder recorder
 
@@ -57,10 +62,6 @@ class PowerCommunicationRecorder /*implements PowerValueSubscriber*/ {
             }
         }
         recorder
-    }
-
-    private PowerCommunicationRecorder(/*int cyc = CYCLE_TIME*/) {
-        recordingFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'CommRecord', RecordingFile.Span.MONTH)
     }
 
     void powerStorageModeChanged(PowerStorageStatic.StorageMode storageMode) {

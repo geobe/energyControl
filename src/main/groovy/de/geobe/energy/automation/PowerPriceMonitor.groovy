@@ -87,15 +87,18 @@ class PowerPriceMonitor {
                 def priceRecord = powerPriceSource.runPriceQuery()
                 if (priceRecord) {
                     latestPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
-                    subscribers.each {
-                        it.takePriceUpdate(latestPrices)
+                    if(latestPrices.today || latestPrices.tomorrow) {
+                        subscribers.each {
+                            it.takePriceUpdate(latestPrices)
+                        }
                     }
                 }
             } catch (exception) {
                 PowerCommunicationRecorder.logMessage "PowerPriceMonitor exception $exception"
-                def sbw = new StringBufferWriter(new StringBuffer())
-                exception.printStackTrace(new GroovyPrintWriter(sbw))
-                LogMessageRecorder.recorder.logMessage "PowerPriceMonitor ${sbw.toString()}"
+//                def sbw = new StringBufferWriter(new StringBuffer())
+//                exception.printStackTrace(new GroovyPrintWriter(sbw))
+//                LogMessageRecorder.recorder.logMessage "PowerPriceMonitor ${sbw.toString()}"
+                LogMessageRecorder.recorder.logStackTrace('PowerPriceMonitor', exception)
             }
         }
     }

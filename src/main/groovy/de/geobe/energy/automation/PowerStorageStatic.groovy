@@ -200,10 +200,10 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     }
 
     /**
-     * change activity planning and activity mode of control task and propagate to active state control
+     * restore charge control mode
      * @param storedMode String representation of one of the three charge control modes
      */
-    void setChargeControlMode(String storedMode) {
+    void setSavedChargeControlMode(String storedMode) {
 //        this.@chargeControlMode = mode
         ChargeControlMode mode
         if(storedMode && hourtable.isMode(storedMode)) {
@@ -211,6 +211,14 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         } else {
             mode = ChargeControlMode.INACTIVE
         }
+        setChargeControlMode(mode)
+    }
+
+    /**
+     * change activity planning and activity mode of control task and propagate to active state control
+     * @param mode one of the three charge control modes
+     */
+    void setChargeControlMode(ChargeControlMode mode) {
         this.@chargeControlMode = mode
         PowerCommunicationRecorder.recorder.powerStorageControlModeChanged(mode)
         if (mode in [ChargeControlMode.AUTO, ChargeControlMode.MANUAL]) {
@@ -360,7 +368,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def loadOrInitTimetable() {
         def setters = [
                 active           : this.&setSavedActive,
-                chargeControlMode: this.&setChargeControlMode,
+                chargeControlMode: this.&setSavedChargeControlMode,
                 socDay           : this.&setSocDay,
                 socNight         : this.&setSocNight,
                 socReserve       : this.&setSocReserve,

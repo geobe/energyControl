@@ -39,12 +39,22 @@ import org.joda.time.DateTimeZone
 class E3dcInteractions {
 
     AES256Helper aesHelper
-    final Socket socket
+    /*final*/ Socket socket
 
     E3dcInteractions(String ip, int port, String localPw) {
         aesHelper = new BouncyAES256Helper(localPw)
-        socket = E3DCConnector.openConnection(ip, port)
-        socket.setSoTimeout(25000)
+        connectSocket(ip, port)
+    }
+
+    /**
+     * Open the socket connection to E3DC storage system. Pulled out
+     * from constructor to enable reconnects after sporadic connection time outs
+     * @param ip    storage ip
+     * @param port  storage ip port
+     */
+    void connectSocket(String ip, int port, int maxRetries = 3, int sleepMillisBeforeRetry = 5000) {
+        socket = E3DCConnector.openConnection(ip, port, maxRetries, sleepMillisBeforeRetry)
+        socket.setSoTimeout(5000)
     }
 
     /**
@@ -74,11 +84,13 @@ class E3dcInteractions {
         def sent = E3DCConnector.
                 sendFrameToServer(socket, aesHelper.&encrypt, requestFrame)
         if (sent.left) {
-            throw new RuntimeException(E3dcError.SEND, sent.getLeft())
+            closeConnection()
+            throw new E3dcException(E3dcError.SEND, sent.getLeft())
         }
         def read  = sent.flatMap { E3DCConnector.receiveFrameFromServer(socket, aesHelper.&decrypt) }
         if (read.left) {
-            throw new RuntimeException(E3dcError.READ, read.getLeft())
+            closeConnection()
+            throw new E3dcException(E3dcError.READ, read.getLeft())
         }
         def response = read.get()
         if (response) {

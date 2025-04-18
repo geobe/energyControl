@@ -29,4 +29,12 @@ class E3dcError {
     static final SEND = 'E3dcSendError'
     static final AUTH = 'E3dcAuthError'
     static final IP = 'E3dcIpError'
+    static final TIMEOUT = 'E3dcTimeoutError'
+    static final CONNECT = 'E3dcConnectError'
+}
+
+class E3dcException extends RuntimeException {
+    E3dcException(String message, Throwable cause) {
+        super(message, cause)
+    }
 }
