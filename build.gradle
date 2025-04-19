@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.7.1' // make service restartable by systemd, defer refactoring, extracting hourtable for car charging
+version '0.7.2' // make service restartable by systemd, defer refactoring, extracting hourtable for car charging
 
 repositories {
     mavenCentral()
