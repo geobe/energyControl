@@ -51,9 +51,10 @@ class EnergyControlUI {
 
             PowerCommunicationRecorder.recorder
         } catch (Exception exception) {
+            // TODO distinguish between login failure and communication failure
             LogMessageRecorder.logStackTrace('startup', exception)
             def term = new sun.misc.Signal('TERM').number
-            failed(128 + term)
+            failed()
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
