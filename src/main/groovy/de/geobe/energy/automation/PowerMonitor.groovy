@@ -124,7 +124,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         @Override
         void run() {
             try {
-                wbValuesProvider.readWallbox()
+                wallboxValues = wbValuesProvider.readWallbox()
                 def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
