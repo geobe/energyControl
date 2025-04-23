@@ -50,14 +50,14 @@ class HourTable<MODE extends Enum> {
         init()
     }
 
-    /**
-     * Test if a string can be converted to an enum
-     * @param mode string (e.g. from saved states) representing an enum (or not)
-     * @return true, if enum
-     */
-    boolean isMode(String mode) {
-        modeMap.keySet().contains(mode)
-    }
+//    /**
+//     * Test if a string can be converted to an enum
+//     * @param mode string (e.g. from saved states) representing an enum (or not)
+//     * @return true, if enum
+//     */
+//    boolean isMode(String mode) {
+//        modeMap.keySet().contains(mode)
+//    }
 
     List getHourtable() {
         hourtable.clone()
@@ -197,7 +197,8 @@ class HourTable<MODE extends Enum> {
     }
 
     /**
-     * transform list of strings to list of enums
+     * Transform list of strings to list of enums. If a string
+     * doesn't match an enum constant, use first enum value as a default
      * @param table saved timetables as read by jsonSlurper
      * @return hourtable as list of MODE enum values
      */
@@ -232,69 +233,69 @@ class HourTable<MODE extends Enum> {
 
 }
 
-class Testclass {
-    enum Momo {
-        SLEEPY,
-        HUNGRY,
-        PLAYING,
-        RUNNING
-    }
-
-    enum MomoState {
-        DRY,
-        WET,
-        DIRTY
-    }
-
-    def hourtable = new HourTable(Momo, 'debug/')
-    private MomoState state = MomoState.DRY
-    private int weight = 23
-
-    def init() {
-        hourtable.setHourtable(4..6, Momo.HUNGRY)
-        hourtable.setHourtable(14..16, Momo.HUNGRY)
-        hourtable.setModeAt(7, Momo.PLAYING)
-    }
-
-    void setWeight(Integer w) {
-        if (w)
-            this.@weight = w
-    }
-
-    void setState(String s) {
-        if (s && hourtable.isMode(s)) {
-            def st = MomoState.valueOf(s)
-            this.@state = st ?: MomoState.DIRTY
-        } else {
-            this.@state = MomoState.DIRTY
-        }
-    }
-
-    def saveToFile() {
-        def params = [
-                weight: weight,
-                state : state
-        ]
-        hourtable.saveHourtable('momotest.json', params)
-    }
-
-    def restoreFromFile() {
-        def setters = [
-                weight: this.&setWeight,
-                state : this.&setState
-        ]
-        hourtable.loadOrInitHourtable('momotest.json', setters)
-    }
-
-    String toString() {
-        hourtable.toString()
-    }
-
-    static void main(String[] args) {
-        def t = new Testclass()
-        t.restoreFromFile()
-        t.init()
-        t.saveToFile()
-        t.restoreFromFile()
-    }
-}
+//class Testclass {
+//    enum Momo {
+//        SLEEPY,
+//        HUNGRY,
+//        PLAYING,
+//        RUNNING
+//    }
+//
+//    enum MomoState {
+//        DRY,
+//        WET,
+//        DIRTY
+//    }
+//
+//    def hourtable = new HourTable(Momo, 'debug/')
+//    private MomoState state = MomoState.DRY
+//    private int weight = 23
+//
+//    def init() {
+//        hourtable.setHourtable(4..6, Momo.HUNGRY)
+//        hourtable.setHourtable(14..16, Momo.HUNGRY)
+//        hourtable.setModeAt(7, Momo.PLAYING)
+//    }
+//
+//    void setWeight(Integer w) {
+//        if (w)
+//            this.@weight = w
+//    }
+//
+//    void setState(String s) {
+//        if (s && hourtable.isMode(s)) {
+//            def st = MomoState.valueOf(s)
+//            this.@state = st ?: MomoState.DIRTY
+//        } else {
+//            this.@state = MomoState.DIRTY
+//        }
+//    }
+//
+//    def saveToFile() {
+//        def params = [
+//                weight: weight,
+//                state : state
+//        ]
+//        hourtable.saveHourtable('momotest.json', params)
+//    }
+//
+//    def restoreFromFile() {
+//        def setters = [
+//                weight: this.&setWeight,
+//                state : this.&setState
+//        ]
+//        hourtable.loadOrInitHourtable('momotest.json', setters)
+//    }
+//
+//    String toString() {
+//        hourtable.toString()
+//    }
+//
+//    static void main(String[] args) {
+//        def t = new Testclass()
+//        t.restoreFromFile()
+//        t.init()
+//        t.saveToFile()
+//        t.restoreFromFile()
+//    }
+//}

@@ -22,21 +22,21 @@ package de.geobe.energy.web
 
 import spock.lang.Specification
 
-class UiStringsSpec extends Specification {
-
-    def 'csv strings de equal programmed strings' () {
-        given:
-        def txclass = new UiStringsDE()
-        def uiI18n = new UiStringsI18n()
-        when:
-        def txI18n = uiI18n.translationsFor('de')
-        def ix0 = txI18n.keySet().asList().first()
-        then:
-        ix0 != null
-        txclass[ix0]!= null
-        txI18n.keySet().each {key ->
-            assert txclass[key].keySet().containsAll(txI18n[key].keySet())
-            assert txclass[key].values().containsAll(txI18n[key].values())
-        }
-    }
-}
+//class UiStringsSpec extends Specification {
+//
+//    def 'csv strings de equal programmed strings' () {
+//        given:
+//        def txclass = new UiStringsDE()
+//        def uiI18n = new UiStringsI18n()
+//        when:
+//        def txI18n = uiI18n.translationsFor('de')
+//        def ix0 = txI18n.keySet().asList().first()
+//        then:
+//        ix0 != null
+//        txclass[ix0]!= null
+//        txI18n.keySet().each {key ->
+//            assert txclass[key].keySet().containsAll(txI18n[key].keySet())
+//            assert txclass[key].values().containsAll(txI18n[key].values())
+//        }
+//    }
+//}

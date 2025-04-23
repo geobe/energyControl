@@ -206,9 +206,9 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     void setSavedChargeControlMode(String storedMode) {
 //        this.@chargeControlMode = mode
         ChargeControlMode mode
-        if(storedMode && hourtable.isMode(storedMode)) {
+        try {
             mode = ChargeControlMode.valueOf(storedMode)
-        } else {
+        } catch (IllegalArgumentException ex) {
             mode = ChargeControlMode.INACTIVE
         }
         setChargeControlMode(mode)
