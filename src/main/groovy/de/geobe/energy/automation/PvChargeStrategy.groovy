@@ -118,7 +118,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
         if (valueTrace.size() >= params.toleranceStackSize) {
             valueTrace.removeLast()
         }
-        valueTrace.push (pmValues)
+        valueTrace.push(pmValues)
         evalPower()
     }
 
@@ -165,7 +165,9 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
         int availableChargingPower = powerValues.powerSolar - powerValues.consumptionHome + wallboxValues.energy
         def requestedChargingPower = requestedCurrent * powerFactor
 
-        def isCarCharging = carState == CarChargingState.CHARGING
+        def isCarCharging = carState in [CarChargingState.STARTUP_CHARGING,
+                                         CarChargingState.CHARGING,
+                                         CarChargingState.FINISH_CHARGING]
         def powerBalance = availableChargingPower - requestedChargingPower
 
         ChargingEvent chargingEvent
@@ -178,10 +180,10 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
         boolean logMayCharge = true
 
         // if powerBalance deeply negative, check if we have to stop immediately
-        if (isCarCharging && powerBalance <= params.stopThreshold ) {
+        if (isCarCharging && powerBalance <= params.stopThreshold) {
             def couldSave = (requestedCurrent - Wallbox.wallbox.minCurrent) * powerFactor
             // could we reduce current enough to keep on charging?
-            if (couldSave && powerBalance + couldSave > params.stopThreshold ) {
+            if (couldSave && powerBalance + couldSave > params.stopThreshold) {
                 // reduce to minimal charging current
                 chargingEvent = ChargingEvent.reduceToMin
             } else {
@@ -202,8 +204,8 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
 //            logMayCharge = true
 //            chargeMax
             for (i in 1..<valueTrace.size()) {
-                chargeGradient += valueTrace[i].wallboxValues.energy - valueTrace[i-1].wallboxValues.energy
-                chargeMax = Math.max(chargeMax, valueTrace[i-1].wallboxValues.energy)
+                chargeGradient += valueTrace[i].wallboxValues.energy - valueTrace[i - 1].wallboxValues.energy
+                chargeMax = Math.max(chargeMax, valueTrace[i - 1].wallboxValues.energy)
                 logMayCharge &= valueTrace[i].wallboxValues.allowedToCharge
             }
             // now work with rolling averages to ignore short time fluctuations
@@ -212,9 +214,13 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
             availableCurrent = Math.floorDiv(availableChargingPower, powerFactor)
             if (availableCurrent < Wallbox.wallbox.minCurrent) {
                 chargingEvent = ChargingEvent.stopCharging
-            } else if (isCarCharging && chargeGradient < 500 && wallboxValues.energy < requestedChargingPower - 500) {
+            } else if (isCarCharging &&
+                    chargeGradient < 500 &&
+                    wallboxValues.energy < requestedChargingPower - 500) {
                 chargingEvent = ChargingEvent.ampReduced
-            } else if(logMayCharge && requestedCurrent > 0 && chargeMax < 100) {
+            } else if (isCarCharging && carState == CarChargingState.FINISH_CHARGING) {
+                chargingEvent = ChargingEvent.ampReduced
+            } else if (logMayCharge && requestedCurrent > 0 && chargeMax < 100) {
                 chargingEvent = ChargingEvent.fullyCharged
             } else {
                 def startPower = availableChargingPower - params.batStartHysteresis
@@ -247,7 +253,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
                         chargingState = ChargingState.NotCharging
                 }
                 break
-            case  ChargingEvent.reduceToMin:
+            case ChargingEvent.reduceToMin:
                 caseTrace = 2
                 sendSurplus(Wallbox.wallbox.minCurrent)
                 resetHistory()
@@ -374,7 +380,7 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
             return params.minBatUnloadPower + fac * (params.maxBatUnloadPower - params.minBatUnloadPower)
         } else if (soc < params.fullChargeUseBat) {   // && soc >= params.minUsePower
             float fac = (soc - params.minChargeUseBat) / (params.fullChargeUseBat - params.minChargeUseBat)
-            return - params.batPower + fac * (params.batPower - params.minBatLoadPower)
+            return -params.batPower + fac * (params.batPower - params.minBatLoadPower)
         }
     }
 

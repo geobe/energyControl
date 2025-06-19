@@ -81,6 +81,8 @@ class EnergyControlUI {
 
         get('/dashboard', valueController.dashboardRoute)
 
+        post('/menu/:menu/:item', valueController.menuSelectionPost)
+
         post('/settings', valueController.energySettingsPost)
 
 //        get('/graph', valueController.graphRoute)

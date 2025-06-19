@@ -39,8 +39,12 @@ import org.joda.time.DateTime
 import java.util.concurrent.TimeUnit
 
 /**
- * Periodically read power values from storage system. If values
- * have changed more than hysteresis, send new values to PvChargeStrategy
+ * Heartbeat of read actions:
+ * <ol>
+ * <li>Periodically read power values from storage system.</li>
+ * <li>Have WallboxManager read Wallbox values and combine them with power values</li>
+ * <li>If values have changed more than hysteresis, send new values to PvChargeStrategy
+ * and other subscribers</li>
  */
 @ActiveObject
 class PowerMonitor /* implements WallboxValueSubscriber */ {

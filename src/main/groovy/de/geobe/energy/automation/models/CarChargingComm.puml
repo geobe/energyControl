@@ -20,11 +20,13 @@ ctlui --> ccm : "activate()\ndeactivate()\nsetStrategy()"
 goe <.r.> car : "            "
 wb .d-> goe : "url.getText()"
 wbm -d-> wb : getCurrent()
-wbm -d-> wb : startCharging()\nstartChargingRemote()\nstopCharging()\nsetChargingCurrent()"
+wbm -d-> wb : startCharging()\nforceStartCharging()\nstopCharging()\nsetChargingCurrent()
 pom --> wbm : "subscribeValues()"
 wbm .l.> pom : takeWallboxValues()
 pom --> e3dc : currentValues()
-ccm -d-> pcs : chargePvSurplus()
+ccm -d-> wbm : startCharging()\nforceStartCharging()\nstopCharging()\nsetChargingCurrent()
+ccm -d-> pcs : startStrategy()\nstopStrategy()
+pcs -u-> ccm: takeChargingCurrent()\ntakeFullyCharged()
 pcs -d-> wbm : "subscribe\nState()"
 pcs -d-> pom : "subscribe()"
 pom .u.> pcs : "take\nPMValues()"

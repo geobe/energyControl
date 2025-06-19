@@ -31,12 +31,12 @@ state "Active" as act {
               state "Surplus" as sp {
                sp: exit: stopCharging()
 
-                state "HasSurplus" as hasPlus {
+                state "ChargeSurplus" as hasPlus {
     '                hasPlus: entry: setCurrent(v)
                     hasPlus: on: surplus(v) : setCurrent(v)
                 }
 
-                state "WaitForExtCharge" as waitCh
+                state "StartChargeSurplus" as waitCh
                     waitCh: entry: setCurrent(v)
                     waitCh: entry: startCharging()
                     waitCh: on: surplus(v) : setCurrent(v)
@@ -68,6 +68,10 @@ state "Active" as act {
               cAnyway: entry: setCurrent(maxCurrent)
               cAnyway: exit:stopCharging()
 
+          state "ExternalCharge" as cExt
+
+          state "ExternalStop" as stopExt
+
           state "switch" as choiceCmd <<choice>>
 
           note top of choiceCmd
@@ -75,14 +79,9 @@ state "Active" as act {
             \tsee sequence of cases
           end note
 
-          note left of cStop
-              anyStop = stopCharging
-              \tStoppedByApp
-              \tStoppedByCar
-          end note
-
-          [H] -l-> choiceCmd : chargeCmdChanged
+          cabl -r-> choiceCmd : chargeCmdChanged
           [*] --> choiceCmd
+          cabl -r-> cStop : stopCharging
         }
 
       state "FullyCharged" as full {
@@ -111,26 +110,32 @@ state "Active" as act {
 }
 dcon -u-> noCar : carDisconnected
 full -l-> noCar : carDisconnected
-cSurplus -down-> cStop : anyStop
+'cSurplus --> cStop : stopCmd
 fch -u-> full : fullyCharged
-cTibber -down-> cStop : anyStop
-cAnyway --> cStop : anyStop
+'cTibber -down-> cStop : stopCmd
+'cAnyway --> cStop : stopCmd
+cAnyway --> stopExt : extStopCmd
+cTibber --> stopExt : extStopCmd
+cStop -u-> cExt : extStartCmd
+noPlus -r-> cExt : extStartCmd
+cExt --> stopExt : extStopCmd
+stopExt --> cExt : extStartCmd
+sp --> stopExt : extStopCmd
 
-choiceCmd -l-> cSurplus : [4: cmdChargePvSurplus]
+choiceCmd -r-> lpstart : [4: cmdChargePvSurplus]
 choiceCmd --> cAnyway : [2: cmdChargeAnyway]
 choiceCmd --> cStop : [1: cmdChargeStop]
 choiceCmd --> cTibber : [3: cmdChargeTibber]
-cStop -up-> choiceCmd : extStartCmd
-
+'cStop -up-> choiceCmd : extStartCmd
 noCar --> con : carConnected
 inAct -down-> act : activate
 act -up-> inAct : deactivate
 
 noPlus -right-> sp : surplus(v)
-waitCh -down-> hasPlus : extChargeCmd
+waitCh -down-> hasPlus : charging\t
 waitCh -down-> hasPlus : [isCharging]
 sp -u-> noPlus : noSurplus
-lpstart -left-> noPlus
+lpstart -r-> noPlus
 
 note "CarChargingManager" as NTop
 

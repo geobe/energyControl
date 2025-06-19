@@ -45,7 +45,7 @@ class CarChargingManager implements WallboxStateSubscriber {
     private static CarChargingManager carChargingManager
 
     static synchronized getCarChargingManager() {
-        if (! carChargingManager) {
+        if (!carChargingManager) {
             carChargingManager = new CarChargingManager()
         }
         carChargingManager
@@ -57,19 +57,17 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     static enum ChargeManagerState {
         Inactive,
-        Active,             // compound state
-            NoCarConnected,
-            CarIsConnected,     // compound state
-                Chargeable,     // compound state
-                    ChargeTibber,
-                    ChargeAnyway,
-                    ChargingStopped,
-                    ChargePvSurplus,    // compound state
-                        HasSurplus,
-                        NoSurplus,
-                        WaitForExtCharge,
-                FullyCharged
-    }
+        NoCarConnected,     //Active.NoCarConnected
+        FullyCharged,       // Active.FullyCharged
+        ChargeTibber,         // Active.Chargeable.ChargeTibber
+        ChargeAnyway,         // Active.Chargeable.ChargeAnyway
+        ChargingStopped,      // Active.Chargeable.ChargingStopped
+        ExternalStop,         // Active.Chargeable.ExternalStop
+        ExternalCharge,       // Active.Chargeable.ExternalCharge
+        ChargeSurplus,          // Active.Chargeable.ChargePvSurplus.ChargeSurplus
+        NoSurplus,              // Active.Chargeable.ChargePvSurplus.NoSurplus
+        StartChargeSurplus,     // Active.Chargeable.ChargePvSurplus.StartChargeSurplus
+     }
 
     static enum ChargeManagerStrategy {
         CHARGE_PV_SURPLUS,
@@ -79,27 +77,29 @@ class CarChargingManager implements WallboxStateSubscriber {
     }
 
     static enum ChargeEvent {
-        Activate,
-        Deactivate,
-        ExtChargeCmd,
+        CarCharging,        // events generated from WallboxMonitor state changes
+        CarStopsCharging,
         CarDisconnected,
-        ExtStoppedByCar,
-        ExtStoppedByApp,
+        CarIsConnected,
         FullyCharged,
+        StoppedAgain,
+        StartedAgain,
+        Activate,           // events from user interface
+        Deactivate,
+        StopCharging,
         ChargeCommandChanged,
-        Surplus,
+        Surplus,            // events from PvChargeStrategy
         NoSurplus,
-        AnyStop,
-        TibberGo,
+        TibberGo,           // events from TibberChargeStrategy
         TibberStop,
-        MonitorException
+        MonitorException    // error event
     }
 
     private ChargeManagerState chargeState = ChargeManagerState.Inactive
     private ChargeManagerStrategy chargeManagerStrategy = ChargeManagerStrategy.CHARGE_STOP
     private ChargeManagerStrategy defaultChargeManagerStrategy = ChargeManagerStrategy.CHARGE_PV_SURPLUS
     private int anywayAmps = Wallbox.wallbox.minCurrent
-    private de.geobe.energy.automation.ChargeStrategy chargeStrategy
+    private ChargeStrategy chargeStrategy
     private CarChargingState newState, actualCarChargingState
 
 //    @ActiveMethod(blocking = true)
@@ -132,8 +132,13 @@ class CarChargingManager implements WallboxStateSubscriber {
 //        WallboxMonitor.monitor.shutdown()
     }
 
+    def setAnywayAmps(int amps) {
+        anywayAmps = Math.min(Wallbox.wallbox.maxCurrent,
+                Math.max(Wallbox.wallbox.minCurrent, amps))
+    }
+
     /**
-     * ToDo: make individual events and handle them
+     * Transform changes in CarChangingState into events of CarChargingManager
      * @param carState
      */
     @ActiveMethod(blocking = true)
@@ -144,24 +149,33 @@ class CarChargingManager implements WallboxStateSubscriber {
 //            println "WB state: $carState -> "
             actualCarChargingState = newState
             switch (carState) {
-                case WallboxMonitor.CarChargingState.NO_CAR:
+            // car not connected, just connecting, or software newly started
                 case WallboxMonitor.CarChargingState.UNDEFINED:
+                case WallboxMonitor.CarChargingState.WAIT_CAR:
+                case WallboxMonitor.CarChargingState.NO_CAR:
                     executeEvent(ChargeEvent.CarDisconnected)
                     break
-                case WallboxMonitor.CarChargingState.FORCE_CHARGING:
-                    chargeManagerStrategy = ChargeManagerStrategy.CHARGE_ANYWAY
-                case WallboxMonitor.CarChargingState.WAIT_CAR:
+                    // car seems to be ready to charge, maybe "fully charged" is not yet identified after pgm start
+                case WallboxMonitor.CarChargingState.NOT_CHARGING:
+                    executeEvent(ChargeEvent.CarIsConnected)
+                    break
+                    // car is charging
+                case WallboxMonitor.CarChargingState.STARTUP_CHARGING:
                 case WallboxMonitor.CarChargingState.CHARGING:
-                    executeEvent(ChargeEvent.ExtChargeCmd)
-                    break
-                case WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR:
-                    executeEvent(ChargeEvent.ExtStoppedByCar)
-                    break
-                case WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_APP:
-                    executeEvent(ChargeEvent.ExtStoppedByApp)
+                case WallboxMonitor.CarChargingState.FINISH_CHARGING:
+                    executeEvent(ChargeEvent.CarCharging)
                     break
                 case WallboxMonitor.CarChargingState.FULLY_CHARGED:
                     executeEvent(ChargeEvent.FullyCharged)
+                    break
+                case WallboxMonitor.CarChargingState.CHARGE_STOPPING:
+                    executeEvent(ChargeEvent.CarStopsCharging)
+                    break
+                case WallboxMonitor.CarChargingState.START_AGAIN:
+                    executeEvent(ChargeEvent.StartedAgain)
+                    break
+                case WallboxMonitor.CarChargingState.STOP_AGAIN:
+                    executeEvent(ChargeEvent.StoppedAgain)
             }
         }
     }
@@ -199,7 +213,7 @@ class CarChargingManager implements WallboxStateSubscriber {
         def detail
         switch (chargeManagerStrategy) {
             case ChargeManagerStrategy.CHARGE_PV_SURPLUS:
-                detail = (chargeStrategy?.state?:ChargeStrategy.inactive).toString()
+                detail = (chargeStrategy?.state ?: ChargeStrategy.inactive).toString()
                 break
             default: detail = ChargeStrategy.inactive
         }
@@ -220,6 +234,11 @@ class CarChargingManager implements WallboxStateSubscriber {
         executeEvent(ChargeEvent.FullyCharged)
     }
 
+    /**
+     * implementation of the state machine as described in uml model CarChargingMannager.puml
+     * @param event
+     * @param param
+     */
     private void executeEvent(ChargeEvent event, def param = null) {
         def evTrigger = "$chargeState --$event${param ? '(' + param + ')' : ''}-> "
         switch (event) {
@@ -235,6 +254,8 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.ChargingStopped:
                     case ChargeManagerState.NoCarConnected:
                     case ChargeManagerState.FullyCharged:
+                    case ChargeManagerState.ExternalCharge:
+                    case ChargeManagerState.ExternalStop:
                         break
                     case ChargeManagerState.ChargeAnyway:
                         stopCharging()
@@ -242,8 +263,8 @@ class CarChargingManager implements WallboxStateSubscriber {
                     case ChargeManagerState.ChargeTibber:
                         stopTibberStrategy()
                         break
-                    case ChargeManagerState.WaitForExtCharge:
-                    case ChargeManagerState.HasSurplus:
+                    case ChargeManagerState.StartChargeSurplus:
+                    case ChargeManagerState.ChargeSurplus:
                         stopCharging()
                     case ChargeManagerState.NoSurplus:
                         PvChargeStrategy.chargeStrategy.stopStrategy()
@@ -252,22 +273,43 @@ class CarChargingManager implements WallboxStateSubscriber {
                 exitActive()
                 chargeState = ChargeManagerState.Inactive
                 break
-            case ChargeEvent.ExtChargeCmd:
+            case ChargeEvent.CarIsConnected:
                 switch (chargeState) {
                     case ChargeManagerState.NoCarConnected:
-                        chargeState = enterCarConnected()
+                        chargeState = initChargeable()
+                }
+                break
+            case ChargeEvent.CarCharging:
+                switch (chargeState) {
+                    case ChargeManagerState.NoCarConnected:
+                        chargeState = initChargeable()
                         break
                     case ChargeManagerState.ChargingStopped:
-                        chargeState = enterCarConnected()
+                        chargeState = initChargeable()
                         break
-                    case ChargeManagerState.WaitForExtCharge:
-                        chargeState = ChargeManagerState.HasSurplus
+                    case ChargeManagerState.StartChargeSurplus:
+                        chargeState = ChargeManagerState.ChargeSurplus
                         break
                 }
                 break
-            case ChargeEvent.ExtStoppedByCar:
+            case ChargeEvent.StartedAgain:
                 switch (chargeState) {
-                    case ChargeManagerState.WaitForExtCharge:
+                    case ChargeManagerState.StartChargeSurplus:
+                        break           // ignore, artifact of state change
+                    case ChargeManagerState.NoSurplus:
+                        stopCharging()
+                        break
+                    case ChargeManagerState.ChargingStopped:
+                        initChargeable()
+                        break
+                    default:
+                        // ToDo implement strategies for each Chargexxx state with a reinit method
+                        initChargeable()
+                }
+                break
+            case ChargeEvent.StoppedAgain:
+                switch (chargeState) {
+                    case ChargeManagerState.StartChargeSurplus:
 //                    case ChargeManagerState.NoSurplus:
                         break           // ignore, artifact of state change
                     default:
@@ -275,53 +317,32 @@ class CarChargingManager implements WallboxStateSubscriber {
                         chargeState = ChargeManagerState.ChargingStopped
                 }
                 break
-            case ChargeEvent.ExtStoppedByApp:
-                switch (chargeState) {
-                    case ChargeManagerState.NoSurplus:
-                        break           // ignore, artifact of state change
-                    default:
-                        execStop()
-                        chargeState = ChargeManagerState.ChargingStopped
-                }
-                break
             case ChargeEvent.CarDisconnected:
-                switch (chargeState) {
-                    case ChargeManagerState.ChargeAnyway:
-                        stopCharging()
-                    case ChargeManagerState.ChargeTibber:
-                        stopTibberStrategy()
-                        break
-                    case ChargeManagerState.HasSurplus:
-                        stopCharging()
-                    case ChargeManagerState.NoSurplus:
-                        PvChargeStrategy.chargeStrategy.stopStrategy()
-                        break
-                    case ChargeManagerState.ChargingStopped:
-                        forceDefault()
-                        break
-                }
+                execStop()
                 chargeState = ChargeManagerState.NoCarConnected
                 break
             case ChargeEvent.ChargeCommandChanged:
                 switch (chargeState) {
                     case ChargeManagerState.ChargeTibber:
                         stopTibberStrategy()
-                        chargeState = enterCarConnected()
+                        chargeState = initChargeable()
                         break
                     case ChargeManagerState.ChargeAnyway:
                         stopCharging()
-                        chargeState = enterCarConnected()
+                        chargeState = initChargeable()
                         break
                     case ChargeManagerState.ChargingStopped:
-                        chargeState = overrideExtChargeCmd()
                         break
-                    case ChargeManagerState.HasSurplus:
-                    case ChargeManagerState.WaitForExtCharge:
+                        chargeState = initChargeable()
+                    case ChargeManagerState.ChargeSurplus:
+                    case ChargeManagerState.StartChargeSurplus:
                         stopCharging()
                     case ChargeManagerState.NoSurplus:
                         PvChargeStrategy.chargeStrategy.stopStrategy()
-                        chargeState = enterCarConnected()
+                        chargeState = initChargeable()
                         break
+                    case ChargeManagerState.FullyCharged:
+                    case ChargeManagerState.NoCarConnected:
                     case ChargeManagerState.Inactive:
                         break
                 }
@@ -329,28 +350,28 @@ class CarChargingManager implements WallboxStateSubscriber {
             case ChargeEvent.Surplus:
                 switch (chargeState) {
                     case ChargeManagerState.NoSurplus:
-                        chargeState = ChargeManagerState.WaitForExtCharge
+                        chargeState = ChargeManagerState.StartChargeSurplus
                         setCurrent(param)
                         startCharging()
                         break
-                    case ChargeManagerState.WaitForExtCharge:
+                    case ChargeManagerState.StartChargeSurplus:
                         // check for missed event
                         if (WallboxMonitor.monitor.current.state == WallboxMonitor.CarChargingState.CHARGING) {
-                            chargeState = ChargeManagerState.HasSurplus
+                            chargeState = ChargeManagerState.ChargeSurplus
                         }
                         // blocking, if not started charging by car
                         // just go to charging state hasSurplus without adjusting current
-//                        chargeState = ChargeManagerState.HasSurplus
+//                        chargeState = ChargeManagerState.ChargeSurplus
 //                        break
-                    case ChargeManagerState.HasSurplus:
+                    case ChargeManagerState.ChargeSurplus:
                         setCurrent(param)
                         break
                 }
                 break
             case ChargeEvent.NoSurplus:
                 switch (chargeState) {
-                    case ChargeManagerState.HasSurplus:
-                    case ChargeManagerState.WaitForExtCharge:
+                    case ChargeManagerState.ChargeSurplus:
+                    case ChargeManagerState.StartChargeSurplus:
                         stopCharging()
                         chargeState = ChargeManagerState.NoSurplus
                         break
@@ -358,7 +379,7 @@ class CarChargingManager implements WallboxStateSubscriber {
                         break
                 }
                 break
-            case ChargeEvent.AnyStop:
+            case ChargeEvent.StopCharging:
                 execStop()
                 chargeState = ChargeManagerState.ChargingStopped
                 break
@@ -366,20 +387,20 @@ class CarChargingManager implements WallboxStateSubscriber {
                 execStop()
                 chargeState = ChargeManagerState.FullyCharged
         }
-//        println "CarChargingManager -> $evTrigger $chargeState @ ${WallboxMonitor.monitor.current.state}"
+        println "CarChargingManager -> $evTrigger $chargeState @ ${WallboxMonitor.monitor.current.state}"
     }
 
     /**
      * Superstate, find out substate to go to. See state chart.
      */
-     private ChargeManagerState enterActive() {
+    private ChargeManagerState enterActive() {
         ChargeManagerState result
         def chargingState = WallboxMonitor.monitor.current.state
-//        println "enterActive, chargingState: $chargingState"
+        println "enterActive, chargingState: $chargingState"
         if (chargingState == WallboxMonitor.CarChargingState.NO_CAR) {
             result = ChargeManagerState.NoCarConnected
         } else { // carConnected
-            result = enterCarConnected(false)
+            result = initChargeable()
         }
         // start receiving state change events from wallbox monitor
         WallboxMonitor.monitor.subscribeState this
@@ -391,38 +412,38 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     }
 
-    private ChargeManagerState overrideExtChargeCmd() {
-        enterCarConnected(false)
-    }
-
     /**
-     * Superstate, find out substate to go to. See state chart.
-     * @param extCmdHasPrio if stop command from app or car has priority
+     * Superstate, find out substate to go to. See state chart.<br>
+     * Ways that lead to this state:
+     * <ol>
+     *     <li>Triggered by activate event and a car already connected to the wallbox ->
+     *         then the car is either charging or not charging as selected by external controls,
+     *         e.g. in the car or in a smartphone app. WallboxManager should have detected this situation
+     *         and provide appropriate state information.
+     *     </li><li>
+     *         Triggered by carConnected event in state NoCarConnected -> external charge state is
+     *         controlled by default wallbox behaviour which is startCharging.
+     *     </li>
+     * </ol>
+     * So in any case go to substate defined by current defaultChargeManagerStrategy,
+     * usually CHARGE_PV_SURPLUS.
+     *
      * @return none
      */
-    private ChargeManagerState enterCarConnected(boolean extCmdHasPrio = true) {
+    private ChargeManagerState initChargeable() {
         // remember original chargingState and avoid getting it sent repeatedly
         actualCarChargingState = WallboxMonitor.monitor.current.state
-        def externalStopCmd = extCmdHasPrio &&
-                (actualCarChargingState == WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR ||
-                        actualCarChargingState == WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_APP)
 //        println "\t\t ecc: set actualCarChargingState to $actualCarChargingState,\n\t\t " +
 //                "externalStopCmd: $externalStopCmd, chargeManagerStrategy: $chargeManagerStrategy"
-        if (externalStopCmd ||
-                actualCarChargingState == WallboxMonitor.CarChargingState.FULLY_CHARGED ||
-                chargeManagerStrategy == ChargeManagerStrategy.CHARGE_STOP
-        ) {
+        if (actualCarChargingState == WallboxMonitor.CarChargingState.FULLY_CHARGED ||
+                chargeManagerStrategy == ChargeManagerStrategy.CHARGE_STOP) {
             stopCharging()
             ChargeManagerState.ChargingStopped
         } else {
-            if (actualCarChargingState == WallboxMonitor.CarChargingState.CHARGING_STOPPED_BY_CAR) {
-                // switch to CHARGING_STOPPED_BY_APP
-                stopCharging()
-            }
-            switch (chargeManagerStrategy) {
+            switch (defaultChargeManagerStrategy) {
                 case ChargeManagerStrategy.CHARGE_ANYWAY:
                     startCharging()
-                    setCurrent(Wallbox.wallbox.maxCurrent)
+                    setCurrent(anywayAmps)
                     ChargeManagerState.ChargeAnyway
                     break
                 case ChargeManagerStrategy.CHARGE_TIBBER:
@@ -432,14 +453,8 @@ class CarChargingManager implements WallboxStateSubscriber {
                 case ChargeManagerStrategy.CHARGE_PV_SURPLUS:
                     chargeStrategy = PvChargeStrategy.chargeStrategy
                     chargeStrategy.startStrategy this
-                    if (actualCarChargingState in [
-                            WallboxMonitor.CarChargingState.WAIT_CAR,
-                            WallboxMonitor.CarChargingState.CHARGING,
-                            WallboxMonitor.CarChargingState.FORCE_CHARGING]) {
-                        ChargeManagerState.WaitForExtCharge
-                    } else {
-                        ChargeManagerState.NoSurplus
-                    }
+                    stopCharging()
+                    ChargeManagerState.NoSurplus
                     break
             }
         }
@@ -447,8 +462,8 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     private execStop() {
         switch (chargeState) {
-            case ChargeManagerState.WaitForExtCharge:
-            case ChargeManagerState.HasSurplus:
+            case ChargeManagerState.StartChargeSurplus:
+            case ChargeManagerState.ChargeSurplus:
                 stopCharging()
             case ChargeManagerState.NoSurplus:
                 chargeStrategy.stopStrategy()
@@ -460,7 +475,6 @@ class CarChargingManager implements WallboxStateSubscriber {
                 stopCharging()
                 break
         }
-//        chargeState = nextState
     }
 
     /**
@@ -481,10 +495,6 @@ class CarChargingManager implements WallboxStateSubscriber {
 
     private startCharging() {
         WallboxMonitor.monitor.startCharging()
-    }
-
-    private startChargingRemote() {
-        WallboxMonitor.monitor.forceStartCharging()
     }
 
     private setCurrent(int amp = 0) {
@@ -520,7 +530,7 @@ class CarChargingManager implements WallboxStateSubscriber {
         carChargingManager.takeChargeCmd(ChargeManagerStrategy.CHARGE_PV_SURPLUS)
         for (i in 1..90) {
             Thread.sleep(1 * 60 * 1000) // 1 minute
-            println "-----------------> running $i minute${i > 1?'s':''} <--------------------------"
+            println "-----------------> running $i minute${i > 1 ? 's' : ''} <--------------------------"
         }
 //        Thread.sleep(2 * 60 * 60 * 1000) // 2 hours
         carChargingManager.shutDown()

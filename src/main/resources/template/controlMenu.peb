@@ -1,0 +1,25 @@
+<div id='control-menu' class="w3-row w3-bar w3-pale-blue w3-bottombar w3-border-blue w3-col s12 m8 l6" style="width:100%">
+    <!-- Menu -->
+    <button class="w3-bar-item w3-button"
+        hx-post="/menu/CONTROL/POWER_STORAGE" hx-target="#control-panels" hx-swap="innerHTML">
+        {{ powerStoreManagement }}
+    </button>
+    <button class="w3-bar-item w3-button"
+        hx-post="/menu/CONTROL/CAR_CHARGING" hx-target="#control-panels" hx-swap="innerHTML">
+        {{ carChargeControl }}
+    </button>
+    <button class="w3-bar-item w3-button"
+        hx-post="/menu/CONTROL/SETTINGS" hx-target="#control-panels" hx-swap="innerHTML">
+        {{ generalSettings }}
+    </button>
+    <button class="w3-bar-item w3-button w3-right w3-blue-grey"
+            hx-post="/stop">
+        Stop Server
+    </button>
+    <div id="language-select">
+        <select  class="w3-button w3-right w3-margin-right" name="language"
+        hx-post="/language" hx-target="body"  >
+            {{ languageOptions | raw }}
+        </select>
+    </div>
+</div>

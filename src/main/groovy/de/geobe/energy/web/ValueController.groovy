@@ -74,6 +74,10 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
     // display values that could be migrated to session variables
     // global display values
     volatile String uiLanguage = 'de'
+    // menubar selection and visibility
+    volatile ControlMenuState controlMenuState = ControlMenuState.CAR_CHARGING
+    volatile GraphMenuState graphMenuState = GraphMenuState.POWER
+
 
     /** store for websocket sessions */
     private ConcurrentLinkedDeque<Session> sessions = new ConcurrentLinkedDeque<>()
@@ -91,6 +95,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
     PebbleEngine engine
     def index = engine.getTemplate('template/index.peb')
     def body = engine.getTemplate('template/bodyi18n.peb')
+    def controlMenu = engine.getTemplate('template/controlMenu.peb')
+    def controlPanel = engine.getTemplate('template/controlPanel.peb')
     def stateButtons = engine.getTemplate('template/statebuttons.peb')
     def dashboard = engine.getTemplate('template/dashboard.peb')
     def powerValuesTemplate = engine.getTemplate('template/powervalues.peb')
@@ -231,8 +237,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
                 gc.updateDateFormat(uiLanguage)
             }
         }
-        def ctx = bodyCtx(req, resp)
+        def ctx = bodyCtx()
         ctx.put('newCanvas', true)
+        println "menu state:  $controlMenuState"
         streamOut(index, ctx)
     }
 
@@ -247,19 +254,18 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
             }
         }
 //        resp.redirect("/".toString())
-        def ctx = bodyCtx(req, resp)
+        def ctx = bodyCtx()
         ctx.put('newCanvas', true)
         def out = streamOut(body, ctx)
         updateWsValues(out)
         out
     }
 
-    def bodyCtx(Request req, Response resp) {
-        def strategy = chargeStrategy
+    def bodyCtx() {
         def ti18n = tGlobal
         def ctx = setMenubarContext(ti18n)
-        ctx.putAll setChargeCommandContext(strategy, ti18n)
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
+        ctx.putAll(setChargeCommandContext(chargeStrategy, ti18n))
         ctx.putAll(joinDashboardContext(ti18n))
         ctx.putAll(es.settingsFormContext(ti18n))
         ctx.putAll(gc.createSnapshotCtx(gc.graphDataSize, ti18n, 0))
@@ -278,6 +284,36 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         def ti18n = tGlobal
         def ctx = joinDashboardContext(ti18n)
         streamOut(dashboard, ctx)
+    }
+
+    Route menuSelectionPost = { Request req, Response resp ->
+        def accept = req.headers('Accept')
+        resp.status 200
+        def menu = req?.params(':menu')
+        def item = req?.params(':item')
+        if (menu?.equalsIgnoreCase(MenuID.CONTROL.toString())) {
+            if (item?.equalsIgnoreCase(ControlMenuState.CAR_CHARGING.toString())) {
+                controlMenuState = controlMenuState != ControlMenuState.CAR_CHARGING ?
+                        ControlMenuState.CAR_CHARGING : ControlMenuState.NONE
+            } else if (item?.equalsIgnoreCase(ControlMenuState.POWER_STORAGE.toString())) {
+                controlMenuState = controlMenuState != ControlMenuState.POWER_STORAGE ?
+                        ControlMenuState.POWER_STORAGE : ControlMenuState.NONE
+            } else if (item?.equalsIgnoreCase(ControlMenuState.SETTINGS.toString())) {
+                controlMenuState = controlMenuState != ControlMenuState.SETTINGS ?
+                        ControlMenuState.SETTINGS : ControlMenuState.NONE
+            }
+        } else if (menu?.equalsIgnoreCase(MenuID.GRAPH.toString())) {
+
+        }
+        println " selected $menu / $item"
+        def ti18n = tGlobal
+        def ctx = bodyCtx()
+//        def ctx = setMenubarContext(ti18n)
+//        ctx.putAll(ti18n.headingStrings)
+        def upd = streamOut(controlPanel, ctx)
+        updateWsValues(upd)
+//        upd
+//        ''
     }
 
     Route wallboxStrategyRoute = { Request req, Response resp ->
@@ -326,10 +362,11 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         def t = this
         owner.chargeStrategy = carChargingManager.chargeManagerStrategy
         owner.chargeManagerState = carChargingManager.chargeManagerState
-        def upd = statesInfoString(ti18n)
+        def ctx = statesInfoString(ti18n)
+        def upd = streamOut(stateButtons, ctx)
         updateWsValues(upd)
-        upd = chargeInfoString(ti18n)
-        updateWsValues(upd)
+//        upd = chargeInfoString(ti18n)
+//        updateWsValues(upd)
         ''
     }
 
@@ -528,9 +565,14 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
 
     def statesInfoString(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
+        ctx.putAll(ti18n.headingStrings)
+        ctx.putAll(ti18n.stateStrings)
+        ctx.putAll(ti18n.mgmtStrings)
+        ctx.putAll(stateValues(ti18n))
+        ctx.putAll(setMenubarContext(ti18n))
         ctx.putAll(setChargeCommandContext(chargeStrategy, ti18n))
         ctx.putAll(setChargeManagementContext(chargeManagerState, ti18n))
-        streamOut(stateButtons, ctx)
+        ctx
     }
 
     /**
@@ -621,7 +663,11 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
     }
 
     def setMenubarContext(Map<String, Map<String, String>> ti18n) {
-        ti18n.menuBarStrings
+        def ctx = [:] //ti18n.menuBarStrings
+        ctx.putAll(ti18n.menuBarStrings)
+        ctx.controlMenuState = controlMenuState.toString()
+        ctx.graphMenuState = graphMenuState.toString()
+        ctx
     }
 
     def setChargeCommandContext(CarChargingManager.ChargeManagerStrategy strategy, Map<String, Map<String, String>> ti18n) {

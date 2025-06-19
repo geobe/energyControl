@@ -1,0 +1,9 @@
+        <!-- container for control panels -->
+            <div id="control-panels" class="w3-container w3-bottombar w3-border-blue w3-light-grey">
+                <!-- Charge strategy control pane -->
+                    {% include "./statebuttons.peb" %}
+                <!-- Charge settings pane -->
+                    {% include "./settings.peb" %}
+                <!-- power buffering control pane -->
+                    {% include "./storagecontrol.peb" %}
+            </div>

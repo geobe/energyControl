@@ -1,25 +1,44 @@
 @startuml
 'https://plantuml.com/state-diagram
 
-scale 650 width
+scale 950 width
 
-state "WaitForData" as wait
-    wait: push(newData)
-state "Evaluate" as eval
-    eval: push(newData)
-state "FullyCharged" as full
+state "NO_CAR" as noCar
+state "WAIT_CAR" as waitCar
 
-[H] --> wait
-wait --> full : [enough() && full()]
-wait --> eval : [enough() && !full()]
-eval -> full : [full()]
-
-state test {
-json jsonJ {
-   "fruit":"Apple",
-   "size":"Large",
-   "color": ["Red", "Green"],
-   "ch": {"a":"A", "b": "B", "l3":{"bert": "ram"}}
+state "CAR_CONNECTED" as car {
+    state "APP_STOP_TARGET" as appstop {
+        state "NOT_CHARGING" as notCh
+        state "CHARGE_STOPPING" as stopCh
+        state "CHARGE_STOP_FULL" as stopFull
+    }
+    state "APP_START_TARGET" as appstart {
+        state "WHILE_CHARGING" as whileCh {
+            state "STARTUP_CHARGING" as startCh
+            state "CHARGING" as Ch
+            state "FINISH_CHARGING" as finCh
+        }
+        state "FULLY_CHARGED" as fulCh
+    }
+    [*] --> notCh
 }
-}
+
+noCar -d-> waitCar : B
+waitCar -d-> car : C
+notCh --> startCh : 0 | 1 | 2
+startCh --> startCh : 1 | 2
+notCh --> Ch : 3
+startCh --> Ch : 3
+Ch -> finCh : 4
+finCh -->fulCh : 5
+stopCh --> notCh : C
+fulCh -l-> stopFull: 6
+stopFull -u-> notCh : 7
+
+whileCh -u-> stopCh: 4a
+
+car -u-> car: A | B | C
+
+car -u-> noCar : A
+
 @enduml

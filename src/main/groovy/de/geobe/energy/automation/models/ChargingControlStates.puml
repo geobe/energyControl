@@ -1,0 +1,18 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 650 width
+state "IDLE" as idle
+state "APP" as app {
+    state "APP_STARTED" as aStart
+    state "APP_STOPPED" as aStop
+}
+state "EXT" as ext {
+    state "EXT_STARTED" as eStart
+    state "EXT_STOPPED" as eStop
+}
+
+[*] --> idle
+aStart -> aStop
+aStop --> aStart
+@enduml

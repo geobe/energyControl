@@ -1,5 +1,6 @@
-    <div id="div-state" class=" {{ mgmtColor }} w3-col w3-left">
-          <div id="strategy-buttons" class="w3-col w3-padding-small w3-hide tabContent">
+    <!-- control interface for car charging -->
+    <div id="div-state" class=" {{ mgmtColor }} w3-col w3-left {{ controlMenuState == 'CAR_CHARGING' ? 'w3-show' : 'w3-hide' }} tabContent">
+          <div id="strategy-buttons" class="w3-col w3-padding-small">
               <h4>{{ statesTitle }}</h4>
               {% include "./chargeinfo.peb" %}
               <h4>{{ wallboxStrategyHeader }}</h4>
@@ -25,12 +26,12 @@
               </div>
               <div class="w3-col s6 m3 l3 w3-left">
                   <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdAnyway }}" {{ checkedAnyway }}
-                  hx-post="/wallboxStrategy/{{ cmdAnyway }}" hx-target="#div-state" hx-swap="outerHTML">
+                  hx-post="/wallboxStrategy/{{ cmdAnyway }}" hx-target="#div-state" hx-swap="innerHTML">
                   <label>{{  anywayStrategy }}</label>
               </div>
               <div class="w3-col s6 m3 l3 w3-left">
                   <input class="w3-radio" type="radio" name="charge-strategy" value="{{ cmdStop }}" {{ checkedStop }}
-                  hx-post="/wallboxStrategy/{{ cmdStop }}" hx-target="#div-state" hx-swap="outerHTML">
+                  hx-post="/wallboxStrategy/{{ cmdStop }}" hx-target="#div-state" hx-swap="innerHTML">
                   <label>{{ stopStrategy }}</label>
               </div>
           </div>

@@ -4,49 +4,19 @@
                     <h2>{{ websiteTitle }}</h2>
                 </div>
             </div>
-            <!-- Nav tabs -->
-            <div class="w3-row w3-bar w3-pale-blue w3-bottombar w3-border-blue w3-col s12 m8 l6" style="width:100%">
-                <button class="w3-bar-item w3-button" onClick="openTab('timetable-tab')">
-                    {{ powerStoreManagement }}
-                </button>
-                <button class="w3-bar-item w3-button" onClick="openTab('strategy-buttons')">
-                    {{ carChargeControl }}
-                </button>
-                <button class="w3-bar-item w3-button" onClick="openTab('settings-form')">
-                    {{ generalSettings }}
-                </button>
-                <button class="w3-bar-item w3-button w3-right w3-blue-grey"
-                        hx-post="/stop">
-                    Stop Server
-                </button>
-                <div id="language-select">
-                    <select  class="w3-button w3-right w3-margin-right" name="language"
-                    hx-post="/language" hx-target="body"  >
-                        {{ languageOptions | raw }}
-                    </select>
-                </div>
-            </div>
-            <!-- websocket connection -->
+        <!-- websocket connection -->
             <div hx-ext="ws" ws-connect="/dash">
             </div>
-            <!-- error message pane -->
+        <!-- control menu -->
+            {% include "./controlMenu.peb" %}
+        <!-- error message pane -->
             {% include "./networkerror.peb" %}
-        <!-- dashboard pane -->
+        <!-- dashboard panel shows current energy value, always visible -->
             <div class="w3-container w3-topbar w3-bottombar w3-border-blue w3-light-grey">
                 {% include "./powervalues.peb" %}
             </div>
-        <!-- container for tab pages -->
-            <div class="w3-container w3-bottombar w3-border-blue w3-light-grey">
-            <!-- Charge strategy control pane -->
-                {% include "./statebuttons.peb" %}
-            <!-- Charge settings pane -->
-                {% include "./settings.peb" %}
-            <!-- power buffering control pane -->
-                <div id="timetable-tab" class=" w3-hide w3-show tabContent">
-                <h4>{{ bufCtlTitle }}</h4>
-                {% include "./storagecontrol.peb" %}
-                </div>
-            </div>
+        <!-- control panels -->
+            {% include "./controlPanel.peb" %}
         <!-- Select energy charts -->
             <div class="w3-col s12 w3-left w3-light-grey w3-border-bottom w3-border-light-grey"
                 onClick="accordeon('charts')">
@@ -103,17 +73,17 @@ function oneGraphOnly(allIds, idShow) {
     }
 }
 function openTab(tabId) {
-  var i;
-  var x = document.getElementsByClassName("tabContent");
-  for (i = 0; i < x.length; i++) {
-      var tab = x[i]
-      var id = tab.id
-      if(id == tabId && tab.className.indexOf("w3-show") == -1) {
-        tab.className += " w3-show";
-      } else {
-        tab.className = tab.className.replace(" w3-show", "");
-      }
-  }
-  document.getElementById(tabContent).style.display = "block";
+{#  var i;#}
+{#  var x = document.getElementsByClassName("tabContent");#}
+{#  for (i = 0; i < x.length; i++) {#}
+{#      var tab = x[i]#}
+{#      var id = tab.id#}
+{#      if(id == tabId && tab.className.indexOf("w3-show") == -1) {#}
+{#        tab.className += " w3-show";#}
+{#      } else {#}
+{#        tab.className = tab.className.replace(" w3-show", "");#}
+{#      }#}
+{#  }#}
+{#  document.getElementById(tabContent).style.display = "block";#}
 }
 </script>

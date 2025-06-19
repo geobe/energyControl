@@ -53,7 +53,8 @@ NoCarConnected:kein Auto:no car
 ChargeTibber:Tibber laden:tibber charging
 ChargeAnyway:Sofort laden:immediate charging
 ChargingStopped:Nicht laden:no charging
-HasSurplus:Solar Überschuss:PV surplus
+ChargeSurplus:Solar Überschuss:PV surplus
+StartChargeSurplus:Start Solar Überschuss:start PV surplus
 NoSurplus:Kein Solar Überschuss:no PV surplus
 WaitForExtCharge:Auf Befehl warten:wait for command
 // CarChargingManager.ChargeStrategy::
