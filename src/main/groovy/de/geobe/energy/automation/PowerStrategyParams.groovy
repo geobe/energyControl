@@ -35,7 +35,8 @@ record PowerStrategyParams(
         int minBatUnloadPower = 200,    // Watt
         int maxBatUnloadPower = 1500,   // Watt
         int stopChargingBelow = 3500,   // Watt, finish car charging threshold
-        int toleranceStackSize = 10,    // # of values on valueStack for averages
+        int toleranceStackSize = 5,     // # of values on valueStack for averages
+        int chargeGradientCount = 2,    // # of latest values from valueStack for gradient
         int tibMaxBatLoad = 80,         // Percent
         int tibLowHighDiff = 5,         // Euro-Cent
         int tibLowPrice = 18,           // Euro-Cent
@@ -54,6 +55,7 @@ record PowerStrategyParams(
         maxBatUnloadPower = o.maxBatUnloadPower
         stopChargingBelow = o.stopChargingBelow
         toleranceStackSize = o.toleranceStackSize
+        chargeGradientCount = o.chargeGradientCount
         tibMaxBatLoad = o.tibMaxBatLoad
         tibLowHighDiff = o.tibLowHighDiff
         tibLowPrice = o.tibLowPrice

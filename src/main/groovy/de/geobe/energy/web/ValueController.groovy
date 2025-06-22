@@ -157,7 +157,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         chargeManagerState = carChargingManager.chargeManagerState
         logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
 //        currentPrice = currentPowerPrice()
-        updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal))// + statesInfoString)
+        updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal) + statesInfoString(tGlobal))
         if (pmValues.nextDay) {
             def ctx = gc.updateDateCtx(pmValues.timeStamp, tGlobal)
             if (ctx) {
@@ -621,13 +621,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
 
     /** realtime state values for dashboard */
     def stateValues(Map<String, Map<String, String>> ti18n) {
-        def detail = carChargingManager.chargeManagerStrategyDetail
-        def strategyValue = ("${ti18n.stateTx.get(chargeStrategy.toString())}(" +
-                "${ti18n.stateTx.get(chargingDetail)})").toString()
+        def detail = ti18n.stateTx.get(chargingDetail)?:chargingDetail
+        def strategy = ti18n.stateTx.get(chargeStrategy.toString())?:chargeStrategy.toString()
+        def strategyValue = "$strategy($detail)".toString()
         def ctx = [
-                chargingStateValue     : ti18n.stateTx.get(carChargingState.toString()),
+                chargingStateValue     : ti18n.stateTx.get(carChargingState.toString())?:carChargingState.toString(),
                 chargeStrategyValue    : strategyValue,
-                chargeManagerStateValue: ti18n.stateTx.get(chargeManagerState.toString()),
+                chargeManagerStateValue: ti18n.stateTx.get(chargeManagerState.toString())?:chargeManagerState.toString(),
                 tibberStrategyValue    : 'none',
                 tibberPriceValue       : currentPowerPrice()
         ]

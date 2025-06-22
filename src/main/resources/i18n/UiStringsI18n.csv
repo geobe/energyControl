@@ -50,12 +50,14 @@ socLabel:Speicher:SoC
 // CarChargingManager.ChargeManagerState::
 Inactive:inaktiv:inactive
 NoCarConnected:kein Auto:no car
+FullyCharged:vollständig geladen:fully charged
 ChargeTibber:Tibber laden:tibber charging
 ChargeAnyway:Sofort laden:immediate charging
-ChargingStopped:Nicht laden:no charging
+ExternalStop:Nicht laden!:no charging!
+ExternalCharge:Laden!:charging!
 ChargeSurplus:Solar Überschuss:PV surplus
-StartChargeSurplus:Start Solar Überschuss:start PV surplus
 NoSurplus:Kein Solar Überschuss:no PV surplus
+StartChargeSurplus:Start Solar Überschuss:start PV surplus
 WaitForExtCharge:Auf Befehl warten:wait for command
 // CarChargingManager.ChargeStrategy::
 CHARGE_PV_SURPLUS:Solar laden:PV charging
@@ -69,13 +71,18 @@ ContinueCharging:fortsetzen:continue
 TestAmpCarReduction:amp reduziert?:amp reduced?
 HasAmpCarReduction:amp reduziert!:amp reduced!
 // WallboxMonitor.CarChargingState::
+UNDEFINED:unbekannt:undefined
 NO_CAR:kein Auto:no car
-WAIT_CAR:Auf Auto warten:wait for car
+WAIT_CAR:Verbindungsaufbau:connecting
+NOT_CHARGING:lädt nicht:not charging
+STARTUP_CHARGING:laden startet:charging starts
 CHARGING:lädt:charging
-CHARGING_ANYWAY:sofort laden:immediate charging
+FINISH_CHARGING:Laden wird beendet:charging finishes
 FULLY_CHARGED:aufgeladen:fully charged
-CHARGING_STOPPED_BY_APP:Stopp (App):stop by app
-CHARGING_STOPPED_BY_CAR:Stopp (Auto):stop by car
+CHARGE_STOPPING:Laden wird beendet:charging stops
+CHARGE_STOPP_FULL:Stopp, voll:stop, full
+START_AGAIN:Ext laden:ext charge
+STOP_AGAIN:Ext Stopp:ext stop
 * powerStrategySettingLabels::
 batPower:Wechselrichter [W]:Inverter [W]
 batCapacity:Kapazität [Wh]:Capacity [Wh]
@@ -88,6 +95,7 @@ minBatUnloadPower:min. Batterie → [W]:min Battery → [W]
 maxBatUnloadPower:max. Batterie → [W]:max. Battery → [W]
 stopChargingBelow:Akku voll Marker < [W]:fully charged mark < [W]
 toleranceStackSize:Mitteln über [n]:Average count [n]
+chargeGradientCount:PV Abfall über [n]:PV decrease avg [n]
 tibMaxBatLoad:Tib Lade-Max. [%]:Tib max load [%]
 tibLowHighDiff:Tib Preisdiff. [₵]:Tib price diff. [₵]
 tibLowPrice:Tib günstig [₵]:Tib low price [₵]

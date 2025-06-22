@@ -83,12 +83,8 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
     private CarChargingManager carChargingManager
 
     private int lastAmpsSent = 0
-    private int skipCount = 0
-
-//    @ActiveMethod
-//    void setChargingManager(CarChargingManager manager) {
-//        carChargingManager = manager
-//    }
+    private int chargeGradientBase = params.chargeGradientCount
+//    private int skipCount = 0
 
     def getState() {
         chargingState.toString()
@@ -204,9 +200,14 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
 //            logMayCharge = true
 //            chargeMax
             for (i in 1..<valueTrace.size()) {
-                chargeGradient += valueTrace[i].wallboxValues.energy - valueTrace[i - 1].wallboxValues.energy
                 chargeMax = Math.max(chargeMax, valueTrace[i - 1].wallboxValues.energy)
                 logMayCharge &= valueTrace[i].wallboxValues.allowedToCharge
+            }
+            if(chargeGradientBase <= valueTrace.size()) {
+                chargeGradient =
+                        valueTrace[chargeGradientBase].wallboxValues.energy - valueTrace[0].wallboxValues.energy
+            } else {
+                chargeGradient = 0
             }
             // now work with rolling averages to ignore short time fluctuations
             batBalance = powerRamp(powerValues.socBattery)
@@ -214,9 +215,8 @@ class PvChargeStrategy implements PowerValueSubscriber, ChargeStrategy {
             availableCurrent = Math.floorDiv(availableChargingPower, powerFactor)
             if (availableCurrent < Wallbox.wallbox.minCurrent) {
                 chargingEvent = ChargingEvent.stopCharging
-            } else if (isCarCharging &&
-                    chargeGradient < 500 &&
-                    wallboxValues.energy < requestedChargingPower - 500) {
+            } else if (isCarCharging && chargeGradient < -1000) {
+                // pv power drops quickly e.g. due to cloud
                 chargingEvent = ChargingEvent.ampReduced
             } else if (isCarCharging && carState == CarChargingState.FINISH_CHARGING) {
                 chargingEvent = ChargingEvent.ampReduced

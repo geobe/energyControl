@@ -116,7 +116,7 @@ class EnergyControlUI {
     static void shutdown() {
         CarChargingManager.carChargingManager.shutDown()
 //        PowerCommunicationRecorder.stopRecorder()
-        WallboxMonitor.monitor.shutdown()
+//        WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor?.shutdown()
         PowerPriceMonitor.monitor?.shutdown()
         valueController?.shutdown()
