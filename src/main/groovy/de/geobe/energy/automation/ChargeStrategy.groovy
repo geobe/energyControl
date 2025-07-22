@@ -26,7 +26,7 @@ package de.geobe.energy.automation
 
 interface ChargeStrategy {
     static final inactive = 'Inactive'
-    void startStrategy(CarChargingManager manager)
-    void stopStrategy()
+    void activateStrategy()
+    void deactivateStrategy()
     def getState()
 }

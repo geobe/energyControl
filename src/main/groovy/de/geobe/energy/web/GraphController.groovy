@@ -60,11 +60,12 @@ class GraphController {
 
     // global display values
     volatile int graphDataSize = 360
-    volatile int graphOffset = 100
+    volatile int graphOffset = 1000
     volatile DateTime graphHistory = DateTime.now()
     volatile int updateFrequency = 6
     volatile boolean updatePause = false
     volatile int updateCounter = 0
+    volatile String autofocus = ''
 
     // remember size when going to history and back again
     volatile int sizeBackup
@@ -102,6 +103,7 @@ class GraphController {
         int size
         int offset
         DateTime history
+        autofocus = ''
         if (qparams.contains('graphsize') && req.queryParams('graphsize').isInteger()) {
             size = req.queryParams('graphsize').toInteger()
         }
@@ -120,24 +122,28 @@ class GraphController {
             if (history && (history.dayOfYear != DateTime.now().dayOfYear ||
                     history.year != DateTime.now().year)) {
                 // transition to history
+                autofocus = 'graphsize'
                 initHistoryState(history)
-            } else if (offset < 100 || graphPaused) {
+            } else if (offset < 1000 || graphPaused) {
                 // transition to paused
+                autofocus = 'graphPosition'
                 initPauseState(offset, size)
             } else {
                 graphDataSize = size
                 updateFrequency = graphUpdate
             }
         } else if (graphUiState == GraphUiState.PAUSED) {
-            if (offset == 100 || !graphPaused) {
+            if (offset == 1000 || !graphPaused) {
                 // transition to live
                 initLiveState()
             } else if (history.dayOfYear != DateTime.now().dayOfYear) {
                 // transition to history
+                autofocus = 'graphsize'
                 initHistoryState(history)
             } else {
                 graphDataSize = size
                 graphOffset = offset
+                autofocus = 'graphPosition'
             }
         } else if (graphUiState == GraphUiState.HISTORY) {
             if (history.dayOfYear == DateTime.now().dayOfYear || !graphPaused) {
@@ -145,6 +151,7 @@ class GraphController {
                 graphDataSize = sizeBackup
                 initLiveState()
             } else {
+                autofocus = 'graphPosition'
                 graphHistory = history
                 graphOffset = offset
                 graphDataSize = size
@@ -169,7 +176,7 @@ class GraphController {
 
     def initLiveState() {
         graphUiState = GraphUiState.LIVE
-        graphOffset = 100
+        graphOffset = 1000
         updatePause = false
         graphHistory = DateTime.now()
     }
@@ -196,6 +203,7 @@ class GraphController {
         params.put('graphUpdate', updateFrequency)
         params.put('size', graphDataSize)
         params.put('graphOffset', graphOffset)
+        params.put('autofocus', autofocus)
         params.put('graphHistory', pickerstamp.print(graphHistory))
         params.put('graphHistoryMax', pickerstamp.print(DateTime.now()))
         params.putAll(createSizeValues(graphDataSize))
@@ -257,11 +265,11 @@ class GraphController {
         switch (graphUiState) {
             case GraphUiState.LIVE:
             case GraphUiState.PAUSED:
-                result = createSnapshotCtx(graphDataSize, ti18n, 100 - graphOffset)
+                result = createSnapshotCtx(graphDataSize, ti18n, 1000 - graphOffset)
                 break
             case GraphUiState.HISTORY:
                 Deque<Snapshot> snaps = getHistorySnapshot()
-                result = createSnapshotCtx(graphDataSize, ti18n, 100 - graphOffset, graphHistory, snaps)
+                result = createSnapshotCtx(graphDataSize, ti18n, 1000 - graphOffset, graphHistory, snaps)
         }
         result
     }
@@ -288,7 +296,7 @@ class GraphController {
             offset = 0
         } else {
             displaySize = size
-            offset = (off * (datasize - displaySize)).intdiv(100)
+            offset = (off * (datasize - displaySize)).intdiv(1000)
         }
 
 //        displaySize = Math.min(displaySize - offset, datasize)

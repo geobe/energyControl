@@ -24,6 +24,7 @@
 
 package de.geobe.energy.go_e
 
+import de.geobe.energy.automation.WallboxMonitor
 import groovy.json.JsonSlurper
 import groovy.transform.AutoClone
 import groovy.transform.ImmutableOptions
@@ -126,7 +127,7 @@ class Wallbox implements IWallboxValueSource {
     }
 
     /**
-     * sends request to wallbox api to start charging
+     * sends request to wallbox api to start charging by using URL(...).setText() method
      * @return human readable response
      */
     def startCharging() {
@@ -160,6 +161,9 @@ class Wallbox implements IWallboxValueSource {
      * @return human readable response
      */
     def setChargingCurrent(short current) {
+//        if (current == 0) {
+//            // don't change
+//        } else
         if (current < minCurrent) {
             current = minCurrent
         } else if (current > maxCurrent) {
@@ -257,8 +261,8 @@ record WallboxValues(
         "Wallbox -> mayCharge: $allowedToCharge, req: $requestedCurrent, car: $carState, force: $forceState, energy: $energy"
     }
 
-    boolean differs(WallboxValues o, short deltaE = 200) {
-        def realDeltaE = Math.abs(energy - o.energy) >= deltaE
+    boolean differs(WallboxValues o, short deltaE = 200, short limit = WallboxMonitor.E_LIMIT) {
+        def realDeltaE = Math.abs(energy - o.energy) >= deltaE && o.energy < limit
         realDeltaE || allowedToCharge != o.allowedToCharge || requestedCurrent != o.requestedCurrent ||
                 carState != o.carState || forceState != o.forceState
     }

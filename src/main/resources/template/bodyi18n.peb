@@ -25,14 +25,14 @@
             <div id="charts" class="w3-hide w3-show">
                 <div
                   class="w3-row w3-bar w3-pale-blue w3-border-blue w3-border w3-col s12 m8 l6"
-                  style="width:100%">
+                  style="width:100%;">
                     {% include "./chartbutton.peb" with {"chartId": "power-chart", "updatePause": "'false'", "buttonTitle": powerTitle } %}
                     {% include "./chartbutton.peb" with {"chartId": "tibber-chart", "updatePause": "'true'", "buttonTitle": tibTitle } %}
                 </div>
                 <div class="w3-container w3-border">
                 <!-- Power charts defined here -->
                     <div id="power-chart" class="w3-hide w3-show">
-                        <div>
+                        <div style="height: 500px">
                             <canvas id="myChart"></canvas>
                         </div>
                        {% include "./graph.peb" %}
@@ -71,19 +71,5 @@ function oneGraphOnly(allIds, idShow) {
             x.className = x.className.replace(" w3-show", "");
         }
     }
-}
-function openTab(tabId) {
-{#  var i;#}
-{#  var x = document.getElementsByClassName("tabContent");#}
-{#  for (i = 0; i < x.length; i++) {#}
-{#      var tab = x[i]#}
-{#      var id = tab.id#}
-{#      if(id == tabId && tab.className.indexOf("w3-show") == -1) {#}
-{#        tab.className += " w3-show";#}
-{#      } else {#}
-{#        tab.className = tab.className.replace(" w3-show", "");#}
-{#      }#}
-{#  }#}
-{#  document.getElementById(tabContent).style.display = "block";#}
 }
 </script>

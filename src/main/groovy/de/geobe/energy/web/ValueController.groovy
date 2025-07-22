@@ -140,7 +140,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
             powerMonitor.subscribeFatalErrors this
             powerStorage = PowerStorageStatic.powerStorage
             wbMonitor.subscribeState(this)
-            logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
+//            logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
         } catch (Exception exception) {
             takeMonitorException(exception)
         }
@@ -155,7 +155,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         chargeStrategy = carChargingManager.chargeManagerStrategy
         chargingDetail = carChargingManager.chargeManagerStrategyDetail
         chargeManagerState = carChargingManager.chargeManagerState
-        logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
+//        logMessageRecorder.takeStateValues(carChargingState, chargeManagerState, chargeStrategy, chargingDetail)
 //        currentPrice = currentPowerPrice()
         updateWsValues(powerValuesString(tGlobal) + chargeInfoString(tGlobal) + statesInfoString(tGlobal))
         if (pmValues.nextDay) {

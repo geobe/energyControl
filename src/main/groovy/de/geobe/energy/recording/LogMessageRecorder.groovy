@@ -67,28 +67,28 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
     volatile CarChargingManager.ChargeManagerStrategy chargeStrategy
     volatile String chargingDetail
     private WallboxValues lastWbValues, prevValues
-
-    void takeStateValues(
-            WallboxMonitor.CarChargingState carChargingState,
-            CarChargingManager.ChargeManagerState chargeManagerState,
-            CarChargingManager.ChargeManagerStrategy chargeStrategy,
-            String chargingDetail) {
-        if (this.carChargingState != carChargingState ||
-                this.chargeManagerState != chargeManagerState ||
-                this.chargeStrategy != chargeStrategy ||
-                this.chargingDetail != chargingDetail) {
-            def message =
-                    "car: $carChargingState " +
-                            "strategy: $chargeStrategy " +
-                            "mgr_state: $chargeManagerState " +
-                            "strategy_state: $chargingDetail"
-            this.carChargingState = carChargingState
-            this.chargeManagerState = chargeManagerState
-            this.chargeStrategy = chargeStrategy
-            this.chargingDetail = chargingDetail
-            logMessage(message)
-        }
-    }
+//
+//    void takeStateValues(
+//            WallboxMonitor.CarChargingState carChargingState,
+//            CarChargingManager.ChargeManagerState chargeManagerState,
+//            CarChargingManager.ChargeManagerStrategy chargeStrategy,
+//            String chargingDetail) {
+//        if (this.carChargingState != carChargingState ||
+//                this.chargeManagerState != chargeManagerState ||
+//                this.chargeStrategy != chargeStrategy ||
+//                this.chargingDetail != chargingDetail) {
+//            def message =
+//                    "car: $carChargingState " +
+//                            "strategy: $chargeStrategy " +
+//                            "mgr_state: $chargeManagerState " +
+//                            "strategy_state: $chargingDetail"
+//            this.carChargingState = carChargingState
+//            this.chargeManagerState = chargeManagerState
+//            this.chargeStrategy = chargeStrategy
+//            this.chargingDetail = chargingDetail
+//            logMessage(message)
+//        }
+//    }
 
     @Override
     void takeWallboxValues(WallboxValues values) {

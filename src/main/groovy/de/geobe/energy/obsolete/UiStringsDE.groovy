@@ -2,7 +2,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2023. Georg Beier. All rights reserved.
+ * Copyright (c) 2025. Georg Beier. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,7 @@
  * SOFTWARE.
  */
 
-package de.geobe.energy.web
-
-import de.geobe.energy.automation.CarChargingManager
+package de.geobe.energy.obsolete
 
 class UiStringsDE {
 

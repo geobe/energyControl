@@ -9,6 +9,7 @@
         <div id="size-select" class="w3-col w3-padding  w3-light-grey s6 m3 l3 w3-left">
             <label class="w3-label">{{ graphSize }}</label>
             <select class="w3-select" name="graphsize"
+            {{ autofocus == "graphsize" ? "autofocus" : "" }}
             hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML"
             hx-include="#graph-commands">
               <option {{ val17280 }}>{{ hours24 }}</option>
@@ -25,8 +26,9 @@
         <div class="w3-col w3-padding-small w3-light-grey s6 m3 l3 w3-left">
             <label class="w3-label">{{ graphPosition }}</label>
             <input id="offset-slider" class="w3-input" type="range" name="graphoffset"
-             min="0" max="100" value="{{ graphOffset != null ? graphOffset : 100 }}"
-            hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML" hx-include="#graph-commands">
+             min="0" max="1000" value="{{ graphOffset != null ? graphOffset : 1000 }}"
+            {{ autofocus == "graphPosition" ? "autofocus" : "" }}
+             hx-post="/graph" hx-target="#graph-all" hx-swap="innerHTML" hx-include="#graph-commands">
         </div>
         <div class="w3-col w3-padding-small s6 m3 l3 w3-left">
             <label class="w3-label" for="graphupdate">{{ graphUpdateLabel }}</label>

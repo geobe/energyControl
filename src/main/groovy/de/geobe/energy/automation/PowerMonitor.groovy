@@ -128,8 +128,9 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         @Override
         void run() {
             try {
-                wallboxValues = wbValuesProvider.readWallbox()
-                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues)
+                WallboxMonitorValues monitorValues = wbValuesProvider.readWallbox()
+                wallboxValues = monitorValues.wallboxValues
+                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues, monitorValues.chargingState)
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
                     exceptionSubscribers().each {
@@ -305,13 +306,15 @@ class PMValues {
     private static int lastDay
     PowerValues powerValues
     WallboxValues wallboxValues
+    WallboxMonitor.CarChargingState chargingState
     DateTime timeStamp = DateTime.now()
     boolean nextDay = false
 //    Float currentPrice
 
-    PMValues(PowerValues powerValues, WallboxValues wallboxValues) {
+    PMValues(PowerValues powerValues, WallboxValues wallboxValues, WallboxMonitor.CarChargingState chargingState) {
         this.powerValues = powerValues
         this.wallboxValues = wallboxValues
+        this.chargingState = chargingState
         nextDay = lastDay && timeStamp.dayOfMonth != lastDay
         lastDay = timeStamp.dayOfMonth
 //        this.currentPrice = currentPrice

@@ -1,14 +1,12 @@
 @startuml
 'https://plantuml.com/state-diagram
 
-scale 1000 width
+scale 1400 width
 
 [*] -right-> inAct
 
 state "Inactive" as inAct
 state "Active" as act {
-    act: entry: WallboxMonitor.subscribeState(this)
-    act: exit: WallboxMonitor.unsubscribeState(this)
 
      [*] -r-> noCar : [noCarConnected]
 
@@ -21,6 +19,7 @@ state "Active" as act {
         state "connect" as con  <<entryPoint>>
         state "disconnect" as dcon  <<entryPoint>>
         state "takeFullyCharged()" as fch  <<entryPoint>>
+'        state "chargeCmdChanged" as ccc <<entryPoint>>
 
             state "ChargePvSurplus" as cSurplus {
               cSurplus: entry: PvChargeStrategy.startStrategy(this)
@@ -40,12 +39,14 @@ state "Active" as act {
                     waitCh: entry: setCurrent(v)
                     waitCh: entry: startCharging()
                     waitCh: on: surplus(v) : setCurrent(v)
+                    waitCh: on: startedAgain : ignore
+                    waitCh: on: stoppedAgain : ignore
 
             }
 
                 state "NoSurplus" as noPlus {
                   noPlus: on: noSurplus : ignore
-                  noPlus: on: extStopByApp : ignore
+                  noPlus: on: startedAgain : ignore
                 }
 
             state lpstart <<start>>
@@ -68,10 +69,6 @@ state "Active" as act {
               cAnyway: entry: setCurrent(maxCurrent)
               cAnyway: exit:stopCharging()
 
-          state "ExternalCharge" as cExt
-
-          state "ExternalStop" as stopExt
-
           state "switch" as choiceCmd <<choice>>
 
           note top of choiceCmd
@@ -79,22 +76,14 @@ state "Active" as act {
             \tsee sequence of cases
           end note
 
-          cabl -r-> choiceCmd : chargeCmdChanged
+          cabl -l-> choiceCmd : chargeCmdChanged\n | startedAgain
           [*] --> choiceCmd
-          cabl -r-> cStop : stopCharging
+          cabl -l-> cStop : stopCharging
         }
 
       state "FullyCharged" as full {
 
         note as fullNote
-            FullyCharged obviously
-            can only be left
-            by disconnecting the car
-        end note
-
-      }
-
-      note top of full
             Seems that FullyCharged state of car
             can only be determined by trying to
             charge it. So there is no direct way
@@ -102,10 +91,12 @@ state "Active" as act {
             event must be triggered by algorithms
             running inside of one of the
             ChargeXXX states, eg. PVChargeStrategy.
-      end note
+        end note
+
+      }
 
 '    }
-     [*] --> con : [isCarConnected]
+     [*] --> con : [carIsConnected]
 
 }
 dcon -u-> noCar : carDisconnected
@@ -114,18 +105,17 @@ full -l-> noCar : carDisconnected
 fch -u-> full : fullyCharged
 'cTibber -down-> cStop : stopCmd
 'cAnyway --> cStop : stopCmd
-cAnyway --> stopExt : extStopCmd
-cTibber --> stopExt : extStopCmd
+cAnyway --> cStop : stoppedAgain
+cTibber --> cStop : stoppedAgain
 cStop -u-> cExt : extStartCmd
 noPlus -r-> cExt : extStartCmd
-cExt --> stopExt : extStopCmd
-stopExt --> cExt : extStartCmd
-sp --> stopExt : extStopCmd
+cExt --> cStop : stoppedAgain
+sp --> cStop : stoppedAgain
 
 choiceCmd -r-> lpstart : [4: cmdChargePvSurplus]
-choiceCmd --> cAnyway : [2: cmdChargeAnyway]
+choiceCmd -r-> cAnyway : [2: cmdChargeAnyway]
 choiceCmd --> cStop : [1: cmdChargeStop]
-choiceCmd --> cTibber : [3: cmdChargeTibber]
+choiceCmd -r-> cTibber : [3: cmdChargeTibber]
 'cStop -up-> choiceCmd : extStartCmd
 noCar --> con : carConnected
 inAct -down-> act : activate
@@ -136,6 +126,8 @@ waitCh -down-> hasPlus : charging\t
 waitCh -down-> hasPlus : [isCharging]
 sp -u-> noPlus : noSurplus
 lpstart -r-> noPlus
+
+
 
 note "CarChargingManager" as NTop
 
