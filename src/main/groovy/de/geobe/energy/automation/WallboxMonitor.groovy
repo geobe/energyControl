@@ -110,10 +110,10 @@ class WallboxMonitor implements WallboxValueProvider {
                                      CarChargingState.CHARGE_STOPPING,
                                      CarChargingState.CHARGE_STOP_FULL]
 
-    private volatile CarChargingState currentCarChargingState, prevWbState = CarChargingState.UNDEFINED
+    private volatile CarChargingState currentCarChargingState
     private volatile CarChargingControlState controlState = CarChargingControlState.IDLE
     private volatile WallboxValues prevWbValues, currentWbValues
-    private CarChargingState previousState = CarChargingState.UNDEFINED
+    private CarChargingState prevCarChargingState = CarChargingState.UNDEFINED
     private long startupTimestamp
     private static WallboxMonitor wbMonitor
 
@@ -137,10 +137,10 @@ class WallboxMonitor implements WallboxValueProvider {
 //            it.takeWallboxValues(currentWbValues)
 //        }
         if (stateSubscribers) {
-            if (currentCarChargingState != prevWbState) {
-                prevWbState = currentCarChargingState
+            if (currentCarChargingState != prevCarChargingState) {
+                prevCarChargingState = currentCarChargingState
                 stateSubscribers.each {
-                    it.takeWallboxState(prevWbState)
+                    it.takeWallboxState(currentCarChargingState)
                 }
             }
         }
@@ -179,15 +179,17 @@ class WallboxMonitor implements WallboxValueProvider {
                     resultingState = CarChargingState.CHARGE_REQUEST
                 } else if (forceState == ForceState.OFF && carState == CarState.CHARGING) {
                     resultingState = CarChargingState.CHARGE_STOPPING
+                } else {
+                    resultingState = CarChargingState.UNDEFINED
                 }
                 startupTimestamp = 0
             } else {
                 if (forceState in [ForceState.ON, ForceState.NEUTRAL]) {
                     if (carState == CarState.COMPLETE) {
-                        if (previousState in [CarChargingState.CHARGING,
-                                              CarChargingState.FINISH_CHARGING,
-                                              CarChargingState.FULLY_CHARGED,
-                                              CarChargingState.UNDEFINED]) {
+                        if (prevCarChargingState in [CarChargingState.CHARGING,
+                                                     CarChargingState.FINISH_CHARGING,
+                                                     CarChargingState.FULLY_CHARGED,
+                                                     CarChargingState.UNDEFINED]) {
                             resultingState = CarChargingState.FULLY_CHARGED
                         } else {
                             resultingState = CarChargingState.CHARGE_REQUEST
@@ -195,16 +197,17 @@ class WallboxMonitor implements WallboxValueProvider {
                         startupTimestamp = 0
                     } else if (carState == CarState.CHARGING) {
                         if (energy < E_LIMIT) {
-                            if (previousState in [CarChargingState.NOT_CHARGING,
-                                                  CarChargingState.CHARGE_REQUEST,
-                                                  CarChargingState.STARTUP_CHARGING]) {
+                            if (prevCarChargingState in [CarChargingState.WAIT_CAR,
+                                                         CarChargingState.NOT_CHARGING,
+                                                         CarChargingState.CHARGE_REQUEST,
+                                                         CarChargingState.STARTUP_CHARGING]) {
                                 if(startupTimestamp == 0) {
                                     // remember startup time
                                     startupTimestamp = System.currentTimeMillis()
                                     resultingState = CarChargingState.STARTUP_CHARGING
                                 } else if (System.currentTimeMillis() - startupTimestamp < 120 * 1000) {
                                     def t = (System.currentTimeMillis() - startupTimestamp).intdiv(1000)
-                                    LogMessageRecorder.logMessage "since $t s, energy $energy W, prev: $previousState".toString()
+                                    LogMessageRecorder.logMessage "since $t s, energy $energy W, prev: $prevCarChargingState".toString()
                                     // give car up to 120 seconds to fully start charging
                                     resultingState = CarChargingState.STARTUP_CHARGING
                                 } else {
@@ -220,13 +223,13 @@ class WallboxMonitor implements WallboxValueProvider {
                             startupTimestamp = 0
                         }
                     } else {
-                        def log = "WallboxMonitor (1): $currentWbValues -> ${CarChargingState.UNDEFINED}"
+                        def log = "WallboxMonitor (1, $carState): $currentWbValues -> ${CarChargingState.UNDEFINED}"
                         LogMessageRecorder.recorder.logMessage(log.toString())
                         resultingState = CarChargingState.UNDEFINED
                         startupTimestamp = 0
                     }
                 } else {
-                    def log = "WallboxMonitor (2): $currentWbValues -> ${CarChargingState.UNDEFINED}"
+                    def log = "WallboxMonitor (2, $forceState): $currentWbValues -> ${CarChargingState.UNDEFINED}"
                     LogMessageRecorder.recorder.logMessage(log.toString())
                     resultingState = CarChargingState.UNDEFINED
                     startupTimestamp = 0
@@ -235,29 +238,29 @@ class WallboxMonitor implements WallboxValueProvider {
         }
         def returnValue
         // check, if external command (handy-app, car etc) has switched charging independently
-        if (previousState in appStoppedStates && resultingState in appStartedStates
+        if (prevCarChargingState in appStoppedStates && resultingState in appStartedStates
                 && controlState != CarChargingControlState.STARTED) {
             returnValue = CarChargingState.START_AGAIN
             controlState = CarChargingControlState.AGAIN_STARTED
-        } else if (previousState in appStartedStates && resultingState in appStoppedStates
+        } else if (prevCarChargingState in appStartedStates && resultingState in appStoppedStates
                 && controlState != CarChargingControlState.STOPPED) {
             returnValue = CarChargingState.STOP_AGAIN
             controlState = CarChargingControlState.AGAIN_STOPPED
         } else {
             returnValue = resultingState
         }
-        previousState = resultingState
+        prevCarChargingState = resultingState
         return returnValue
     }
 
     def controlStateStart() {
-        if (previousState in appStoppedStates) {
+        if (prevCarChargingState in appStoppedStates) {
             controlState = CarChargingControlState.STARTED
         }
     }
 
     def controlStateStop() {
-        if (previousState in appStartedStates) {
+        if (prevCarChargingState in appStartedStates) {
             controlState = CarChargingControlState.STOPPED
         }
     }
@@ -269,9 +272,12 @@ Takes some time before load current is back to requested
 
     @ActiveMethod(blocking = true)
     def getCurrent() {
-        values = wallbox.values
-        def currentState = calcChargingState(values)
-        [values: values, state: currentState]
+        if(!currentWbValues) {
+            // only if called before first monitor activation by PowerManager
+            currentWbValues = wallbox.values
+            currentCarChargingState = calcChargingState(currentWbValues)
+        }
+        [values: currentWbValues, state: currentCarChargingState]
     }
 
     @ActiveMethod(blocking = true)

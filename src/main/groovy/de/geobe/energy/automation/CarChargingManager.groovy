@@ -89,13 +89,19 @@ class CarChargingManager implements PowerValueSubscriber {
             int param = 0
     ) {}
 
+    /** last current value request sent to WallboxMonitor */
+    volatile int lastAmpsSent = 0
+
     private ChargeManagerState chargeState = ChargeManagerState.Inactive
     private ChargeManagerStrategy chargeManagerStrategy = ChargeManagerStrategy.CHARGE_STOP
     private ChargeManagerStrategy defaultChargeManagerStrategy = ChargeManagerStrategy.CHARGE_PV_SURPLUS
     private int anywayAmps = Wallbox.wallbox.minCurrent
     private PvChargeStrategy chargeStrategy
     private CarChargingState currentCarChargingState = CarChargingState.UNDEFINED
+    private short currentChargeEnergy = 0
+    private CarChargingState previousCarChargingState = CarChargingState.UNDEFINED
     private boolean managerIsActive = false
+    private logTrigger = [:]
 
     static synchronized getCarChargingManager() {
         if (!carChargingManager) {
@@ -116,15 +122,15 @@ class CarChargingManager implements PowerValueSubscriber {
 
     @Override
     void takePMValues(PMValues pmValues) {
+        currentCarChargingState = pmValues.chargingState
+        currentChargeEnergy = pmValues.wallboxValues.energy
         if (managerIsActive) {
-            evaluateAndExecute(pmValues.chargingState)
-        } else {
-            currentCarChargingState = pmValues.chargingState
+            evaluateAndExecute()
         }
         // let PvChargeStrategy evaluate energy values even if manager not active
         EventMessage eventMessage = chargeStrategy.evalPMValues(pmValues)
         if (managerIsActive && eventMessage.event != ChargeEvent.Ignore) {
-            evaluateAndExecute(eventMessage.event, eventMessage.param)
+            executeEvent(eventMessage.event, eventMessage.param)
         }
     }
 
@@ -184,12 +190,9 @@ class CarChargingManager implements PowerValueSubscriber {
      * execute state chart
      * @param carState current CarChargingState
      */
-    void evaluateAndExecute(CarChargingState carState) {
-        CarChargingState newState = carState
-        if (newState != currentCarChargingState) {
-//            println "WB state: $carState -> "
-            currentCarChargingState = newState
-            switch (carState) {
+    void evaluateAndExecute() {
+        if (previousCarChargingState != currentCarChargingState) {
+            switch (currentCarChargingState) {
             // car not connected, just connecting, or software newly started
                 case WallboxMonitor.CarChargingState.UNDEFINED:
                 case WallboxMonitor.CarChargingState.WAIT_CAR:
@@ -228,6 +231,7 @@ class CarChargingManager implements PowerValueSubscriber {
      * @param param
      */
     private void executeEvent(ChargeEvent event, def param = null) {
+        def oldState = chargeState
         def evTrigger = "$chargeState --$event${param ? '(' + param + ')' : ''}-> "
         switch (event) {
             case ChargeEvent.Activate:
@@ -278,6 +282,51 @@ class CarChargingManager implements PowerValueSubscriber {
                         break
                 }
                 break
+            case ChargeEvent.CarDisconnected:
+                execStop()
+                chargeState = ChargeManagerState.NoCarConnected
+                break
+            case ChargeEvent.Surplus:
+                switch (chargeState) {
+                    case ChargeManagerState.NoSurplus:
+                        chargeState = ChargeManagerState.StartChargeSurplus
+                        setCurrent(Wallbox.wallbox.minCurrent)
+                        startCharging()
+                        break
+                    case ChargeManagerState.StartChargeSurplus:
+                        // check for missed event
+                        if (currentCarChargingState == WallboxMonitor.CarChargingState.CHARGING &&
+                                currentChargeEnergy > 3000) {
+                            chargeState = ChargeManagerState.ChargeSurplus
+                            setCurrent(param)
+                        } else {
+                            setCurrent(Wallbox.wallbox.minCurrent)
+                        }
+                        break
+                    case ChargeManagerState.ChargeSurplus:
+                        setCurrent(param)
+                        break
+                }
+                break
+            case ChargeEvent.NoSurplus:
+                switch (chargeState) {
+                    case ChargeManagerState.ChargeSurplus:
+                    case ChargeManagerState.StartChargeSurplus:
+                        stopCharging()
+                        chargeState = ChargeManagerState.NoSurplus
+                        break
+                    case ChargeManagerState.NoSurplus:
+                        break
+                }
+                break
+            case ChargeEvent.StopCharging:
+                execStop()
+                chargeState = ChargeManagerState.ChargingStopped
+                break
+            case ChargeEvent.FullyCharged:
+                execStop()
+                chargeState = ChargeManagerState.FullyCharged
+                break
             case ChargeEvent.StartedAgain:
                 switch (chargeState) {
                     case ChargeManagerState.StartChargeSurplus:
@@ -301,10 +350,6 @@ class CarChargingManager implements PowerValueSubscriber {
                         execStop()
                         chargeState = ChargeManagerState.ChargingStopped
                 }
-                break
-            case ChargeEvent.CarDisconnected:
-                execStop()
-                chargeState = ChargeManagerState.NoCarConnected
                 break
             case ChargeEvent.ChargeCommandChanged:
                 switch (chargeState) {
@@ -332,47 +377,12 @@ class CarChargingManager implements PowerValueSubscriber {
                         break
                 }
                 break
-            case ChargeEvent.Surplus:
-                switch (chargeState) {
-                    case ChargeManagerState.NoSurplus:
-                        chargeState = ChargeManagerState.StartChargeSurplus
-                        setCurrent(param)
-                        startCharging()
-                        break
-                    case ChargeManagerState.StartChargeSurplus:
-                        // check for missed event
-                        if (WallboxMonitor.monitor.current.state == WallboxMonitor.CarChargingState.CHARGING) {
-                            chargeState = ChargeManagerState.ChargeSurplus
-                        }
-                        // blocking, if not started charging by car
-                        // just go to charging state hasSurplus without adjusting current
-//                        chargeState = ChargeManagerState.ChargeSurplus
-//                        break
-                    case ChargeManagerState.ChargeSurplus:
-                        setCurrent(param)
-                        break
-                }
-                break
-            case ChargeEvent.NoSurplus:
-                switch (chargeState) {
-                    case ChargeManagerState.ChargeSurplus:
-                    case ChargeManagerState.StartChargeSurplus:
-                        stopCharging()
-                        chargeState = ChargeManagerState.NoSurplus
-                        break
-                    case ChargeManagerState.NoSurplus:
-                        break
-                }
-                break
-            case ChargeEvent.StopCharging:
-                execStop()
-                chargeState = ChargeManagerState.ChargingStopped
-                break
-            case ChargeEvent.FullyCharged:
-                execStop()
-                chargeState = ChargeManagerState.FullyCharged
         }
-        LogMessageRecorder.logMessage "CarChargingManager -> $evTrigger $chargeState @ $currentCarChargingState".toString()
+        def trace = [from: oldState, to: chargeState, ev: evTrigger, atCar: currentCarChargingState]
+        if(trace != logTrigger) {
+            logTrigger = trace
+            LogMessageRecorder.logMessage "CarChargingManager -> $evTrigger $chargeState @ $currentCarChargingState".toString()
+        }
     }
 
     /**
@@ -468,6 +478,7 @@ class CarChargingManager implements PowerValueSubscriber {
 
     private stopCharging() {
         WallboxMonitor.monitor.stopCharging()
+        lastAmpsSent = 0
     }
 
     private startCharging() {
@@ -475,6 +486,7 @@ class CarChargingManager implements PowerValueSubscriber {
     }
 
     private setCurrent(int amp = 0) {
+        lastAmpsSent = amp
         WallboxMonitor.monitor.current = amp
     }
 

@@ -122,15 +122,25 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
      * them to all interested objects
      */
     private Runnable readPower = new Runnable() {
-        PMValues lastValues
-        String last
+//        PowerValues lastPowerValues
+//        short lastEnergy = 0
+//        int lastConsumptionHome = 0
 
         @Override
         void run() {
             try {
+                PowerValues powerValues = powerInfo.currentValues
                 WallboxMonitorValues monitorValues = wbValuesProvider.readWallbox()
                 wallboxValues = monitorValues.wallboxValues
-                def pmValues = new PMValues(powerInfo.currentValues, wallboxValues, monitorValues.chargingState)
+                // filter spikes resulting from sudden change of car charging power
+                PMValues pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
+//                if(Math.abs(lastEnergy - wallboxValues.energy) > 500) {
+//                    pmValues.powerValues.consumptionHome = lastConsumptionHome
+//                } else {
+//                    pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
+//                }
+//                lastEnergy = wallboxValues.energy
+//                lastPowerValues = powerValues
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
                     exceptionSubscribers().each {

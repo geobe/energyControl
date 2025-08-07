@@ -87,7 +87,6 @@ class PvChargeStrategy implements ChargeStrategy {
     private CarChargingManager carChargingManager
 
     private boolean strategyActive = false
-    private int lastAmpsSent = 0
     private int chargeGradientBase = params.chargeGradientCount
 
     def getState() {
@@ -96,20 +95,20 @@ class PvChargeStrategy implements ChargeStrategy {
 
     @ActiveMethod(blocking = false)
     void enableStrategy(CarChargingManager manager) {
-        println "PV Charge Strategy enabled"
+        // println "PV Charge Strategy enabled"
 //        PowerMonitor.monitor.subscribe this
         carChargingManager = manager
     }
 
     @ActiveMethod(blocking = false)
     void activateStrategy() {
-        println "PV Charge Strategy  active"
+        // println "PV Charge Strategy  active"
         strategyActive = true
     }
 
     @ActiveMethod
     void deactivateStrategy() {
-        println 'deactivate PV Charge Strategy'
+        // println 'deactivate PV Charge Strategy'
         strategyActive = false
     }
 
@@ -160,15 +159,28 @@ class PvChargeStrategy implements ChargeStrategy {
         int meanCHome = 0
         int batBalance = 0
         int chargeGradient = 0
+        boolean powerBalanceValid = false
 //        int chargeMax = 0
 //        boolean logMayCharge = true
 
-        // if powerBalance deeply negative, check if we have to stop immediately
-        if (isCarCharging && powerBalance <= params.stopThreshold) {
+        // powerValues and wallboxValues are read from different hardware sources in this sequence.
+        // consumptionHome is calculated as a difference of values coming from these
+        // asynchronous data sets. As a consequence, consumptionHome can show artificial swings if
+        // wallboxValues.energy changes significantly between two readings. In this case, powerBalance
+        // is no usable value.
+        if (valueTrace.size() > 1 ) {
+            def deltaCharging = Math.abs(wallboxValues.energy - valueTrace[1].wallboxValues.energy)
+            powerBalanceValid = deltaCharging < powerFactor
+        } else {
+            powerBalanceValid = false
+        }
+        // if powerBalance valid and deeply negative, check if we have to stop immediately
+        if (isCarCharging && powerBalanceValid && powerBalance <= params.stopThreshold) {
             def couldSave = (requestedCurrent - Wallbox.wallbox.minCurrent) * powerFactor
             // could we reduce current enough to keep on charging?
             if (couldSave && powerBalance + couldSave > params.stopThreshold) {
                 // reduce to minimal charging current
+                // println "PvChargeStrategy@1 requested current $requestedCurrent, could save $couldSave"
                 chargingEvent = ChargingEvent.reduceToMin
             } else {
                 // stop charging
@@ -178,16 +190,16 @@ class PvChargeStrategy implements ChargeStrategy {
             // enough data to work with averages
             // calculate average values
             meanPSun = ((int) (valueTrace.collect {
-                it.powerValues.powerSolar
+                it.powerValues?.powerSolar
             }.sum()))
                     .intdiv(valueTrace.size())
             meanCHome = ((int) (valueTrace.collect {
                 it.powerValues.consumptionHome - it.wallboxValues.energy
-            }
-                    .sum())).intdiv(valueTrace.size())
+            }.sum()))
+                    .intdiv(valueTrace.size())
             if (chargeGradientBase <= valueTrace.size()) {
                 chargeGradient =
-                        valueTrace[chargeGradientBase].wallboxValues.energy - valueTrace[0].wallboxValues.energy
+                        valueTrace[0].wallboxValues.energy - valueTrace[chargeGradientBase].wallboxValues.energy
             } else {
                 chargeGradient = 0
             }
@@ -199,6 +211,7 @@ class PvChargeStrategy implements ChargeStrategy {
             // determine average based charging event
             if (availableCurrent < Wallbox.wallbox.minCurrent) {
                 // not enough pv power
+                // println "PvChargeStrategy@2 requested current $requestedCurrent, available $availableCurrent"
                 chargingEvent = ChargingEvent.stopCharging
 //            } else if (isCarCharging && chargeGradient < -1000) {
 //                // pv power drops quickly e.g. due to cloud
@@ -211,6 +224,7 @@ class PvChargeStrategy implements ChargeStrategy {
                     // but start charging only with a little reserve
                     def startPower = availableChargingPower - params.batStartHysteresis
                     if (Math.floorDiv(startPower, powerFactor) > Wallbox.wallbox.minCurrent) {
+                        // println "PvChargeStrategy@2a requested current $requestedCurrent, available $availableCurrent"
                         chargingEvent = ChargingEvent.startCharging
                     } else {
                         chargingEvent = ChargingEvent.stopCharging
@@ -221,28 +235,32 @@ class PvChargeStrategy implements ChargeStrategy {
         // now we can execute the internal state chart
         switch (chargingEvent) {
             case ChargingEvent.stopCharging:
-                if (isCharging) {
+                if (isCarCharging) {
                     isCharging = false
                     return sendNoSurplus()
                 }
                 break
             case ChargingEvent.reduceToMin:
-                if (isCharging) {
-                    isCharging = true
-                    return sendSurplus(Wallbox.wallbox.minCurrent)
-                }
+                isCharging = true
+                // println "PvChargeStrategy@3 reduceToMin"
+                return sendSurplus(Wallbox.wallbox.minCurrent)
                 break
             case ChargingEvent.startCharging:
+                def result
                 isCharging = true
-                if (isCharging) {
+                if (chargingState == CarChargingState.CHARGING) {
+                    // startup done
                     return sendSurplus(availableCurrent)
                 } else {
                     // always start with minimal current
-                    return sendSurplus(Wallbox.wallbox.minCurrent,true)
+                    // println "PvChargeStrategy@4 startup with min"
+                    result = sendSurplus(Wallbox.wallbox.minCurrent,true)
                 }
+                return result
                 break
             case ChargingEvent.continueCharging:
                 isCharging = true
+                // println "PvChargeStrategy@5 available $availableCurrent"
                 return sendSurplus(availableCurrent)
                 break
         }
@@ -282,8 +300,7 @@ class PvChargeStrategy implements ChargeStrategy {
      * request charging with amp ampere
      */
     private CarChargingManager.EventMessage sendSurplus(int amps, boolean sendAnyway = false) {
-        if (amps != lastAmpsSent || sendAnyway) {
-            lastAmpsSent = amps
+        if (amps != carChargingManager.lastAmpsSent || sendAnyway) {
             new CarChargingManager.EventMessage(CarChargingManager.ChargeEvent.Surplus, amps)
         } else {
             new CarChargingManager.EventMessage()
@@ -294,7 +311,6 @@ class PvChargeStrategy implements ChargeStrategy {
      * request stop charging
      */
     private CarChargingManager.EventMessage sendNoSurplus() {
-        lastAmpsSent = 0
         new CarChargingManager.EventMessage(CarChargingManager.ChargeEvent.NoSurplus)
     }
 
