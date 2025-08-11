@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.7.3' // bug fix reloading ChargeControlMode setting
+version '0.8.0-rc1' // bug fix reloading ChargeControlMode setting
 
 repositories {
     mavenCentral()
