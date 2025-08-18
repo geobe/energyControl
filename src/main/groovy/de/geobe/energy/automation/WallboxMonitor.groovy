@@ -217,6 +217,10 @@ class WallboxMonitor implements WallboxValueProvider {
                                     resultingState = CarChargingState.FINISH_CHARGING
                                     startupTimestamp = 0
                                 }
+                            } else if (prevCarChargingState == CarChargingState.CHARGING) {
+                                resultingState = CarChargingState.FINISH_CHARGING
+                            } else if(prevCarChargingState == CarChargingState.FINISH_CHARGING) {
+                                resultingState = CarChargingState.FINISH_CHARGING
                             }
                         } else {
                             resultingState = CarChargingState.CHARGING

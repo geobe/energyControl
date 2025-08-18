@@ -379,6 +379,10 @@ class GraphController {
     def saveSnapshot(PowerValues powerValues, WallboxValues wallboxValues) {
         short energy = (wallboxValues?.energy) ?: 0
         short cHome = powerValues.consumptionHome - energy
+//        if (cHome < 0) {
+//            // not possible, wrong data from e3dc, substitute with previous value
+//            cHome = snapshots?.peek().eHome ?: 0
+//        }
         def snap = new Snapshot(
                 powerValues.timestamp.toEpochMilli(),
                 (short) powerValues.powerSolar,

@@ -24,6 +24,7 @@
 
 package de.geobe.energy.automation
 
+import de.geobe.energy.automation.utils.SpikeFilter
 import de.geobe.energy.e3dc.E3dcError
 import de.geobe.energy.e3dc.E3dcException
 import de.geobe.energy.e3dc.PowerValues
@@ -70,6 +71,8 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     private volatile List<FatalExceptionSubscriber> fatalExceptionSubscribers = new LinkedList<>().asSynchronized()
     /** all message recorders */
     private volatile List<LogMessageRecorder> messageRecorders = new LinkedList<>().asSynchronized()
+    /** filter spikes in realtime values and provide list of filtered values */
+    private SpikeFilter spikeFilter = new SpikeFilter()
     /** task to read power values periodically */
     private PeriodicExecutor executor
     /** remember exception state */
@@ -122,9 +125,6 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
      * them to all interested objects
      */
     private Runnable readPower = new Runnable() {
-//        PowerValues lastPowerValues
-//        short lastEnergy = 0
-//        int lastConsumptionHome = 0
 
         @Override
         void run() {
@@ -134,13 +134,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                 wallboxValues = monitorValues.wallboxValues
                 // filter spikes resulting from sudden change of car charging power
                 PMValues pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
-//                if(Math.abs(lastEnergy - wallboxValues.energy) > 500) {
-//                    pmValues.powerValues.consumptionHome = lastConsumptionHome
-//                } else {
-//                    pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
-//                }
-//                lastEnergy = wallboxValues.energy
-//                lastPowerValues = powerValues
+                pmValues = spikeFilter.filterSpikes(pmValues)
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
                     exceptionSubscribers().each {
@@ -196,6 +190,10 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     void initCycle(long cycle, long initialDelay) {
         this.cycle = cycle
         this.initialDelay = initialDelay
+    }
+
+    List<PMValues> getValueTrace() {
+        spikeFilter.valueTrace
     }
 
     /**

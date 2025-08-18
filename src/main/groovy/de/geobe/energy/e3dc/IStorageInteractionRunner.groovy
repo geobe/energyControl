@@ -79,6 +79,9 @@ record PowerValues(Instant timestamp, int powerBattery, int powerGrid, int power
         "Power -> sun: $powerSolar, soc: $socBattery, home: $consumptionHome, " +
                 "bat: $powerBattery, grid: $powerGrid, forcedChargeing: $forceLoad"
     }
+    PowerValues setConsumptionHome(int cHome) {
+        new PowerValues(timestamp, powerBattery, powerGrid, powerSolar, cHome, socBattery, forceLoad)
+    }
 }
 
 /**

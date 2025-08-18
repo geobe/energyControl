@@ -100,6 +100,7 @@ class CarChargingManager implements PowerValueSubscriber {
     private CarChargingState currentCarChargingState = CarChargingState.UNDEFINED
     private short currentChargeEnergy = 0
     private CarChargingState previousCarChargingState = CarChargingState.UNDEFINED
+    private int startupCount = 0
     private boolean managerIsActive = false
     private logTrigger = [:]
 
@@ -128,7 +129,7 @@ class CarChargingManager implements PowerValueSubscriber {
             evaluateAndExecute()
         }
         // let PvChargeStrategy evaluate energy values even if manager not active
-        EventMessage eventMessage = chargeStrategy.evalPMValues(pmValues)
+        EventMessage eventMessage = chargeStrategy.evalPMValues()
         if (managerIsActive && eventMessage.event != ChargeEvent.Ignore) {
             executeEvent(eventMessage.event, eventMessage.param)
         }
@@ -195,10 +196,10 @@ class CarChargingManager implements PowerValueSubscriber {
             switch (currentCarChargingState) {
             // car not connected, just connecting, or software newly started
                 case WallboxMonitor.CarChargingState.UNDEFINED:
-                case WallboxMonitor.CarChargingState.WAIT_CAR:
                 case WallboxMonitor.CarChargingState.NO_CAR:
                     executeEvent(ChargeEvent.CarDisconnected)
                     break
+                case WallboxMonitor.CarChargingState.WAIT_CAR:
                     // car seems to be ready to charge, maybe "fully charged" is not yet identified after pgm start
                 case WallboxMonitor.CarChargingState.NOT_CHARGING:
                     executeEvent(ChargeEvent.CarIsConnected)
@@ -290,16 +291,18 @@ class CarChargingManager implements PowerValueSubscriber {
                 switch (chargeState) {
                     case ChargeManagerState.NoSurplus:
                         chargeState = ChargeManagerState.StartChargeSurplus
+                        startupCount = 0
                         setCurrent(Wallbox.wallbox.minCurrent)
                         startCharging()
                         break
                     case ChargeManagerState.StartChargeSurplus:
                         // check for missed event
                         if (currentCarChargingState == WallboxMonitor.CarChargingState.CHARGING &&
-                                currentChargeEnergy > 3000) {
+                                currentChargeEnergy > 3000 && startupCount > 3) {
                             chargeState = ChargeManagerState.ChargeSurplus
                             setCurrent(param)
                         } else {
+                            startupCount++
                             setCurrent(Wallbox.wallbox.minCurrent)
                         }
                         break
@@ -487,6 +490,12 @@ class CarChargingManager implements PowerValueSubscriber {
 
     private setCurrent(int amp = 0) {
         lastAmpsSent = amp
+        if(lastAmpsSent == 0) {
+            amp = Wallbox.wallbox.minCurrent
+        } else if(amp - lastAmpsSent > 2) {
+            // increase power slowly
+            amp = lastAmpsSent + 2
+        }
         WallboxMonitor.monitor.current = amp
     }
 

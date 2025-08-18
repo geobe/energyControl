@@ -57,7 +57,6 @@ import static de.geobe.energy.automation.WallboxMonitor.CarChargingState
 @ActiveObject
 class PvChargeStrategy implements ChargeStrategy {
     private PowerStrategyParams params = new PowerStrategyParams()
-    private List<PMValues> valueTrace = []
 
     static powerFactor = 3 * 230
 
@@ -112,13 +111,15 @@ class PvChargeStrategy implements ChargeStrategy {
         strategyActive = false
     }
 
-    CarChargingManager.EventMessage evalPMValues(PMValues pmValues) {
-        if (valueTrace.size() >= params.toleranceStackSize) {
-            valueTrace.removeLast()
-        }
-        valueTrace.push(pmValues)
+    /**
+     * If activated, calculate available photovoltaic power for car charging
+     * @param pmValues energy values from home power station and wallbox
+     * @return
+     */
+    CarChargingManager.EventMessage evalPMValues() {
+        def trace = PowerMonitor.monitor.valueTrace
         if (strategyActive) {
-            evalPower()
+            evalPower(trace)
         } else {
             new CarChargingManager.EventMessage()
         }
@@ -137,14 +138,16 @@ class PvChargeStrategy implements ChargeStrategy {
     /**
      * The central power evaluation method
      */
-    private CarChargingManager.EventMessage evalPower() {
+    private CarChargingManager.EventMessage evalPower(List<PMValues> valueTrace) {
         def currentValues = valueTrace.first()
         def powerValues = currentValues.powerValues
         def wallboxValues = currentValues.wallboxValues
         CarChargingState chargingState = currentValues.chargingState
+        short consumptionHome = powerValues.consumptionHome
+        short energy = wallboxValues.energy
         def requestedCurrent = wallboxValues.requestedCurrent
         Wallbox.CarState carState = wallboxValues.carState
-        int availableChargingPower = powerValues.powerSolar - powerValues.consumptionHome + wallboxValues.energy
+        int availableChargingPower = powerValues.powerSolar - consumptionHome + energy
         def requestedChargingPower = requestedCurrent * powerFactor
 
         def isCarCharging = chargingState in [CarChargingState.CHARGE_REQUEST,
@@ -159,47 +162,33 @@ class PvChargeStrategy implements ChargeStrategy {
         int meanCHome = 0
         int batBalance = 0
         int chargeGradient = 0
-        boolean powerBalanceValid = false
+//        boolean powerBalanceValid = false
 //        int chargeMax = 0
 //        boolean logMayCharge = true
 
-        // powerValues and wallboxValues are read from different hardware sources in this sequence.
-        // consumptionHome is calculated as a difference of values coming from these
-        // asynchronous data sets. As a consequence, consumptionHome can show artificial swings if
-        // wallboxValues.energy changes significantly between two readings. In this case, powerBalance
-        // is no usable value.
-        if (valueTrace.size() > 1 ) {
-            def deltaCharging = Math.abs(wallboxValues.energy - valueTrace[1].wallboxValues.energy)
-            powerBalanceValid = deltaCharging < powerFactor
-        } else {
-            powerBalanceValid = false
-        }
-        // if powerBalance valid and deeply negative, check if we have to stop immediately
-        if (isCarCharging && powerBalanceValid && powerBalance <= params.stopThreshold) {
-            def couldSave = (requestedCurrent - Wallbox.wallbox.minCurrent) * powerFactor
-            // could we reduce current enough to keep on charging?
-            if (couldSave && powerBalance + couldSave > params.stopThreshold) {
-                // reduce to minimal charging current
-                // println "PvChargeStrategy@1 requested current $requestedCurrent, could save $couldSave"
-                chargingEvent = ChargingEvent.reduceToMin
-            } else {
-                // stop charging
-                chargingEvent = ChargingEvent.stopCharging
-            }
-        } else if (valueTrace.size() >= params.toleranceStackSize) {
+        // if powerBalance is deeply negative, check if we have to stop immediately
+//        if (isCarCharging && powerBalance <= params.stopThreshold) {
+//            def couldSave = (requestedCurrent - Wallbox.wallbox.minCurrent) * powerFactor
+//            // could we reduce current enough to keep on charging?
+//            if (couldSave && powerBalance + couldSave > params.stopThreshold) {
+//                // reduce to minimal charging current
+//                // println "PvChargeStrategy@1 requested current $requestedCurrent, could save $couldSave"
+//                chargingEvent = ChargingEvent.reduceToMin
+//            } else {
+//                // stop charging
+//                chargingEvent = ChargingEvent.stopCharging
+//            }
+//        } else
+        if (valueTrace.size() >= params.toleranceStackSize) {
             // enough data to work with averages
             // calculate average values
-            meanPSun = ((int) (valueTrace.collect {
-                it.powerValues?.powerSolar
-            }.sum()))
+            meanPSun = ((int) (valueTrace.collect {it.powerValues?.powerSolar }.sum()))
                     .intdiv(valueTrace.size())
-            meanCHome = ((int) (valueTrace.collect {
-                it.powerValues.consumptionHome - it.wallboxValues.energy
-            }.sum()))
+            meanCHome = ((int) (valueTrace.collect {it.powerValues.consumptionHome - it.wallboxValues.energy }.sum()))
                     .intdiv(valueTrace.size())
             if (chargeGradientBase <= valueTrace.size()) {
                 chargeGradient =
-                        valueTrace[0].wallboxValues.energy - valueTrace[chargeGradientBase].wallboxValues.energy
+                        valueTrace[0].powerValues.powerSolar - valueTrace[chargeGradientBase].powerValues.powerSolar
             } else {
                 chargeGradient = 0
             }
@@ -213,9 +202,9 @@ class PvChargeStrategy implements ChargeStrategy {
                 // not enough pv power
                 // println "PvChargeStrategy@2 requested current $requestedCurrent, available $availableCurrent"
                 chargingEvent = ChargingEvent.stopCharging
-//            } else if (isCarCharging && chargeGradient < -1000) {
-//                // pv power drops quickly e.g. due to cloud
-//                chargingEvent = ChargingEvent.reduceToMin
+            } else if (isCarCharging && chargeGradient < -3 * powerFactor) {
+                // pv power drops quickly e.g. due to cloud
+                chargingEvent = ChargingEvent.reduceToMin
             } else {
                 // enough power to charge
                 if (isCarCharging) {
@@ -231,6 +220,9 @@ class PvChargeStrategy implements ChargeStrategy {
                     }
                 }
             }
+        } else {
+            // not enough values available => no reasonable chargingEvent
+            return new CarChargingManager.EventMessage()
         }
         // now we can execute the internal state chart
         switch (chargingEvent) {
@@ -254,9 +246,8 @@ class PvChargeStrategy implements ChargeStrategy {
                 } else {
                     // always start with minimal current
                     // println "PvChargeStrategy@4 startup with min"
-                    result = sendSurplus(Wallbox.wallbox.minCurrent,true)
+                    return sendSurplus(Wallbox.wallbox.minCurrent,true)
                 }
-                return result
                 break
             case ChargingEvent.continueCharging:
                 isCharging = true
@@ -290,16 +281,9 @@ class PvChargeStrategy implements ChargeStrategy {
     }
 
     /**
-     * reset valueTrace stack to restart evaluation of solar production and house consumption
-     */
-    private resetHistory() {
-        valueTrace.clear()
-    }
-
-    /**
      * request charging with amp ampere
      */
-    private CarChargingManager.EventMessage sendSurplus(int amps, boolean sendAnyway = false) {
+    private CarChargingManager.EventMessage sendSurplus(int amps, boolean sendAnyway = true) {
         if (amps != carChargingManager.lastAmpsSent || sendAnyway) {
             new CarChargingManager.EventMessage(CarChargingManager.ChargeEvent.Surplus, amps)
         } else {
