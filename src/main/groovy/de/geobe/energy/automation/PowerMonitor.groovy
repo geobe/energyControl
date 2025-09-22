@@ -192,7 +192,8 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         this.initialDelay = initialDelay
     }
 
-    List<PMValues> getValueTrace() {
+    List<PMValues>
+    getValueTrace() {
         spikeFilter.valueTrace
     }
 

@@ -52,6 +52,7 @@ class CarChargingManager implements PowerValueSubscriber {
         ChargeTibber,         // Active.Chargeable.ChargeTibber
         ChargeAnyway,         // Active.Chargeable.ChargeAnyway
         ChargingStopped,      // Active.Chargeable.ChargingStopped
+        StartPvCharging,
         ChargeSurplus,          // Active.Chargeable.ChargePvSurplus.ChargeSurplus
         NoSurplus,              // Active.Chargeable.ChargePvSurplus.NoSurplus
         StartChargeSurplus,     // Active.Chargeable.ChargePvSurplus.StartChargeSurplus
@@ -234,9 +235,17 @@ class CarChargingManager implements PowerValueSubscriber {
     private void executeEvent(ChargeEvent event, def param = null) {
         def oldState = chargeState
         def evTrigger = "$chargeState --$event${param ? '(' + param + ')' : ''}-> "
+
         switch (event) {
+            case ChargeEvent.FullyCharged:
+                execStop()
+                chargeState = ChargeManagerState.FullyCharged
+                break
             case ChargeEvent.Activate:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        managerIsActive = true
+                        break
                     case ChargeManagerState.Inactive:
                         chargeState = enterActive()
                         break
@@ -272,7 +281,10 @@ class CarChargingManager implements PowerValueSubscriber {
                 break
             case ChargeEvent.CarCharging:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        break
                     case ChargeManagerState.NoCarConnected:
+                        // car was connected and automatically started charging
                         chargeState = initChargeable()
                         break
                     case ChargeManagerState.ChargingStopped:
@@ -295,6 +307,7 @@ class CarChargingManager implements PowerValueSubscriber {
                         setCurrent(Wallbox.wallbox.minCurrent)
                         startCharging()
                         break
+                    case ChargeManagerState.StartPvCharging:
                     case ChargeManagerState.StartChargeSurplus:
                         // check for missed event
                         if (currentCarChargingState == WallboxMonitor.CarChargingState.CHARGING &&
@@ -313,6 +326,9 @@ class CarChargingManager implements PowerValueSubscriber {
                 break
             case ChargeEvent.NoSurplus:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        break
+                    case ChargeManagerState.StartPvCharging:
                     case ChargeManagerState.ChargeSurplus:
                     case ChargeManagerState.StartChargeSurplus:
                         stopCharging()
@@ -323,15 +339,18 @@ class CarChargingManager implements PowerValueSubscriber {
                 }
                 break
             case ChargeEvent.StopCharging:
-                execStop()
-                chargeState = ChargeManagerState.ChargingStopped
-                break
-            case ChargeEvent.FullyCharged:
-                execStop()
-                chargeState = ChargeManagerState.FullyCharged
+                switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        break
+                    default:
+                        execStop()
+                        chargeState = ChargeManagerState.ChargingStopped
+                }
                 break
             case ChargeEvent.StartedAgain:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        break
                     case ChargeManagerState.StartChargeSurplus:
                         break           // ignore, artifact of state change
                     case ChargeManagerState.NoSurplus:
@@ -346,6 +365,8 @@ class CarChargingManager implements PowerValueSubscriber {
                 break
             case ChargeEvent.StoppedAgain:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                        break
                     case ChargeManagerState.StartChargeSurplus:
 //                    case ChargeManagerState.NoSurplus:
                         break           // ignore, artifact of state change
@@ -356,6 +377,10 @@ class CarChargingManager implements PowerValueSubscriber {
                 break
             case ChargeEvent.ChargeCommandChanged:
                 switch (chargeState) {
+                    case ChargeManagerState.FullyCharged:
+                    case ChargeManagerState.NoCarConnected:
+                    case ChargeManagerState.Inactive:
+                        break
                     case ChargeManagerState.ChargeTibber:
                         stopTibberStrategy()
                         chargeState = initChargeable()
@@ -373,10 +398,6 @@ class CarChargingManager implements PowerValueSubscriber {
                     case ChargeManagerState.NoSurplus:
                         PvChargeStrategy.chargeStrategy.deactivateStrategy()
                         chargeState = initChargeable()
-                        break
-                    case ChargeManagerState.FullyCharged:
-                    case ChargeManagerState.NoCarConnected:
-                    case ChargeManagerState.Inactive:
                         break
                 }
                 break
@@ -444,7 +465,7 @@ class CarChargingManager implements PowerValueSubscriber {
                 case ChargeManagerStrategy.CHARGE_PV_SURPLUS:
 //                    chargeStrategy = PvChargeStrategy.chargeStrategy
                     chargeStrategy.activateStrategy()
-                    ChargeManagerState.NoSurplus
+                    ChargeManagerState.StartPvCharging
                     break
             }
         }

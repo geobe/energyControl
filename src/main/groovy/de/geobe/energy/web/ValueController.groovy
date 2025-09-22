@@ -438,6 +438,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         }
         def ti18n = tGlobal
         def ctx = stoc.storageControlContext(ti18n)
+        ctx.putAll(setMenubarContext(ti18n))
         def out = streamOut(storageControlTemplate, ctx)
         def sess = req.session()
         updateWsValues(out)

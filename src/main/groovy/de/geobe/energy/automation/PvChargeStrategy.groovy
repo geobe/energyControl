@@ -146,7 +146,7 @@ class PvChargeStrategy implements ChargeStrategy {
         short consumptionHome = powerValues.consumptionHome
         short energy = wallboxValues.energy
         def requestedCurrent = wallboxValues.requestedCurrent
-        Wallbox.CarState carState = wallboxValues.carState
+//        Wallbox.CarState carState = wallboxValues.carState
         int availableChargingPower = powerValues.powerSolar - consumptionHome + energy
         def requestedChargingPower = requestedCurrent * powerFactor
 

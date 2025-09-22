@@ -23,33 +23,32 @@ state "Active" as act {
 
             state "ChargePvSurplus" as cSurplus {
               cSurplus: entry: PvChargeStrategy.startStrategy(this)
-              cSurplus: entry: stopCharging()
+             ' cSurplus: entry: stopCharging()
               cSurplus: exit: PvChargeStrategy.stopStrategy(this)
-    '          cSurplus: exit: stopCharging()
 
-              state "Surplus" as sp {
-               sp: exit: stopCharging()
+                state "Surplus" as sp {
+                    sp: exit: stopCharging()
 
-                state "ChargeSurplus" as hasPlus {
-    '                hasPlus: entry: setCurrent(v)
-                    hasPlus: on: surplus(v) : setCurrent(v)
+                    state "ChargeSurplus" as hasPlus {
+                       ' hasPlus: entry: setCurrent(v)
+                        hasPlus: on: surplus(v) : setCurrent(v)
+                    }
+    
+                    state "StartChargeSurplus" as waitCh {
+                        waitCh: entry: setCurrent(v)
+                        waitCh: entry: startCharging()
+                        waitCh: on: surplus(v) : setCurrent(v)
+                        waitCh: on: startedAgain : ignore
+                        waitCh: on: stoppedAgain : ignore
+                    }
                 }
-
-                state "StartChargeSurplus" as waitCh
-                    waitCh: entry: setCurrent(v)
-                    waitCh: entry: startCharging()
-                    waitCh: on: surplus(v) : setCurrent(v)
-                    waitCh: on: startedAgain : ignore
-                    waitCh: on: stoppedAgain : ignore
-
-            }
 
                 state "NoSurplus" as noPlus {
                   noPlus: on: noSurplus : ignore
                   noPlus: on: startedAgain : ignore
                 }
 
-            state lpstart <<start>>
+            state "startPvCharging" as pvstart
 
           }
 
@@ -112,7 +111,7 @@ noPlus -r-> cExt : extStartCmd
 cExt --> cStop : stoppedAgain
 sp --> cStop : stoppedAgain
 
-choiceCmd -r-> lpstart : [4: cmdChargePvSurplus]
+choiceCmd -r-> pvstart : [4: cmdChargePvSurplus]
 choiceCmd -r-> cAnyway : [2: cmdChargeAnyway]
 choiceCmd --> cStop : [1: cmdChargeStop]
 choiceCmd -r-> cTibber : [3: cmdChargeTibber]
@@ -125,7 +124,8 @@ noPlus -right-> sp : surplus(v)
 waitCh -down-> hasPlus : charging\t
 waitCh -down-> hasPlus : [isCharging]
 sp -u-> noPlus : noSurplus
-lpstart -r-> noPlus
+pvstart -r-> noPlus : noSurplus\nstopCharging()
+pvstart --> sp : surplus(v)
 
 
 
