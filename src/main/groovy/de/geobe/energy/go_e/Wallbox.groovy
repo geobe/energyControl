@@ -108,22 +108,25 @@ class Wallbox implements IWallboxValueSource {
      * @return updated wallboxValues object
      */
     WallboxValues getValues() {
-        def url = new URL(readRequest + "$FILTER")
-        def getParams = [
-                connectTimeout: 30000,
-                readTimeout   : 30000]
-        def text = url.getText(getParams)
-        def response = jsonSlurper.parseText(text)
-        allowedToCharge = response.alw
-        requestedCurrent = response.amp
-        carState = CarState.values()[response.car]
-        forceState = ForceState.values()[response.frc]
-        energy = response.nrg
-        eTotal = energy[11]
-        phaseSwitchMode = PhaseSwitchMode.values()[response.psm]
-        new WallboxValues(allowedToCharge, requestedCurrent,
-                carState, forceState, eTotal, phaseSwitchMode
-        )
+        try {
+            def url = new URL(readRequest + "$FILTER")
+            def getParams = [
+                    connectTimeout: 30000,
+                    readTimeout   : 30000]
+            def text = url.getText(getParams)
+            def response = jsonSlurper.parseText(text)
+            allowedToCharge = response.alw
+            requestedCurrent = response.amp
+            carState = CarState.values()[response.car]
+            forceState = ForceState.values()[response.frc]
+            energy = response.nrg
+            eTotal = energy[11]
+            phaseSwitchMode = PhaseSwitchMode.values()[response.psm]
+            new WallboxValues(allowedToCharge, requestedCurrent,
+                    carState, forceState, eTotal, phaseSwitchMode
+            )
+        } catch(Exception ex) {
+            throw new WallboxException('Wallbox read error', ex)        }
     }
 
     /**
@@ -270,4 +273,11 @@ record WallboxValues(
 
 interface IWallboxValueSource {
     WallboxValues getValues()
+}
+
+
+class WallboxException extends RuntimeException {
+    WallboxException(String message, Throwable cause) {
+        super(message, cause)
+    }
 }

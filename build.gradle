@@ -4,15 +4,17 @@ plugins {
     id 'application'
     id 'groovy'
     id 'java'
+//    id 'codenarc'
 }
 
 group 'de.geobe'
-version '0.8.0-rc3' // fix negative (=impossible) consumptionHome value from e3dc
+version '0.8.2' // restart after wallbox communication exception
 
 repositories {
     mavenCentral()
 }
 
+apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/versioninfo.gradle'
 apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/crossdev.gradle'
 
 mainClassName='de.geobe.energy.web.EnergyControlUI'
@@ -39,9 +41,22 @@ dependencies {
 
     implementation platform("org.spockframework:spock-bom:2.3-groovy-4.0")
     implementation "org.spockframework:spock-core"
+//    implementation("org.codenarc:CodeNarc:3.6.0-groovy-4.0")
 //    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
 //    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
+
+//codenarc {
+//    toolVersion = '3.1.0' // oder aktuelle Version
+//    configFile = file('config/codenarc/codenarc-rules.groovy')
+//}
+//
+//tasks.withType(org.gradle.api.plugins.quality.CodeNarc) {
+//    reports {
+//        html.enabled = true
+//        xml.enabled = true
+//    }
+//}
 
 test {
     useJUnitPlatform()

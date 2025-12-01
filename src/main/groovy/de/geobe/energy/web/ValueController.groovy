@@ -24,6 +24,7 @@
 
 package de.geobe.energy.web
 
+import de.geobe.buildinfo.VersionInfo
 import de.geobe.energy.automation.*
 import de.geobe.energy.e3dc.E3dcError
 import de.geobe.energy.e3dc.PowerValues
@@ -264,6 +265,8 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
     def bodyCtx() {
         def ti18n = tGlobal
         def ctx = setMenubarContext(ti18n)
+        ctx.put 'versionInfo', VersionInfo.version
+        ctx.put 'startedAt', "${GraphController.hmmss.print(DateTime.now())}"
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         ctx.putAll(setChargeCommandContext(chargeStrategy, ti18n))
         ctx.putAll(joinDashboardContext(ti18n))

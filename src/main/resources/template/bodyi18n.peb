@@ -1,7 +1,7 @@
         <div id="body-i18n">
             <div class="w3-row">
                 <div class="w3-container w3-blue w3-col s12 m8 l6" style="width:100%">
-                    <h2>{{ websiteTitle }}</h2>
+                    <h3>{{ websiteTitle }} ({{ versionInfo }}) @ ({{ startedAt }})</h3>
                 </div>
             </div>
         <!-- websocket connection -->
@@ -38,7 +38,7 @@
                        {% include "./graph.peb" %}
                     </div>
                     <div id="tibber-chart" class="w3-hide">
-                        <div style="max-height: 500px">
+                        <div style="height: 500px">
                             <canvas id="tibberChart"></canvas>
                         </div>
                        {% include "./tibbergraph.peb" %}

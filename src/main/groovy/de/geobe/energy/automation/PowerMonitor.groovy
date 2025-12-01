@@ -25,11 +25,11 @@
 package de.geobe.energy.automation
 
 import de.geobe.energy.automation.utils.SpikeFilter
-import de.geobe.energy.e3dc.E3dcError
 import de.geobe.energy.e3dc.E3dcException
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
 import de.geobe.energy.e3dc.IStorageInteractionRunner
+import de.geobe.energy.go_e.WallboxException
 import de.geobe.energy.go_e.WallboxValues
 import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.recording.PowerCommunicationRecorder
@@ -60,7 +60,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo
     /** Reference to current dynamic prices */
-    private final PowerPriceMonitor powerPriceInfo
+    private final PowerPriceMonitor powerPriceMonitor
     /** Reference to WallboxMonitor which provides wallbox values */
     private final WallboxMonitor wbValuesProvider
     /** wallbox values that are periodically updated by wbValuesProvider */
@@ -105,6 +105,8 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         if (!monitor && !constructionFailed) {
             try {
                 monitor = new PowerMonitor(E3dcInteractionRunner.interactionRunner, WallboxMonitor.monitor)
+                monitor.powerPriceMonitor.activate(CYCLE_TIME)
+
             } catch (Exception e) {
                 constructionFailed = true
                 startupFailure = e
@@ -116,7 +118,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
 
     private PowerMonitor(IStorageInteractionRunner interactionRunner, WallboxValueProvider wallboxValueProvider) {
         powerInfo = interactionRunner
-//        powerPriceInfo = PowerPriceMonitor.monitor
+        powerPriceMonitor = PowerPriceMonitor.monitor
         wbValuesProvider = wallboxValueProvider
     }
 
@@ -143,19 +145,20 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                     LogMessageRecorder.recorder.resumeAfterMonitorException()
                     resumeAfterException = false
                 }
+                powerPriceMonitor.stateOnClick()
                 synchronized (subscribers) {
                     subscribers.each {
                         it.takePMValues(pmValues)
                     }
                 }
-            } catch (E3dcException e3dcEx) {
+            } catch (E3dcException | WallboxException communicationException) {
                 // found no way to recover from this error, so completely stop and restart this service
-                PowerCommunicationRecorder.logMessage "PowerMonitor exception $e3dcEx"
-//                LogMessageRecorder.recorder.logStackTrace('PowerMonitor', e3dcEx)
+                PowerCommunicationRecorder.logMessage "PowerMonitor exception $communicationException"
+                LogMessageRecorder.recorder.logStackTrace('PowerMonitor', communicationException)
                 // wait 30 seconds before restarting service
-                Thread.sleep(3000)
+                Thread.sleep(30000)
                 fatalExceptionSubscribers.each {
-                    it.restartService(e3dcEx)
+                    it.restartService(communicationException)
                 }
             } catch (Exception ex) {
 //                ex.printStackTrace()

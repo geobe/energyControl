@@ -81,6 +81,7 @@ class StorageController implements PowerPriceSubscriber {
                 bufCtlStates      : bufCtlStates,
                 bufCtlPrices      : bufCtlPrices
         ]
+        ctx.controlMenuState = valueController.controlMenuState
         switch (powerStorageStatic.chargeControlMode) {
             case PowerStorageStatic.ChargeControlMode.AUTO:
                 ctx.put('checkedBufCtlAuto', 'checked')

@@ -43,16 +43,18 @@ class TibberQueryRunner implements IPowerQueryRunner {
     static void main(String[] args) {
         TibberQueryRunner homeRunner = new TibberQueryRunner()
         TibberQueryRunner testRunner = new TibberQueryRunner('/tibberSample.properties')
-//        def yesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
-//        def result = testRunner.runIntervalQuery(yesterday, 24)
-//        println result
-//        println()
-        def result = homeRunner.runPriceQuery()
-        println result.yesterday
+        def yesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
+        def result = homeRunner.runIntervalQuery(yesterday, 24, true)
+        println result
         println()
-        println result.today
-        println()
-        println result.tomorrow
+//        [false, true].each { quarterly ->
+//            def result = homeRunner.runPriceQuery(quarterly)
+//            println result.yesterday
+//            println()
+//            println result.today
+//            println()
+//            println result.tomorrow
+//        }
 //        println homeRunner.runCurrencyQuery()
 //        println testRunner.runCurrencyQuery()
     }
@@ -74,8 +76,9 @@ class TibberQueryRunner implements IPowerQueryRunner {
      * get tibber prices for today and tomorrow for this account
      * @return map of lists of date / price pairs or empty map if failure
      */
-    def runPriceQuery() {
-        def query = tibberQueries.priceQuery(home)
+    def runPriceQuery(boolean quarterly = false) {
+        def resolution = quarterly ? 'QUARTER_HOURLY' : 'HOURLY'
+        def query = tibberQueries.priceQuery(home, resolution)
         def jsonResult = tibberAccess.jsonFromTibber(query)
 //        println "${jsonResult.}"
         if(jsonResult) {
@@ -94,10 +97,11 @@ class TibberQueryRunner implements IPowerQueryRunner {
      * List of hourly prices for a time interval, e.g. a month for this account
      * @param startingAt start date
      * @param hours # of hours
+     * @param quarters if true, get quarterly prices, i.e. 4 prices per hour
      * @return list of date / price pairs
      */
-    def runIntervalQuery(DateTime startingAt, int hours) {
-        def query = tibberQueries.intervalQuery(home, startingAt, hours)
+    def runIntervalQuery(DateTime startingAt, int hours, boolean quarters = false) {
+        def query = tibberQueries.intervalQuery(home, startingAt, hours, quarters)
         def jsonResult = tibberAccess.jsonFromTibber(query)
         if(jsonResult) {
             tibberQueries.scanInterval(jsonResult)

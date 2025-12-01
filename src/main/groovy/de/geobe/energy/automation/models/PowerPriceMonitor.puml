@@ -1,0 +1,57 @@
+@startuml
+'https://plantuml.com/state-diagram
+
+scale 1050 width
+[*] --> Activate : activate(clickPeriod)
+
+state Activate {
+    Activate: entry: powerPriceSource.runPriceQuery()
+    Activate: onClick:  updateClicksAndCheck() ? \n              powerPriceSource.runPriceQuery()
+}
+
+state "WaitNewPrices" as waitDue {
+    waitDue: entry: calcClicsToDueTime()
+    waitDue: onClick: updateClicksAndCheck()
+}
+
+state "ReadNewPrices" as isDue {
+    isDue: entry: powerPriceSource.runPriceQuery();\n          resetClicks()
+    isDue: onClick: updateClicksAndCheck() ? \n              powerPriceSource.runPriceQuery()
+}
+
+state "WaitUpdatedPrices" as waitUpdate {
+    waitUpdate: entry: calcClicsToUpdateTime()
+    waitUpdate: onClick: updateClicksAndCheck()
+}
+
+state "ReadUpdatedPrices" as chkUp {
+    chkUp: entry: powerPriceSource.runPriceQuery()
+}
+
+state "WaitMidnight" as waitMid {
+    waitMid: entry: resetClicks()
+    waitMid: onClick: updateClicksAndCheck()
+}
+
+state "ReadAtZero" as readZero {
+    readZero: entry: powerPriceSource.runPriceQuery();\n          resetClicks()
+    readZero: onClick: updateClicksAndCheck() ? \n              powerPriceSource.runPriceQuery()
+}
+
+' Transitions
+
+Activate --> waitDue : [noTomorrow()]
+Activate -d-> waitUpdate : [hasTomorrow() \n&& !late]
+Activate -d-> waitMid : [hasTomorrow() \n&& late]
+
+waitDue -d-> isDue : [atClickLimit()]
+isDue -l-> isDue : [noTomorrow()]
+isDue -d-> waitUpdate : [hasTomorrow()]
+
+waitUpdate --> chkUp : [atClickLimit()]
+chkUp --> waitMid
+waitMid --> readZero : [atClickLimit()]
+readZero -l-> waitDue : [noTomorrow()]
+readZero -u-> readZero : [hasTomorrow()]
+
+@enduml

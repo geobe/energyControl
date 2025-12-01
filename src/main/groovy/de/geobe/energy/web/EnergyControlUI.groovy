@@ -113,7 +113,7 @@ class EnergyControlUI {
      *     <li>stopping or restarting service if program runs as a service</li>
      * </ul>
      */
-    static void shutdown() {
+    static void shutdown(Object... args) {
         CarChargingManager.carChargingManager.shutDown()
 //        PowerCommunicationRecorder.stopRecorder()
 //        WallboxMonitor.monitor.shutdown()

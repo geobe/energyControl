@@ -24,8 +24,7 @@
 
 package de.geobe.energy.tibber
 
-import groovy.transform.Immutable
-import groovy.transform.ImmutableOptions
+
 import org.joda.time.DateTime
 
 /**
@@ -51,18 +50,30 @@ class TibberQueries {
      * @return a snippet for GraphQL query
      */
     def homeline(id = '') {
-        id ?  "home(id: \"$id\")".toString() : 'homes'
+        id ? "home(id: \"$id\")".toString() : 'homes'
     }
 
     /**
+     * Extract price info for today or tomorrow from priceQuery result
      *
      * @param result GraphQL result as parsed by JsonSlurper
      * @return price info subtree of result
      */
-    def priceInfo(def result) {
+    def priceInfoNow(def result) {
         result.data?.viewer.home ?
                 result.data.viewer.home.currentSubscription.priceInfo :
                 result.data.viewer.homes[0].currentSubscription.priceInfo
+    }
+
+    /**
+     * extract price info for other date from intervalQuery result
+     * @param result GraphQL result as parsed by JsonSlurper
+     * @return price info subtree of result
+     */
+    def priceInfoAt(def result) {
+        result.data?.viewer.home ?
+                result.data.viewer.home.currentSubscription.priceInfoRange :
+                result.data.viewer.homes[0].currentSubscription.priceInfoRange
     }
 
     /**
@@ -73,7 +84,7 @@ class TibberQueries {
     def extractPriceAt(List list) {
         def priceList = []
         list?.each {
-            def t = new PriceAt(DateTime.parse(it.startsAt), (Float)it.total)
+            def t = new PriceAt(DateTime.parse(it.startsAt), (Float) it.total)
             priceList.add(t)
         }
         priceList
@@ -86,8 +97,8 @@ class TibberQueries {
      */
     def scanPrice(String jsonResult) {
         def result = slurper.parseText(jsonResult)
-        def today = extractPriceAt(priceInfo(result).today)
-        def tomorrow = extractPriceAt(priceInfo(result).tomorrow)
+        def today = extractPriceAt(priceInfoNow(result).today)
+        def tomorrow = extractPriceAt(priceInfoNow(result).tomorrow)
         [today: today, tomorrow: tomorrow]
     }
 
@@ -98,7 +109,7 @@ class TibberQueries {
      */
     def scanInterval(String jsonResult) {
         def result = slurper.parseText(jsonResult)
-        extractPriceAt(priceInfo(result).range?.nodes)
+        extractPriceAt(priceInfoAt(result)?.nodes)
     }
 
     /**
@@ -108,7 +119,7 @@ class TibberQueries {
      */
     def scanCurrency(String jsonResult) {
         def result = slurper.parseText(jsonResult)
-        priceInfo(result).current.currency
+        priceInfoAt(result).current.currency
     }
 
     /**
@@ -116,7 +127,7 @@ class TibberQueries {
      * @param id homeId, if known
      * @return json query string
      */
-    def priceQuery(id = '') {
+    def priceQueryOld(id = '') {
         """
 {
   viewer {
@@ -140,29 +151,59 @@ class TibberQueries {
     }
 
     /**
+     * Provide GraphQL query string for tibber prices today and tomorrow
+     * @param id homeId, if known
+     * @param resolution 'HOURLY' or 'QUARTER_HOURLY'
+     * @return json query string
+     */
+    def priceQuery(id = '', resolution = 'HOURLY') {
+        """
+{
+  viewer {
+    ${homeline(id)} {
+      currentSubscription {
+        priceInfo(resolution: ${resolution}) {
+          today {
+            startsAt
+            total
+          }
+          tomorrow {
+            startsAt
+            total
+          }
+        }
+      }
+    }
+  }
+}
+"""
+    }
+
+    /**
      * Provide GraphQL query string for tibber hourly prices for an interval of hours
      * @param id homeId, if known
      * @param startingAt DateTime interval starts
      * @param hours interval lengh in hours
      * @return json query string
      */
-    def intervalQuery(String id, DateTime startingAt, int hours){
+    def intervalQuery(String id, DateTime startingAt, int hours, boolean quarters = false) {
         def start64 = encodeDateTimeBase64(startingAt.minusSeconds(1))
+        if (quarters) {
+            hours = hours * 4
+        }
         """
 {
   viewer {
     ${homeline(id)} {
       currentSubscription {
-        priceInfo {
-          range(
-            resolution: HOURLY
+        priceInfoRange(
+            resolution: ${quarters ? 'QUARTER_HOURLY' : 'HOURLY'}
             first: $hours
             after: "$start64"
-          ) {
-            nodes {
-              startsAt
-              total
-            }
+        ) {
+          nodes {
+            startsAt
+            total
           }
         }
       }
