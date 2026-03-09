@@ -29,6 +29,7 @@ import de.geobe.energy.recording.PowerCommunicationRecorder
 import groovy.io.GroovyPrintWriter
 import org.apache.hc.client5.http.fluent.Request
 import org.apache.hc.core5.http.ContentType
+import org.apache.hc.core5.util.Timeout
 import org.codehaus.groovy.runtime.StringBufferWriter
 
 /**
@@ -60,10 +61,13 @@ class TibberAccess {
     def jsonFromTibber(String query) {
         try {
             def postableQuery = makeViewerQuery(query)
-            Request request = Request.post tibberUri
-            request.addHeader('Authorization', "Bearer ${accessToken}")
-            request.bodyString(postableQuery, ContentType.APPLICATION_JSON)
-            def response = request.execute()
+//            Request request =
+            def response = Request.post(tibberUri)
+                    .addHeader('Authorization', "Bearer ${accessToken}")
+                    .bodyString(postableQuery, ContentType.APPLICATION_JSON)
+                    .connectTimeout(Timeout.ofSeconds(10))   // Verbindung aufbauen
+                    .responseTimeout(Timeout.ofSeconds(10))    // auf Daten warten
+                    .execute()
             def json = response.returnContent().asString()
             json
         } catch(Exception exception) {

@@ -29,6 +29,8 @@ class E3dcError {
     static final SEND = 'E3dcSendError'
     static final AUTH = 'E3dcAuthError'
     static final IP = 'E3dcIpError'
+    static final DECODE = 'E3dcDecodeError'
+    static final DATA = 'E3dcDataError'
     static final TIMEOUT = 'E3dcTimeoutError'
     static final CONNECT = 'E3dcConnectError'
 }

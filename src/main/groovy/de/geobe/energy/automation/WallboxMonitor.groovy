@@ -49,7 +49,7 @@ class WallboxMonitor implements WallboxValueProvider {
     private long cycle = 5
     /** subscription Time unit */
     private TimeUnit timeUnit = TimeUnit.SECONDS
-    /** first subscription initial delay */
+    /** first subscription initial tolerance */
     private long initialDelay = 0
     /** Reference to wallbox */
     private Wallbox wallbox

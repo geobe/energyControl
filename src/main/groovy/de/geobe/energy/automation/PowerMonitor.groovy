@@ -55,7 +55,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     private long cycle = CYCLE_TIME
     /** subscription time unit */
     private TimeUnit timeUnit = TIME_UNIT
-    /** first subscription initial delay */
+    /** first subscription initial tolerance */
     private long initialDelay = 0
     /** Reference to Power System */
     private final IStorageInteractionRunner powerInfo

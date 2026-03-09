@@ -53,9 +53,9 @@ class SpikeFilter {
         if(! valueTrace) {
             valueTrace.push(pmValues)
         } else {
-            short consumptionHome = pmValues.powerValues.consumptionHome
-            short energy = pmValues.wallboxValues.energy
-            def energySpike = Math.abs(energy - valueTrace.first().wallboxValues.energy) > (int)(1.5 * powerFactor)
+//            short consumptionHome = pmValues.powerValues.consumptionHome
+//            short energy = pmValues.wallboxValues.energy
+//            def energySpike = Math.abs(energy - valueTrace.first().wallboxValues.energy) > (int)(1.5 * powerFactor)
 //            println "house: $consumptionHome, car energy now: $energy, prev: ${valueTrace.first().wallboxValues.energy} -> spike? $energySpike"
 //            if (consumptionHome < 0 || consumptionHome - energy < 0 || energySpike) {
 //                def lastHome = valueTrace.first().powerValues.consumptionHome

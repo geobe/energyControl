@@ -92,6 +92,13 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
     TibberController tibc = new TibberController(this)
     StorageController stoc = new StorageController(this)
 
+    /** info string for website heading */
+    def startedAt = "${GraphController.full.print(DateTime.now())}"
+
+    /** tracing variables for website tracing output */
+    def showTrace = false
+    def traceMessage = ''
+
     /** translate pebble templates to java code */
     PebbleEngine engine
     def index = engine.getTemplate('template/index.peb')
@@ -266,7 +273,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         def ti18n = tGlobal
         def ctx = setMenubarContext(ti18n)
         ctx.put 'versionInfo', VersionInfo.version
-        ctx.put 'startedAt', "${GraphController.hmmss.print(DateTime.now())}"
+        ctx.put 'startedAt', startedAt
         ctx.putAll setChargeManagementContext(chargeManagerState, ti18n)
         ctx.putAll(setChargeCommandContext(chargeStrategy, ti18n))
         ctx.putAll(joinDashboardContext(ti18n))
@@ -697,12 +704,23 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         ctx
     }
 
+    def setTraceMessage(String message) {
+        traceMessage = message
+        if(message) {
+            showTrace = true
+        } else {
+            showTrace = false
+        }
+    }
+
+    /** prepare template context for error and trace messages */
     def errorContext(Map<String, Map<String, String>> ti18n) {
         def ctx = [:]
         String cause = ''
         def arg = ''
         ctx.put('networkError', networkError)
         ctx.put('errorResume', networkErrorResume)
+        ctx.put('showTrace', showTrace)
         if (networkError) {
             def exceptionParts = networkException.toString().split(/:/)
             if (exceptionParts.size() > 1 && exceptionParts[1]) {
@@ -726,6 +744,9 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
         if (networkErrorResume) {
             def about = ti18n.errorStrings.E3dcErrorResume
             ctx.put('resumeMessage', "$errorTimestamp: $about")
+        }
+        if(showTrace) {
+            ctx.put('traceMessage', "$errorTimestamp: $traceMessage")
         }
         ctx
     }

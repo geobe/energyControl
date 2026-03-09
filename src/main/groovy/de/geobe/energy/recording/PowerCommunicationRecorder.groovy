@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit
  */
 class PowerCommunicationRecorder /*implements PowerValueSubscriber*/ {
     private static RecordingFile recordingFile
-    /** first recording initial delay */
+    /** first recording initial tolerance */
     static DateTimeFormatter stamp
 
     static {

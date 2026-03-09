@@ -94,9 +94,15 @@ class E3dcInteractions {
         }
         def response = read.get()
         if (response) {
-            def frame = RSCPFrame.builder().buildFromRawBytes(response)
-            def values = decodeFrame(frame)
-            values
+            try {
+                def frame = RSCPFrame.builder().buildFromRawBytes(response)
+                def values = decodeFrame(frame)
+                values
+            } catch (Exception ex) {
+                throw new E3dcException(E3dcError.DECODE, ex)
+            }
+        } else {
+            throw new E3dcException(E3dcError.DATA, 'empty response')
         }
     }
 

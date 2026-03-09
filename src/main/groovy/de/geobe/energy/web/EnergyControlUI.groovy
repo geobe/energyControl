@@ -115,10 +115,7 @@ class EnergyControlUI {
      */
     static void shutdown(Object... args) {
         CarChargingManager.carChargingManager.shutDown()
-//        PowerCommunicationRecorder.stopRecorder()
-//        WallboxMonitor.monitor.shutdown()
         PowerMonitor.monitor?.shutdown()
-        PowerPriceMonitor.monitor?.shutdown()
         valueController?.shutdown()
         PeriodicExecutor?.shutdown()
     }
@@ -136,7 +133,7 @@ class EnergyControlUI {
      * Restart is configured in systemd.service control file in [Service] section.
      *  To prevent restart in case of fatal errors, exit status with SIG_TERM (exit(143))
      *  is configured as success:<ul>
-     *     <li>SuccessExitStatus=143 # don't try to resatrt after fatal errors</li>
+     *     <li>SuccessExitStatus=143 # don't try to restart after fatal errors</li>
      *     <li>Restart=on-failure   # exit-code != 0, ...</li>
      *     <li>RestartSec=120       # wait 120 seconds</li>
      *</ul>

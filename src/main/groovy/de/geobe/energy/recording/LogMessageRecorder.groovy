@@ -92,7 +92,7 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
 
     @Override
     void takeWallboxValues(WallboxValues values) {
-        if(prevValues && !prevValues == values) {
+        if (prevValues && !prevValues == values) {
             logMessage(values.toString())
         }
         prevValues = values.clone()
