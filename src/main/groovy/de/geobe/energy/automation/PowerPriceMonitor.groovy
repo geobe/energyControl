@@ -237,7 +237,9 @@ class PowerPriceMonitor {
     boolean publishLatestPrices(boolean checkChanged = false) {
         def priceRecord
         try {
+            LogMessageRecorder.recorder.logMessage "PowerPriceMonitor: run price query at ${DateTime.now()}"
             priceRecord = powerPriceSource.runPriceQuery()
+            LogMessageRecorder.recorder.logMessage "PowerPriceMonitor: got ${priceRecord ? 'a' : 'no'} price record at ${DateTime.now()}"
         } catch (exception) {
             PowerCommunicationRecorder.logMessage "PowerPriceMonitor exception $exception"
             LogMessageRecorder.recorder.logStackTrace('PowerPriceMonitor', exception)

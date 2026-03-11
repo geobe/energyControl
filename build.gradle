@@ -8,7 +8,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.8.3' // timeout exceptions on tibber access
+version '0.8.3a' // timeout exceptions on tibber access
 
 repositories {
     mavenCentral()
