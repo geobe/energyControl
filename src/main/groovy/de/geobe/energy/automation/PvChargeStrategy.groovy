@@ -32,8 +32,8 @@ import groovyx.gpars.activeobject.ActiveObject
 import static de.geobe.energy.automation.WallboxMonitor.CarChargingState
 
 /**
- * This is a monitor class that controls details of charging when charging is set to PV surplus mode.<br>
- * Responsibility: Monitor available power from PV and power storage.
+ * This is a traceMonitor class that controls details of charging when charging is set to PV surplus mode.<br>
+ * Responsibility: DeadlockGuard available power from PV and power storage.
  * For this purpose, get actual realtime power values and wallbox values (PMValues).
  * To avoid too frequent switching build an average over several subsequent values.
  * Goal is to charge car with PV and possibly storage power only and to feed as little power into
@@ -95,7 +95,7 @@ class PvChargeStrategy implements ChargeStrategy {
     @ActiveMethod(blocking = false)
     void enableStrategy(CarChargingManager manager) {
         // println "PV Charge Strategy enabled"
-//        PowerMonitor.monitor.subscribe this
+//        PowerMonitor.traceMonitor.subscribe this
         carChargingManager = manager
     }
 

@@ -30,6 +30,7 @@ import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.WallboxMonitor
 import de.geobe.energy.automation.WallboxStateSubscriber
 import de.geobe.energy.automation.WallboxValueSubscriber
+import de.geobe.energy.automation.utils.TraceRecord
 import de.geobe.energy.go_e.Wallbox
 import de.geobe.energy.go_e.WallboxValues
 import de.geobe.energy.web.EnergySettings
@@ -42,6 +43,7 @@ import org.joda.time.format.DateTimeFormatter
 class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscriber, FatalExceptionSubscriber {
     private static RecordingFile stateMessageFile
     static DateTimeFormatter stamp = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss')
+    static DateTimeFormatter fullStamp = DateTimeFormat.forPattern('dd.MM.yy HH:mm:ss.SSS')
 
     static {
         stateMessageFile = new RecordingFile(".$EnergySettings.SETTINGS_DIR", 'StateSequence', RecordingFile.Span.DAY)
@@ -58,8 +60,6 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
 
     LogMessageRecorder() {
         PowerMonitor.monitor.subscribeFatalErrors this
-//        WallboxMonitor.monitor.subscribeState this
-//        WallboxMonitor.monitor.subscribeValue this
     }
 
     volatile WallboxMonitor.CarChargingState carChargingState
@@ -112,14 +112,12 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
             logMessage(message)
 //            logMessage(lastWbValues.toString())
         }
-
-
     }
 
     @Override
     void takeMonitorException(Exception exception) {
         def exStack = exception.stackTrace
-        logMessage "Monitor Exception $exception"
+        logMessage "DeadlockGuard Exception $exception"
         exStack.each {
             logMessage "        $it"
         }
@@ -128,7 +126,7 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
     @Override
     void restartService(Exception exception) {
         def exStack = exception.stackTrace
-        logMessage "Restart after monitor Exception $exception"
+        logMessage "Restart after traceMonitor Exception $exception"
         exStack.each {
             logMessage "        $it"
         }
@@ -136,13 +134,23 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
 
     @Override
     void resumeAfterMonitorException() {
-        logMessage 'resume after Monitor exception'
+        logMessage 'resume after DeadlockGuard exception'
     }
 
     static void logMessage(String message) {
         def protocol = "${stamp.print(DateTime.now())}\t$message"
         stateMessageFile.appendReport(protocol)
-        println protocol
+//        println protocol
+    }
+
+    static void logTrace(List<TraceRecord> messages) {
+        def protocol = "${stamp.print(DateTime.now())}\tCallTrace"
+        stateMessageFile.appendReport(protocol)
+//        println protocol
+        messages.each {trace ->
+            stateMessageFile.appendReport(trace.toString())
+//            println trace
+        }
     }
 
     static void logStackTrace(String location, Exception ex) {

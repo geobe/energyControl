@@ -24,8 +24,8 @@
 
 package de.geobe.energy.automation
 /**
- * Base interface for monitor subscription interfaces to unify exception handling.
- * Make sure that each subscriber to monitor objects will handle exceptions
+ * Base interface for traceMonitor subscription interfaces to unify exception handling.
+ * Make sure that each subscriber to traceMonitor objects will handle exceptions
  */
 interface MonitorExceptionSubscriber {
     void takeMonitorException(Exception exception)

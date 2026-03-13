@@ -59,8 +59,6 @@ class WallboxMonitor implements WallboxValueProvider {
     private List<WallboxValueSubscriber> valueSubscribers = []
     /** all valueSubscribers to car states taken from wallbox values */
     private List<WallboxStateSubscriber> stateSubscribers = []
-    /** task to read power values periodically */
-    private PeriodicExecutor executor
 
     static short E_LIMIT = 1500
 
@@ -288,7 +286,7 @@ Takes some time before load current is back to requested
 //    @ActiveMethod(blocking = true)
     def getCurrent() {
         if (!currentWbValues) {
-            // only if called before first monitor activation by PowerManager
+            // only if called before first traceMonitor activation by PowerManager
             currentWbValues = wallbox.values
             currentCarChargingState = calcChargingState(currentWbValues)
         }

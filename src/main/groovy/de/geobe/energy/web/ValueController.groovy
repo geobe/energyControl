@@ -124,7 +124,7 @@ class ValueController implements PowerValueSubscriber, WallboxStateSubscriber, F
             powerMonitor = PowerMonitor.monitor
             wbMonitor = WallboxMonitor.monitor
             logMessageRecorder = LogMessageRecorder.recorder
-//            powerPriceMonitor = PowerPriceMonitor.monitor
+//            powerPriceMonitor = PowerPriceMonitor.traceMonitor
             pwrValues = powerMonitor.current
             wbValues = wbMonitor.current.values
             short cHome = pwrValues.consumptionHome - wbValues.energy

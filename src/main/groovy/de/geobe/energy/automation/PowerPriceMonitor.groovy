@@ -62,7 +62,7 @@ class PowerPriceMonitor {
     /** last updated prices */
     volatile CurrentPowerPrices latestPrices
 
-    /** singleton monitor object */
+    /** singleton traceMonitor object */
     private static PowerPriceMonitor monitor
 
     static synchronized PowerPriceMonitor getMonitor() {
@@ -100,7 +100,7 @@ class PowerPriceMonitor {
     /**
      * activate state chart of PowerPriceMonitor:<br>
      * implicitely execute actions of Activate state
-     * @param clickPeriod period of click events that trigger monitor
+     * @param clickPeriod period of click events that trigger traceMonitor
      */
     void activate(int clickPeriod) {
         this.clickPeriod = clickPeriod

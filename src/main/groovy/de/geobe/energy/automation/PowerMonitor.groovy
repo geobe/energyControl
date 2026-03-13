@@ -25,6 +25,7 @@
 package de.geobe.energy.automation
 
 import de.geobe.energy.automation.utils.SpikeFilter
+import de.geobe.energy.automation.utils.TraceMonitor
 import de.geobe.energy.e3dc.E3dcException
 import de.geobe.energy.e3dc.PowerValues
 import de.geobe.energy.e3dc.E3dcInteractionRunner
@@ -86,6 +87,11 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     private static boolean constructionFailed = false
     static Exception startupFailure
 
+    /* trace method calls to find deadlocks
+    * allways get reference from singleton object to avoid race conditions
+    */
+    TraceMonitor traceMonitor = TraceMonitor.monitor
+
     /**
      * only for functional tests to inject monitor mock object
      * @param testMonitor
@@ -130,24 +136,32 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
 
         @Override
         void run() {
+
+            traceMonitor.restart()
             try {
                 PowerValues powerValues = powerInfo.currentValues
+                traceMonitor.trace("got current values")
                 WallboxMonitorValues monitorValues = wbValuesProvider.readWallbox()
+                traceMonitor.trace("got wallbox values")
                 wallboxValues = monitorValues.wallboxValues
                 // filter spikes resulting from sudden change of car charging power
                 PMValues pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
                 pmValues = spikeFilter.filterSpikes(pmValues)
+                traceMonitor.trace("filtered spikes")
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
                     exceptionSubscribers().each {
+                        traceMonitor.trace("resume after exception -> $it")
                         it.resumeAfterMonitorException()
                     }
                     LogMessageRecorder.recorder.resumeAfterMonitorException()
                     resumeAfterException = false
                 }
                 powerPriceMonitor.stateOnClick()
+                traceMonitor.trace("did stateOnClick")
                 synchronized (subscribers) {
                     subscribers.each {
+                        traceMonitor.trace("takePmValues -> $it")
                         it.takePMValues(pmValues)
                     }
                 }
@@ -163,6 +177,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
             } catch (Exception ex) {
 //                ex.printStackTrace()
                 // notify about exception only once every 10 minutes
+                traceMonitor.trace("caught exception -> $ex")
                 if (++exceptionCount >= 120) {
                     exceptionCount = 0
                     resumeAfterException = false
@@ -210,31 +225,10 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         powerInfo.currentValues
     }
 
-//    @Override
-//    void takeWallboxValues(WallboxValues values) {
-//        wallboxValues = values
-//        wallboxException = null
-//        hasWallboxException = false
-//    }
-//
-//    @Override
-//    void takeMonitorException(Exception exception) {
-//        wallboxException = exception
-//        hasWallboxException = true
-//    }
-//
-//    @Override
-//    void resumeAfterMonitorException() {
-//        wallboxException = null
-//        hasWallboxException = false
-//    }
-
     @ActiveMethod(blocking = true)
     void subscribe(PowerValueSubscriber subscriber) {
         def willStart = subscribers.size() == 0
-//        synchronized (subscribers) {
         subscribers.add subscriber
-//        }
         if (willStart) {
             start()
         }
@@ -243,20 +237,10 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     @ActiveMethod(blocking = true)
     void unsubscribe(PowerValueSubscriber subscriber) {
         boolean removed
-//        synchronized (subscribers) {
-        removed = subscribers.remove subscriber
-//        }
+       removed = subscribers.remove subscriber
         if (removed && subscribers.size() == 0)
             stop()
     }
-
-//    void subscribeMessages(LogMessageRecorder recorder) {
-//        messageRecorders.add recorder
-//    }
-
-//    void unsubscribeMessages(LogMessageRecorder recorder) {
-//        messageRecorders.remove recorder
-//    }
 
     void subscribeFatalErrors(FatalExceptionSubscriber fes) {
         fatalExceptionSubscribers.add(fes)
@@ -268,7 +252,6 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
 
     private start() {
         println "PowerMonitor started with $cycle $timeUnit period"
-//        wbValuesProvider.subscribeValue(this)
         executor = new PeriodicExecutor(readPower, cycle, timeUnit)
         executor.start()
     }

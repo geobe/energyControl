@@ -130,8 +130,8 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
             }
             if (targetMode != currentMode) {
                 currentMode = targetMode
-//            def soc = pmValues.powerValues.socBattery()
-//            println "storage mode set to $currentMode with soc $soc"
+                def soc = pmValues.powerValues.socBattery()
+                PowerCommunicationRecorder.logMessage "storage mode set to $currentMode with soc $soc"
                 byte e3dcMode
                 int socNow = now in DAY ? socDay : socNight
                 switch (targetMode) {
@@ -374,7 +374,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
                 socReserve       : this.&setSocReserve,
                 unloadFactor     : this.&setUnloadFactor
         ]
-        def defaults = [ active: false]
+        def defaults = [active: false]
         hourtable.loadOrInitHourtable(TIMETABLE_FILE, setters, defaults)
 //        def table
 //        def home = System.getProperty('user.home')
@@ -449,7 +449,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def setSocDay(int soc, boolean save = false) {
         if (soc in socTargets) {
             this.@socDay = soc
-            if(save)
+            if (save)
                 saveTimetable()
         }
     }
@@ -457,7 +457,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def setSocNight(int soc, boolean save = false) {
         if (soc in socTargets) {
             this.@socNight = soc
-            if(save)
+            if (save)
                 saveTimetable()
         }
     }
@@ -466,7 +466,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
         if (soc in reserveTargets) {
             this.@socReserve = soc
             chargingModeController.socBlackoutReserve = socReserve
-            if(save)
+            if (save)
                 saveTimetable()
         }
     }
@@ -474,7 +474,7 @@ class PowerStorageStatic implements PowerValueSubscriber, PowerPriceSubscriber {
     def setUnloadFactor(int factor, boolean save = false) {
         if (factor in 0..100) {
             PowerStorageAutomation.unloadFactor = (float) factor / 100
-            if(save)
+            if (save)
                 saveTimetable()
         }
     }

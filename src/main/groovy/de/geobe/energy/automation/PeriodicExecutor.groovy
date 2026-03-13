@@ -37,6 +37,7 @@ class ExecutorBase {
     protected static int instanceCount = 0
 
     protected ScheduledFuture taskHandle
+    protected Runnable task
 
     static shutdown() {
         executor.shutdown()
@@ -54,7 +55,6 @@ class PeriodicExecutor extends ExecutorBase {
     private long initialDelay
     private TimeUnit timeUnit
     private int instanceId
-    final Runnable task
 
     PeriodicExecutor(Runnable task, long cycleTime, TimeUnit timeUnit, long initialDelay = 0) {
         this.task = task
@@ -75,5 +75,28 @@ class TimedExecutor extends ExecutorBase {
     TimedExecutor(TimerTask task, DateTime runAt) {
         long delay = new Duration(DateTime.now(), runAt).standardSeconds
         taskHandle = executor.schedule(task, delay, TimeUnit.SECONDS)
+    }
+}
+
+class DeadlockGuard extends ExecutorBase {
+    private long delay
+
+    DeadlockGuard(Runnable task, long delay = 10) {
+        this.task = task
+        this.delay = delay
+    }
+
+    def start() {
+        taskHandle = executor.schedule(task, delay, TimeUnit.SECONDS)
+    }
+
+    def info() {
+        executor.activeCount
+    }
+
+    def stop() {
+        if(taskHandle && !taskHandle.isDone()) {
+            taskHandle.cancel(false)
+        }
     }
 }

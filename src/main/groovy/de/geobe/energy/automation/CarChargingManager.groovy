@@ -174,7 +174,7 @@ class CarChargingManager implements PowerValueSubscriber {
     void shutDown() {
         executeEvent(ChargeEvent.Deactivate)
         println "manager shutdown"
-//        WallboxMonitor.monitor.shutdown()
+//        WallboxMonitor.traceMonitor.shutdown()
     }
 
     @ActiveMethod
@@ -521,11 +521,11 @@ class CarChargingManager implements PowerValueSubscriber {
     }
 
     private startTibberStrategy() {
-        println "start tibber monitor"
+        println "start tibber traceMonitor"
     }
 
     private stopTibberStrategy() {
-        println "stop tibber monitor"
+        println "stop tibber traceMonitor"
     }
 
     ChargeManagerStrategy getChargeManagerStrategy() {
@@ -553,8 +553,8 @@ class CarChargingManager implements PowerValueSubscriber {
             public void run() {
                 print "shutting down gently ..."
                 carChargingManager.shutDown()
-                WallboxMonitor.monitor.shutdown()
-                PowerMonitor.monitor.shutdown()
+                WallboxMonitor.traceMonitor.shutdown()
+                PowerMonitor.traceMonitor.shutdown()
                 Thread.sleep 1000
                 println ' done'
             }
