@@ -30,6 +30,7 @@ import org.joda.time.Duration
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class ExecutorBase {
 
@@ -78,25 +79,49 @@ class TimedExecutor extends ExecutorBase {
     }
 }
 
+/**
+ * Thread safe resettable deadlock guarding timer (Debounce-Pattern)
+ */
 class DeadlockGuard extends ExecutorBase {
     private long delay
+    private final AtomicReference<ScheduledFuture<?>> ref = new AtomicReference<>()
+    /** the previously started guarding task */
+    ScheduledFuture<?> old
 
+    /**
+     * Initialising constructor
+     * @param task the Runnable to execute after delay, if not started again
+     * @param delay in seconds
+     */
     DeadlockGuard(Runnable task, long delay = 10) {
         this.task = task
         this.delay = delay
     }
 
-    def start() {
-        taskHandle = executor.schedule(task, delay, TimeUnit.SECONDS)
+    /**
+     * Start or restart guarding task
+     * @return true, if previous guard was still actively waiting
+     */
+    boolean start(long t = 0) {
+        def tDelay = t ?: delay
+        taskHandle = executor.schedule(task, tDelay, TimeUnit.SECONDS)
+        old = ref.getAndSet(taskHandle)
+        // was previous task existing and active?
+        boolean guardState = old?.isDone()
+        // cancel if exists
+        old?.cancel(false)
+        !guardState
     }
 
     def info() {
         executor.activeCount
     }
 
+    /**
+     * stop guard
+     * @return false if task already completed
+     */
     def stop() {
-        if(taskHandle && !taskHandle.isDone()) {
-            taskHandle.cancel(false)
-        }
+        ref.get()?.cancel(false)
     }
 }

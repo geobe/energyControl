@@ -31,8 +31,6 @@ import org.joda.time.DateTime
 
 class TraceMonitor {
     List<TraceRecord> traceStack = []
-    int alivecount = 0
-    int alivecheck = 3
     Runnable guard = new Runnable() {
         @Override
         void run() {
@@ -55,15 +53,14 @@ class TraceMonitor {
         deadlockGuard = new DeadlockGuard(guard, latency)
     }
 
-    def restart() {
-        if(alivecheck > 0) {
-            alivecheck--
-            report()
-        } else if((++alivecount >= 720)) {
-            alivecount = 0
-            report()
-        }
+    def restart(long t = 0) {
         traceStack.clear()
+        if(!deadlockGuard.start(t)) {
+//            print '*'
+//        } else {
+            LogMessageRecorder.logMessage "no previous guard"
+//            println 'no previous guard'
+        }
     }
 
     def trace(String msg) {

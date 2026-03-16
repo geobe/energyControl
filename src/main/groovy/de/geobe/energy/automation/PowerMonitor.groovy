@@ -133,11 +133,10 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
      * them to all interested objects
      */
     private Runnable readPower = new Runnable() {
-
         @Override
         void run() {
 
-            traceMonitor.restart()
+            traceMonitor.restart(0)
             try {
                 PowerValues powerValues = powerInfo.currentValues
                 traceMonitor.trace("got current values")
@@ -237,7 +236,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
     @ActiveMethod(blocking = true)
     void unsubscribe(PowerValueSubscriber subscriber) {
         boolean removed
-       removed = subscribers.remove subscriber
+        removed = subscribers.remove subscriber
         if (removed && subscribers.size() == 0)
             stop()
     }

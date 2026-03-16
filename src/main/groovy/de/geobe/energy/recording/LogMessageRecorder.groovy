@@ -146,10 +146,10 @@ class LogMessageRecorder implements WallboxStateSubscriber, WallboxValueSubscrib
     static void logTrace(List<TraceRecord> messages) {
         def protocol = "${stamp.print(DateTime.now())}\tCallTrace"
         stateMessageFile.appendReport(protocol)
-//        println protocol
+        println protocol
         messages.each {trace ->
             stateMessageFile.appendReport(trace.toString())
-//            println trace
+            println trace
         }
     }
 
