@@ -28,6 +28,7 @@ import de.geobe.energy.automation.PMValues
 import de.geobe.energy.automation.PeriodicExecutor
 import de.geobe.energy.automation.PowerMonitor
 import de.geobe.energy.automation.PowerValueSubscriber
+import de.geobe.energy.automation.utils.TraceMonitor
 import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.recording.PowerCommunicationRecorder
 import org.joda.time.DateTime
@@ -40,6 +41,7 @@ import java.util.concurrent.TimeUnit
 class E3dcChargingModeController implements PowerValueSubscriber {
     static final long ticTime = 20
     static final TimeUnit ticUnit = TimeUnit.SECONDS
+    TraceMonitor traceMonitor = TraceMonitor.monitor
 
     static enum CtlState {
         Stopped,
@@ -84,24 +86,31 @@ class E3dcChargingModeController implements PowerValueSubscriber {
     void takePMValues(PMValues pmValues) {
         powerValues = pmValues.powerValues
         // implement realtime events derived from power values
+        traceMonitor.trace("E3dc takePmValues: $controlState")
         if (controlState == CtlState.Auto && powerValues.socBattery < socBlackoutReserve) {
+            traceMonitor.trace("E3dc case 1 -> idle")
             setIdleState()
             logRecorder.logMessage "$controlState -> set idle to hold emergency reserve"
         } else if (controlState == CtlState.GridLoad && powerValues.socBattery >= chargeMax) {
+            traceMonitor.trace("E3dc case 2 -> idle")
             setIdleState()
             logRecorder.logMessage "$controlState -> set idle, soc >= chargeMax"
         } else if (controlState in [CtlState.GridLoad, CtlState.Idle] && powerValues.powerGrid <= -gridFeedLimit) {
+            traceMonitor.trace("E3dc case 3 -> solar")
             setSolarState()
             logRecorder.logMessage "$controlState -> set solar, don't feed grid"
         } else if (controlState == CtlState.Solar && powerValues.powerGrid > 0) {
             if (historyState == CtlState.GridLoad) {
+                traceMonitor.trace("E3dc case 4.1 -> gridLoad")
                 setGridLoadState()
                 logRecorder.logMessage "history: $historyState; $controlState -> set gridload"
             } else if (historyState == CtlState.Idle) {
+                traceMonitor.trace("E3dc case 4.2 -> idle")
                 setIdleState()
                 logRecorder.logMessage "history: $historyState; $controlState -> set idle"
             } else {
                 // should never happen, disable realtime control
+                traceMonitor.trace("E3dc case 4.3 -> stop")
                 stopChargeControl()
             }
             historyState = CtlState.None

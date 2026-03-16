@@ -158,12 +158,13 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                 }
                 powerPriceMonitor.stateOnClick()
                 traceMonitor.trace("did stateOnClick")
-                synchronized (subscribers) {
-                    subscribers.each {
-                        traceMonitor.trace("takePmValues -> $it")
-                        it.takePMValues(pmValues)
-                    }
+//                synchronized (subscribers) {
+                subscribers.each {
+                    traceMonitor.trace("takePmValues -> $it")
+                    it.takePMValues(pmValues)
+                    traceMonitor.trace("takePmValues done -> $it")
                 }
+//                }
             } catch (E3dcException | WallboxException communicationException) {
                 // found no way to recover from this error, so completely stop and restart this service
                 PowerCommunicationRecorder.logMessage "PowerMonitor exception $communicationException"
