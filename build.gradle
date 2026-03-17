@@ -8,7 +8,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.8.4b' // updated call tracing in PowerMonitor loop
+version '0.8.4c' // updated call tracing in PowerMonitor loop, added system restart
 
 repositories {
     mavenCentral()

@@ -136,7 +136,7 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
         @Override
         void run() {
 
-            traceMonitor.restart(0)
+            traceMonitor.reset(0)
             try {
                 PowerValues powerValues = powerInfo.currentValues
                 traceMonitor.trace("got current values")

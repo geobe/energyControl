@@ -26,6 +26,7 @@ package de.geobe.energy.automation.utils
 
 import de.geobe.energy.automation.DeadlockGuard
 import de.geobe.energy.recording.LogMessageRecorder
+import de.geobe.energy.web.EnergyControlUI
 import groovy.transform.ImmutableOptions
 import org.joda.time.DateTime
 
@@ -34,7 +35,7 @@ class TraceMonitor {
     Runnable guard = new Runnable() {
         @Override
         void run() {
-            report()
+            reportAndRestart()
         }
     }
 
@@ -53,7 +54,7 @@ class TraceMonitor {
         deadlockGuard = new DeadlockGuard(guard, latency)
     }
 
-    def restart(long t = 0) {
+    def reset(long t = 0) {
         traceStack.clear()
         if(!deadlockGuard.start(t)) {
 //            print '*'
@@ -67,12 +68,17 @@ class TraceMonitor {
         traceStack.add new TraceRecord( DateTime.now(), msg)
     }
 
-    def report() {
+    /**
+     * Report a call trace to LogMessageRecorder and restart program via EnergyControlUI method.
+     * This method should only be called when the main event loop is blocked fatally.
+     */
+    void reportAndRestart() {
         if(traceStack) {
             LogMessageRecorder.logTrace traceStack
         } else {
             LogMessageRecorder.logMessage "empty trace stack"
         }
+        EnergyControlUI.failed()
     }
 }
 
