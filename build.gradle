@@ -8,7 +8,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.8.4c' // updated call tracing in PowerMonitor loop, added system restart
+version '0.8.4cd' // more tracing, avoid some exceptions
 
 repositories {
     mavenCentral()
@@ -20,7 +20,7 @@ apply from: 'https://raw.githubusercontent.com/geobe/Java2PiWithIdea/master/cros
 mainClassName='de.geobe.energy.web.EnergyControlUI'
 
 dependencies {
-    implementation platform('org.apache.groovy:groovy-bom:4.0.13')
+    implementation platform('org.apache.groovy:groovy-bom:4.0.30')
     implementation 'org.apache.groovy:groovy'
     implementation 'org.apache.groovy:groovy-json'
     implementation 'joda-time:joda-time:2.12.2'

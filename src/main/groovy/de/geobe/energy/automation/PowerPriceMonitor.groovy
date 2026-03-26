@@ -43,8 +43,8 @@ import java.util.concurrent.TimeUnit
 class PowerPriceMonitor {
 
     /** check for changed power prices at these hours */
-    private LocalTime newPricesAt = new LocalTime(13, 0)
-    private LocalTime updatePricesAt = new LocalTime(18, 0)
+    private LocalTime newPricesAt = new LocalTime(13, 10)
+    private LocalTime updatePricesAt = new LocalTime(18, 10)
     private LocalTime atMidnight = new LocalTime(23, 59, 59)
     /** if no new prices, try again after */
     private long tryAgain = 5 * 60
@@ -103,6 +103,7 @@ class PowerPriceMonitor {
      * @param clickPeriod period of click events that trigger traceMonitor
      */
     void activate(int clickPeriod) {
+        monitorState = MonitorState.Activate
         this.clickPeriod = clickPeriod
         if(publishLatestPrices()) {
             if (!latestPrices.tomorrow) {
@@ -158,15 +159,18 @@ class PowerPriceMonitor {
     }
 
     /**
-     * As we have a very simple state chart, it can be implemented in only two methods with a switch statement each.<br>
-     * Here are actions to be performed on a click event in a state
+     * As we have a very simple state chart, it can be implemented in only two methods with a switch
+     * statement each. One is implementing state entry actions, the other onClick actions within states.
+     * The state chart is triggered by periodic "clicks" from the main event queue.<br>
+     * Here are actions to be performed onClick events in a state. These can result in a transition
+     * to another state thus calling the stateEntry method.
      */
     void stateOnClick() {
         def oldState = monitorState
         if (++clickCount >= clickLimit) {
             switch (monitorState) {
                 case MonitorState.Activate:
-                    // reached only if get failed in activate() method
+                    // reached only if get priceRecord failed in activate() method, so reactivate
                     activate(clickPeriod)
                     break
                 case MonitorState.WaitNewPrices:
@@ -174,7 +178,7 @@ class PowerPriceMonitor {
                     stateEntry()
                     break
                 case MonitorState.ReadNewPrices:
-                    // reached only if get failed in stateEntry method
+                    // reached only if get priceRecord failed in stateEntry method
                     getOrWaitForPrices(MonitorState.WaitUpdatedPrices)
                     break
                 case MonitorState.WaitUpdatedPrices:
@@ -182,7 +186,7 @@ class PowerPriceMonitor {
                     stateEntry()
                     break
                 case MonitorState.ReadUpdatedPrices:
-                    // reached only if get failed in stateEntry method
+                    // reached only if get priceRecord failed in stateEntry method
                     getOrWaitForPrices(MonitorState.WaitMidnight,true, true)
                     break
                 case MonitorState.WaitMidnight:
@@ -191,7 +195,7 @@ class PowerPriceMonitor {
                     stateEntry()
                     break
                 case MonitorState.ReadAtZero:
-                    // reached only if get failed in stateEntry method
+                    // reached only if get priceRecord failed in stateEntry method
                     getOrWaitForPrices(MonitorState.WaitNewPrices, false)
                     break
             }
@@ -201,12 +205,17 @@ class PowerPriceMonitor {
         }
     }
 
+
     /**
-     * if tomorrow prices are available, proceed to next state else set click counter to wait time
+     * if awaited prices are available, proceed to next state else set click counter to wait time
+     *
+     * @param nextState     next state, if prices were available
+     * @param waitTomorrow  true if waiting for tomorrows prices (at noon)
+     * @param checkChanged  check if prices have changed (in the afternoon)
      */
-    private void getOrWaitForPrices(MonitorState nextState, boolean hasTomorrow = true, boolean checkChanged = false) {
+    private void getOrWaitForPrices(MonitorState nextState, boolean waitTomorrow = true, boolean checkChanged = false) {
         if(publishLatestPrices(checkChanged)) {
-            def okay = (latestPrices.tomorrow && hasTomorrow) || (!latestPrices.tomorrow && !hasTomorrow)
+            def okay = (latestPrices.tomorrow && waitTomorrow) || (!latestPrices.tomorrow && !waitTomorrow)
             if (okay) {
                 monitorState = nextState
                 stateEntry()
@@ -241,12 +250,14 @@ class PowerPriceMonitor {
             priceRecord = powerPriceSource.runPriceQuery()
             LogMessageRecorder.recorder.logMessage "PowerPriceMonitor: got ${priceRecord ? 'a' : 'no'} price record at ${DateTime.now()}"
         } catch (exception) {
+            // should not get here, already caught by TibberQueryRunner
             PowerCommunicationRecorder.logMessage "PowerPriceMonitor exception $exception"
             LogMessageRecorder.recorder.logStackTrace('PowerPriceMonitor', exception)
             return false
         }
         if (priceRecord) {
             if (checkChanged) {
+                // have prices been updated in the afternoon?
                 def updatedPrices = new CurrentPowerPrices(yesterday: priceRecord.yesterday, today: priceRecord.today, tomorrow: priceRecord.tomorrow)
                 if (updatedPrices == latestPrices) {
                     LogMessageRecorder.recorder.logMessage "PowerPriceMonitor.publishLatestPrices(): no update at $updatedPrices.timestamp "

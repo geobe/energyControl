@@ -50,7 +50,7 @@ class TraceMonitor {
         traceMonitor
     }
 
-    private TraceMonitor(long latency = 15) {
+    private TraceMonitor(long latency = 10) {
         deadlockGuard = new DeadlockGuard(guard, latency)
     }
 

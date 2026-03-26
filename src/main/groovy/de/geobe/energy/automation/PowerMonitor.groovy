@@ -145,8 +145,8 @@ class PowerMonitor /* implements WallboxValueSubscriber */ {
                 wallboxValues = monitorValues.wallboxValues
                 // filter spikes resulting from sudden change of car charging power
                 PMValues pmValues = new PMValues(powerValues, wallboxValues, monitorValues.chargingState)
-                pmValues = spikeFilter.filterSpikes(pmValues)
-                traceMonitor.trace("filtered spikes")
+//                pmValues = spikeFilter.filterSpikes(pmValues)
+//                traceMonitor.trace("filtered spikes")
                 if (resumeAfterException) {
                     // exception cause was repaired, so we can notify subscibers
                     exceptionSubscribers().each {

@@ -27,6 +27,7 @@ package de.geobe.energy.web
 import de.geobe.energy.automation.CurrentPowerPrices
 import de.geobe.energy.automation.PowerPriceMonitor
 import de.geobe.energy.automation.PowerPriceSubscriber
+import de.geobe.energy.recording.LogMessageRecorder
 import de.geobe.energy.tibber.IPowerQueryRunner
 import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.tibber.TibberQueryRunner
@@ -103,9 +104,16 @@ class TibberController {
     }
 
     def tibberUpdateString() {
-        def ctx =  createTibberDataCtx(valueController.tGlobal)
+        def ctx = createTibberDataCtx(valueController.tGlobal)
         ctx.put('newChart', true)
-        valueController.streamOut(valueController.tibberGraph, ctx)
+        try {
+            valueController.streamOut(valueController.tibberGraph, ctx)
+        } catch (Exception ex) {
+            def ytd = "yesterday(${tibberPrices.yesterday ? '+' : '-'})"
+            def td = "today(${tibberPrices.today ? '+' : '-'})"
+            def tm = "tomorrow(${tibberPrices.tomorrow ? '+' : '-'})"
+            LogMessageRecorder.logMessage "TibberController: $ytd, $td, $tm"
+        }
     }
 
     String rgbaOf(Float price, Float saturation) {

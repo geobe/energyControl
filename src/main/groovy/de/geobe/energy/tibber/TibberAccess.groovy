@@ -65,14 +65,14 @@ class TibberAccess {
             def response = Request.post(tibberUri)
                     .addHeader('Authorization', "Bearer ${accessToken}")
                     .bodyString(postableQuery, ContentType.APPLICATION_JSON)
-                    .connectTimeout(Timeout.ofSeconds(10))   // Verbindung aufbauen
-                    .responseTimeout(Timeout.ofSeconds(10))    // auf Daten warten
+                    .connectTimeout(Timeout.ofSeconds(10))   // establish connection
+                    .responseTimeout(Timeout.ofSeconds(20))    // wait for response
                     .execute()
             def json = response.returnContent().asString()
             json
         } catch(Exception exception) {
             PowerCommunicationRecorder.logMessage "TibberAccess exception $exception"
-            LogMessageRecorder.recorder.logStackTrace( "TibberAccess",exception)
+            LogMessageRecorder.recorder.logMessage( "TibberAccess $exception")
             return ''
         }
     }

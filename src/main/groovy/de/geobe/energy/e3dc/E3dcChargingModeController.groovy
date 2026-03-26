@@ -110,10 +110,12 @@ class E3dcChargingModeController implements PowerValueSubscriber {
                 logRecorder.logMessage "history: $historyState; $controlState -> set idle"
             } else {
                 // should never happen, disable realtime control
-                traceMonitor.trace("E3dc case 4.3 -> stop")
-                stopChargeControl()
+                logRecorder.logMessage "4.3: history: $historyState; $controlState -> auto (not stop)"
+                traceMonitor.trace("E3dc case 4.3 -> stop @ history: $historyState; control: $controlState")
+                setAutoState()
+//                stopChargeControl()
             }
-            historyState = CtlState.None
+//            historyState = CtlState.None
         }
     }
 
