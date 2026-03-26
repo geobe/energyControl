@@ -158,7 +158,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
             powerMonitor.subscribe(this)
             isRunning = true
 //            println "chargingModeController subscribed"
-            PowerCommunicationRecorder.recorder.logMessage("chargingModeController subscribed")
+//            PowerCommunicationRecorder.recorder.logMessage("chargingModeController subscribed")
             logRecorder.logMessage("chargingModeController subscribed")
         }
         e3dcMode = mode

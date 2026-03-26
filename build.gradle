@@ -8,7 +8,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.8.4cd' // more tracing, avoid some exceptions
+version '0.8.4e' // more tracing, avoid some exceptions
 
 repositories {
     mavenCentral()
