@@ -56,10 +56,10 @@ class StorageController implements PowerPriceSubscriber {
             boolean inTheFuture
             if (hour >= PowerStorageStatic.HOURS) {
                 price = powerPrices.tomorrow?.size() ?
-                        powerPrices.tomorrow[hour % PowerStorageStatic.HOURS].price : 0.0
+                        powerPrices.tomorrow[hour % PowerStorageStatic.HOURS]?.price ?: 0.0 : 0.0
                 inTheFuture = true
             } else {
-                price = powerPrices.today[hour].price
+                price = powerPrices.today[hour]?.price ?: 0.0
                 inTheFuture = hour >= hourNow ? true : false
 
             }

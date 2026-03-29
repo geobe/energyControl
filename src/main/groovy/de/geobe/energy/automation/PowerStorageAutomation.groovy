@@ -24,6 +24,7 @@
 
 package de.geobe.energy.automation
 
+import de.geobe.energy.automation.utils.DateTimeHelper
 import de.geobe.energy.tibber.PriceAt
 import de.geobe.energy.tibber.TibberQueryRunner
 import de.geobe.energy.web.EnergySettings
@@ -282,7 +283,8 @@ class PowerStorageAutomation {
 
     static List<PriceAt> makeTestData(DateTime dateTime = new DateTime(2024, 11, 1, 1, 0)) {
         TibberQueryRunner homeRunner = new TibberQueryRunner()
-        def prices = homeRunner.runIntervalQuery(dateTime, 24)
+        int hours = 24 //DateTimeHelper.hoursOfDay(dateTime)
+        def prices = homeRunner.runIntervalQuery(dateTime, hours)
         prices
     }
 

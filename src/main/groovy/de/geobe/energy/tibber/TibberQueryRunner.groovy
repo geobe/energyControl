@@ -24,6 +24,7 @@
 
 package de.geobe.energy.tibber
 
+import de.geobe.energy.automation.utils.DateTimeHelper
 import org.joda.time.DateTime
 
 /**
@@ -84,7 +85,8 @@ class TibberQueryRunner implements IPowerQueryRunner {
         if(jsonResult) {
             def result = tibberQueries.scanPrice(jsonResult)
             def dateYesterday = DateTime.now().withTimeAtStartOfDay().minusDays(1)
-            def yesterday = runIntervalQuery(dateYesterday, 24)
+            def hours = DateTimeHelper.hoursOfDay(dateYesterday)
+            def yesterday = runIntervalQuery(dateYesterday, hours)
             if(yesterday) {
                 result.yesterday = yesterday
                 return result

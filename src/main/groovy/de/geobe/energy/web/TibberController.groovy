@@ -104,15 +104,16 @@ class TibberController {
     }
 
     def tibberUpdateString() {
+        def ytd = "yesterday(${tibberPrices.yesterday ? '+' : '-'})"
+        def td = "today(${tibberPrices.today ? '+' : '-'})"
+        def tm = "tomorrow(${tibberPrices.tomorrow ? '+' : '-'})"
+        def graph = "tibberGraph(${valueController.tibberGraph ? '+' : '-'})"
         def ctx = createTibberDataCtx(valueController.tGlobal)
         ctx.put('newChart', true)
         try {
             valueController.streamOut(valueController.tibberGraph, ctx)
         } catch (Exception ex) {
-            def ytd = "yesterday(${tibberPrices.yesterday ? '+' : '-'})"
-            def td = "today(${tibberPrices.today ? '+' : '-'})"
-            def tm = "tomorrow(${tibberPrices.tomorrow ? '+' : '-'})"
-            LogMessageRecorder.logMessage "TibberController: $ytd, $td, $tm"
+            LogMessageRecorder.logMessage "TibberController exception $ex: $ytd, $td, $tm, $graph"
         }
     }
 

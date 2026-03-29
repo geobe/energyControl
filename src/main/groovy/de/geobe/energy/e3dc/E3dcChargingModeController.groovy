@@ -98,7 +98,7 @@ class E3dcChargingModeController implements PowerValueSubscriber {
         } else if (controlState in [CtlState.GridLoad, CtlState.Idle] && powerValues.powerGrid <= -gridFeedLimit) {
             traceMonitor.trace("E3dc case 3 -> solar")
             setSolarState()
-            logRecorder.logMessage "$controlState -> set solar, don't feed grid"
+            logRecorder.logMessage "$controlState -> set solar, grid feed ${powerValues.powerGrid}, history $historyState"
         } else if (controlState == CtlState.Solar && powerValues.powerGrid > 0) {
             if (historyState == CtlState.GridLoad) {
                 traceMonitor.trace("E3dc case 4.1 -> gridLoad")

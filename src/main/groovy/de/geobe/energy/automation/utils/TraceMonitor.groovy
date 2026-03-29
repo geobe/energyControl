@@ -32,6 +32,10 @@ import org.joda.time.DateTime
 
 class TraceMonitor {
     List<TraceRecord> traceStack = []
+    def index = 0
+    static final maxTrace = 8
+    def traceCount = maxTrace
+
     Runnable guard = new Runnable() {
         @Override
         void run() {
@@ -44,19 +48,26 @@ class TraceMonitor {
     private static TraceMonitor traceMonitor
 
     static synchronized getMonitor() {
-        if(! traceMonitor) {
+        if (!traceMonitor) {
             traceMonitor = new TraceMonitor()
         }
         traceMonitor
     }
 
-    private TraceMonitor(long latency = 10) {
+    private TraceMonitor(long latency = 30) {
         deadlockGuard = new DeadlockGuard(guard, latency)
     }
 
     def reset(long t = 0) {
-        traceStack.clear()
-        if(!deadlockGuard.start(t)) {
+        traceCount++
+        if (traceCount >= maxTrace) {
+            traceCount = 0
+            index = 0
+        }
+//        if (traceCount == 3) {
+//            println toString()
+//        }
+        if (!deadlockGuard.start(t)) {
 //            print '*'
 //        } else {
             LogMessageRecorder.logMessage "no previous guard"
@@ -65,7 +76,8 @@ class TraceMonitor {
     }
 
     def trace(String msg) {
-        traceStack.add new TraceRecord( DateTime.now(), msg)
+        traceStack[index] = new TraceRecord(DateTime.now(), msg)
+        index++
     }
 
     /**
@@ -73,12 +85,26 @@ class TraceMonitor {
      * This method should only be called when the main event loop is blocked fatally.
      */
     void reportAndRestart() {
-        if(traceStack) {
-            LogMessageRecorder.logTrace traceStack
+        if (traceStack) {
+            LogMessageRecorder.logMessage toString()
         } else {
             LogMessageRecorder.logMessage "empty trace stack"
         }
-        EnergyControlUI.failed()
+//        EnergyControlUI.failed()
+    }
+
+    def stackTrace() {
+        StringBuffer stack = new StringBuffer()
+        for (i in 0..<traceStack.size()) {
+            def j = (index + i) % traceStack.size()
+            stack.append(traceStack[j].toString()).append '\n'
+        }
+        stack
+    }
+
+    @Override
+    String toString() {
+        return stackTrace()
     }
 }
 
