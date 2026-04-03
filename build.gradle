@@ -8,7 +8,7 @@ plugins {
 }
 
 group 'de.geobe'
-version '0.8.4g' // -> daylight saving quick fix (not perfect, hopefully no more crash)
+version '0.8.4h' // 2000 -> 3000 W charging in solar mode
 
 repositories {
     mavenCentral()

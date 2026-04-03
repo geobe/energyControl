@@ -207,6 +207,6 @@ class E3dcChargingModeController implements PowerValueSubscriber {
 
     private setSolarState() {
         controlState = CtlState.Solar
-        e3dc.setStorageMode(E3dcInteractionRunner.LOAD, 2000)
+        e3dc.setStorageMode(E3dcInteractionRunner.LOAD, 3000)
     }
 }
